@@ -607,13 +607,14 @@ export default function JobMap({
     }
 
     currentMarkerRef.current?.setLngLat([center.lng, center.lat]);
-    map.easeTo({
-      center: [center.lng, center.lat],
-      zoom: 13.8,
-      duration: 750,
-      essential: true,
-    });
-  }, [center.lat, center.lng]);
+    if (landing) {
+      map.easeTo({
+        center: [center.lng, center.lat],
+        zoom: 12,
+        duration: 500,
+      });
+    }
+  }, [center.lat, center.lng, landing]);
   useEffect(() => {
     const map = mapRef.current;
     const el = containerRef.current;
