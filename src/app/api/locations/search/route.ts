@@ -1,4 +1,4 @@
-import { searchLocations } from "@/lib/services/geocoding";
+﻿import { searchLocations } from "@/lib/services/geocoding";
 import { searchSchema, zodErrorResponse } from "@/lib/validation";
 
 export async function GET(request: Request) {
@@ -11,7 +11,9 @@ export async function GET(request: Request) {
 
   try {
     const results = await searchLocations(parsed.data.q);
-    return Response.json({ results });
+    return Response.json({ results }, {
+      headers: { "Cache-Control": "s-maxage=86400, stale-while-revalidate=604800" },
+    });
   } catch {
     return Response.json(
       {

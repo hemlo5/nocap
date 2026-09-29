@@ -1,4 +1,4 @@
-import { getNearbyJobs } from "@/lib/services/jobs";
+﻿import { getNearbyJobs } from "@/lib/services/jobs";
 import { nearbyJobsSchema, zodErrorResponse } from "@/lib/validation";
 
 export async function GET(request: Request) {
@@ -31,5 +31,7 @@ export async function GET(request: Request) {
     limit: data.limit,
   });
 
-  return Response.json(response);
+  return Response.json(response, {
+    headers: { "Cache-Control": "s-maxage=300, stale-while-revalidate=600" },
+  });
 }

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LocateFixed, Minus, Plus } from "lucide-react";
@@ -346,7 +346,7 @@ export default function JobMap({
 
     for (const group of groups) {
       if (!jobMarkersRef.current.has(group.id)) {
-        // New coordinate group — create element and add marker
+        // New coordinate group â€” create element and add marker
         const element = createJobMarkerElement(
           group.primary.properties,
           group.features.length,
@@ -376,7 +376,7 @@ export default function JobMap({
         jobMarkersRef.current.set(group.id, marker);
       }
 
-      // Re-register all job IDs → their shared marker element
+      // Re-register all job IDs â†’ their shared marker element
       const existingElement = jobMarkersRef.current
         .get(group.id)
         ?.getElement() as HTMLButtonElement | undefined;
@@ -736,7 +736,7 @@ function MapButton({
       aria-label={label}
       title={label}
       onClick={onClick}
-      className="flex h-9 w-9 items-center justify-center border-b border-zinc-200/80 text-zinc-800 transition last:border-b-0 hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+      className="flex h-10 w-10 sm:h-9 sm:w-9 items-center justify-center border-b border-zinc-200/80 text-zinc-800 transition last:border-b-0 hover:bg-zinc-50 active:bg-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 touch-manipulation"
     >
       {children}
     </button>
@@ -1071,7 +1071,7 @@ function entityPopupHtml(group: EntityMarkerGroup): string {
       <div class="nearhire-popup-card nearhire-radar-popup" style="min-width: 250px;">
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
           <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#8b5cf6;box-shadow:0 0 10px #8b5cf6;"></span>
-          <span style="font-size:11px;font-weight:700;letter-spacing:0.06em;color:#7c3aed;text-transform:uppercase;">Discovery Radar · 18h Countdown</span>
+          <span style="font-size:11px;font-weight:700;letter-spacing:0.06em;color:#7c3aed;text-transform:uppercase;">Discovery Radar Â· 18h Countdown</span>
         </div>
         <strong style="font-size:15px;font-weight:700;color:#111827;display:block;margin-bottom:2px;">${escapeHtml(properties.name)}</strong>
         <small style="display:block;color:#6b7280;margin-bottom:10px;">${escapeHtml(properties.location)} - ${escapeHtml(properties.distance)}</small>
@@ -1091,7 +1091,7 @@ function entityPopupHtml(group: EntityMarkerGroup): string {
 
         <div style="display:flex;align-items:center;justify-content:space-between;font-size:11px;color:#7c3aed;font-weight:600;padding:2px 4px;">
           <span>Coverage target: Active hiring</span>
-          <span style="color:#059669;">● Live sync</span>
+          <span style="color:#059669;">â— Live sync</span>
         </div>
       </div>
     `;

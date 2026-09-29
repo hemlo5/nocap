@@ -29,6 +29,7 @@ import { createPortal } from "react-dom";
 import {
   AlertCircle,
   Building2,
+  ChevronDown,
   ChevronLeft,
   LocateFixed,
   MapPin,
@@ -36,15 +37,15 @@ import {
   Sparkles,
 } from "lucide-react";
 import { EmptyState } from "@/components/jobs/empty-state";
-import { FilterPanel, type FilterState } from "@/components/jobs/filter-panel";
+import type { FilterState } from "@/components/jobs/filter-panel";
 import { JobCard, cssSafeId } from "@/components/jobs/job-card";
-import { JobDepthCarousel } from "@/components/jobs/job-depth-carousel";
 import {
   FilterSkeleton,
   LoadingState,
   MapSkeleton,
 } from "@/components/jobs/loading-state";
 import { Button } from "@/components/ui/button";
+import { MobileFilterDrawer } from "@/components/jobs/mobile-filter-drawer";
 import { cn } from "@/lib/utils/cn";
 import type {
   Coordinates,
@@ -60,6 +61,17 @@ const JobMap = dynamic(() => import("@/components/map/job-map"), {
   ssr: false,
   loading: () => <MapSkeleton label="Loading map" compact />,
 });
+
+// ── Lazy-load heavy components — saves ~52KB from initial JS parse ─────────────
+const JobDepthCarousel = dynamic(
+  () => import("@/components/jobs/job-depth-carousel").then(m => ({ default: m.JobDepthCarousel })),
+  { ssr: false, loading: () => <LoadingState /> },
+);
+
+const FilterPanel = dynamic(
+  () => import("@/components/jobs/filter-panel").then(m => ({ default: m.FilterPanel })),
+  { ssr: false, loading: () => <FilterSkeleton /> },
+);
 
 const defaultCenter: Coordinates = { lat: 12.948, lng: 77.642 };
 
@@ -349,7 +361,10 @@ export function NearHireApp() {
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [status, setStatus]               = useState<"loading" | "locating" | "ready" | "error">("loading");
   const [error, setError]                 = useState<string | null>(null);
-  const [mapCollapsed, setMapCollapsed]   = useState(false);
+  const [mapCollapsed, setMapCollapsed]   = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.innerWidth < 768;
+  });
   const [mounted, setMounted]             = useState(false);
 
   useEffect(() => { setMounted(true); }, []);
@@ -359,8 +374,11 @@ export function NearHireApp() {
   const center        = location ? { lat: location.lat, lng: location.lng } : defaultCenter;
   const isBusy        = status === "loading" || status === "locating";
 
+  // Cap at 200 pins — prevents 1,000 DOM button nodes thrashing the browser
   const displayJobs = useMemo(
-    () => rawMapJobs.filter(job => hasMapPin(job) && (job.workMode !== "remote" || filters.showRemoteOnMap) && job.locationConfidence === "exact_office"),
+    () => rawMapJobs
+      .filter(job => hasMapPin(job) && (job.workMode !== "remote" || filters.showRemoteOnMap) && job.locationConfidence === "exact_office")
+      .slice(0, 200),
     [rawMapJobs, filters.showRemoteOnMap],
   );
 
@@ -504,8 +522,8 @@ export function NearHireApp() {
           mapCollapsed ? "flex-1 w-full" : "w-full lg:w-[480px] lg:shrink-0 lg:flex-none",
         )}>
           {/* Panel header */}
-          <div className="shrink-0 flex items-center justify-between border-b border-zinc-200/80 bg-white px-3 sm:px-4 py-2">
-            <div className="min-w-0 flex-1 pr-2">
+          <div className="shrink-0 flex items-center justify-between border-b border-zinc-200/80 bg-white px-3 sm:px-4 py-2 gap-2">
+            <div className="min-w-0 flex-1">
               {isBusy ? (
                 <div className="animate-pulse flex gap-2 sm:gap-3">
                   <div className="h-3.5 w-24 sm:w-36 rounded bg-[#E5E7EB]" />
@@ -515,19 +533,22 @@ export function NearHireApp() {
                 <div className="flex flex-wrap items-center gap-x-1.5 sm:gap-x-2 gap-y-0.5 text-xs text-[#6B7280]">
                   <span className="font-semibold text-[#111827]">{total} opportunities</span>
                   <span className="hidden sm:inline">near {locationLabel}</span>
-                  {selectedJob && <span className="truncate text-blue-600 max-w-[120px] sm:max-w-none">- {selectedJob.companyName}</span>}
                 </div>
               )}
               {coverage && !isBusy && (
                 <p className="mt-0.5 text-[11px] sm:text-xs text-[#9CA3AF] truncate">
-                  {coverage.startupJobs} startup - {coverage.startupInternships} internship - {coverage.mappableJobs} mapped
+                  {coverage.startupJobs} startup · {coverage.startupInternships} internship · {coverage.mappableJobs} mapped
                 </p>
               )}
+            </div>
+            {/* Mobile filters — only below lg breakpoint */}
+            <div className="lg:hidden shrink-0">
+              <MobileFilterDrawer filters={filters} onChange={setFilters} />
             </div>
             <button
               onClick={() => setMapCollapsed(!mapCollapsed)}
               title={mapCollapsed ? "Show map" : "Hide map"}
-              className="flex items-center gap-1 sm:gap-1.5 rounded-lg border border-zinc-200/80 bg-white px-2 sm:px-2.5 py-1 sm:py-1.5 text-xs font-medium text-[#374151] hover:bg-[#F9FAFB] transition shadow-xs shrink-0"
+              className="flex items-center gap-1 sm:gap-1.5 rounded-lg border border-zinc-200/80 bg-white px-2 sm:px-2.5 py-1 sm:py-1.5 text-xs font-medium text-[#374151] hover:bg-[#F9FAFB] transition shadow-xs shrink-0 touch-manipulation active:scale-95"
             >
               {mapCollapsed ? (
                 <><MapPin className="h-3.5 w-3.5 text-blue-600" /><span className="hidden sm:inline">Show map</span><span className="sm:hidden text-[11px] font-semibold">Map</span></>
@@ -537,24 +558,31 @@ export function NearHireApp() {
             </button>
           </div>
 
-          {/* Hub chip bar */}
-          <div className="shrink-0 flex items-center gap-1.5 overflow-x-auto px-3 sm:px-4 py-1.5 bg-[#FAFBFD] border-b border-zinc-100" style={{ scrollbarWidth: "none" }}>
-            <span className="shrink-0 flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-zinc-400 mr-0.5">
-              <Sparkles className="h-3 w-3 text-amber-500" />
-              Hubs
-            </span>
-            {QUICK_HUBS.map(hub => {
-              const active = Math.abs(center.lat - hub.loc.lat) < 0.02 && Math.abs(center.lng - hub.loc.lng) < 0.02;
-              return (
-                <button key={hub.name} type="button" onClick={() => jumpToLocation(hub.loc)}
-                  className={cn(
-                    "shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold whitespace-nowrap transition-all",
-                    active ? "bg-zinc-900 text-white shadow-xs" : "bg-white border border-zinc-200 text-zinc-600 hover:border-zinc-300 hover:text-zinc-950 hover:bg-zinc-50",
-                  )}>
-                  {hub.name}
-                </button>
-              );
-            })}
+          {/* Hub chip bar — horizontally scrollable with fade indicator */}
+          <div className="relative shrink-0 border-b border-zinc-100">
+            <div
+              className="flex items-center gap-1.5 overflow-x-auto px-3 sm:px-4 py-1.5 bg-[#FAFBFD]"
+              style={{ scrollbarWidth: "none" }}
+            >
+              <span className="shrink-0 flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-zinc-400 mr-0.5">
+                <Sparkles className="h-3 w-3 text-amber-500" />
+                <span className="hidden sm:inline">Hubs</span>
+              </span>
+              {QUICK_HUBS.map(hub => {
+                const active = Math.abs(center.lat - hub.loc.lat) < 0.02 && Math.abs(center.lng - hub.loc.lng) < 0.02;
+                return (
+                  <button key={hub.name} type="button" onClick={() => jumpToLocation(hub.loc)}
+                    className={cn(
+                      "shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold whitespace-nowrap transition-all touch-manipulation active:scale-95",
+                      active ? "bg-zinc-900 text-white shadow-xs" : "bg-white border border-zinc-200 text-zinc-600 hover:border-zinc-300 hover:text-zinc-950 hover:bg-zinc-50",
+                    )}>
+                    {hub.name}
+                  </button>
+                );
+              })}
+            </div>
+            {/* Right-edge fade shows users they can scroll */}
+            <div className="pointer-events-none absolute right-0 inset-y-0 w-10 bg-gradient-to-l from-[#FAFBFD] to-transparent" />
           </div>
 
           {/* Cards */}
@@ -568,7 +596,10 @@ export function NearHireApp() {
             </div>
             <div className={cn("absolute inset-0 transition-all duration-500 ease-[cubic-bezier(0.25,1,0.5,1)]", mapCollapsed ? "opacity-0 pointer-events-none z-0 -translate-y-3" : "opacity-100 pointer-events-auto z-10 translate-y-0")}>
               <div className="grid h-full min-h-0 flex-1 lg:overflow-hidden lg:grid-cols-[172px_minmax(0,1fr)]">
-                {isBusy ? <FilterSkeleton /> : <FilterPanel filters={filters} onChange={setFilters} />}
+                {/* Desktop-only filter sidebar — mobile uses MobileFilterDrawer */}
+                <div className="hidden lg:contents">
+                  {isBusy ? <FilterSkeleton /> : <FilterPanel filters={filters} onChange={setFilters} />}
+                </div>
                 <div className="min-h-0 h-full overflow-y-auto">
                   {isBusy ? <LoadingState /> : jobs.length === 0 ? (
                     <EmptyState radius={filters.radius} onExpand={() => setFilters({ ...filters, radius: 50 })} onReset={() => setFilters(defaultFilters)} />
@@ -588,7 +619,7 @@ export function NearHireApp() {
         {/* Right: Map */}
         <section className={cn(
           "order-1 lg:order-2 min-h-0 overflow-hidden border-b border-zinc-200/80 lg:border-b-0 lg:border-l transition-all duration-500 ease-[cubic-bezier(0.25,1,0.5,1)]",
-          mapCollapsed ? "h-0 lg:h-full lg:w-0 lg:flex-none opacity-0 pointer-events-none -translate-y-4 lg:translate-y-0 lg:translate-x-12 border-none" : "h-[34dvh] sm:h-[38dvh] lg:h-full lg:flex-1 opacity-100 translate-y-0 lg:translate-x-0",
+          mapCollapsed ? "h-0 lg:h-full lg:w-0 lg:flex-none opacity-0 pointer-events-none -translate-y-4 lg:translate-y-0 lg:translate-x-12 border-none" : "h-[45dvh] sm:h-[42dvh] lg:h-full lg:flex-1 opacity-100 translate-y-0 lg:translate-x-0",
         )}>
           <div className="h-full w-full relative min-h-0">
             <MapErrorBoundary>
