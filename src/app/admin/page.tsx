@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { ArrowLeft, LockKeyhole } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -15,7 +15,7 @@ export default function AdminPage() {
           </Link>
         </Button>
         <div className="mt-8 flex items-start gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-zinc-100 text-blue-600">
+          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-zinc-100 text-[#18181B]">
             <LockKeyhole className="h-5 w-5" />
           </div>
           <div>

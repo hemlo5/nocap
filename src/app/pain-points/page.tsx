@@ -1,4 +1,4 @@
-import { getMarketProblems } from "@/lib/services/pain-points";
+﻿import { getMarketProblems } from "@/lib/services/pain-points";
 import { RefreshCw, AlertCircle, Compass } from "lucide-react";
 import type { Metadata } from "next";
 import type { ProblemSector } from "@/lib/services/pain-points";
@@ -55,7 +55,7 @@ export default async function PainPointsPage({
         <div className="mx-auto max-w-screen-xl px-4 py-8 sm:px-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-3.5">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-zinc-900 border border-zinc-800 text-blue-400 shadow-md">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-zinc-900 border border-zinc-800 text-zinc-500 shadow-md">
                 <Compass className="h-6 w-6" />
               </div>
               <div>
@@ -63,7 +63,7 @@ export default async function PainPointsPage({
                   <h1 className="text-2xl font-extrabold tracking-tight text-white sm:text-3xl">
                     Market Pain Points
                   </h1>
-                  <span className="rounded-full bg-blue-500/10 px-2.5 py-0.5 text-xs font-bold text-blue-400 border border-blue-500/20">
+                  <span className="rounded-full bg-zinc-500/10 px-2.5 py-0.5 text-xs font-bold text-zinc-500 border border-zinc-300/20">
                     Demand Signals
                   </span>
                 </div>
@@ -76,7 +76,7 @@ export default async function PainPointsPage({
             {data && (
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-zinc-500">
                 <span className="flex items-center gap-1.5 text-zinc-400">
-                  <RefreshCw className="h-3 w-3 text-blue-400" />
+                  <RefreshCw className="h-3 w-3 text-zinc-500" />
                   Synced {new Date(data.fetchedAt).toLocaleDateString("en-IN", {
                     day: "numeric",
                     month: "short",

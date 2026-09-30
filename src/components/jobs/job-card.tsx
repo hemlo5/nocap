@@ -310,7 +310,7 @@ export const JobCard = React.memo(function JobCard({ job, selected, onSelect, ex
       className={cn(
         "group relative rounded-xl border bg-white shadow-2xs transition-all duration-150 ease-out hover:border-zinc-300 hover:shadow-xs",
         selected
-          ? "border-blue-600 ring-2 ring-blue-600/15"
+          ? "border-zinc-900 ring-2 ring-zinc-900/10"
           : "border-zinc-200/80",
       )}
     >
@@ -319,7 +319,7 @@ export const JobCard = React.memo(function JobCard({ job, selected, onSelect, ex
         <div
           className={cn(
             "w-1 shrink-0 rounded-l-xl transition-colors",
-            selected ? "bg-blue-600" : "bg-transparent group-hover:bg-zinc-300",
+            selected ? "bg-[#18181B]" : "bg-transparent group-hover:bg-zinc-300",
           )}
         />
         <div className="flex-1 min-w-0 p-3.5">
@@ -328,7 +328,7 @@ export const JobCard = React.memo(function JobCard({ job, selected, onSelect, ex
               <CompanyLogo urls={logoUrls} companyName={job.companyName} />
               <div className="flex-1 min-w-0">
                 <div className="flex items-start justify-between gap-2">
-                  <h3 className="text-xs sm:text-sm font-bold leading-snug text-zinc-900 line-clamp-2 group-hover:text-blue-600 transition-colors">
+                  <h3 className="text-xs sm:text-sm font-bold leading-snug text-zinc-900 line-clamp-2 group-hover:text-[#18181B] transition-colors">
                     {job.title}
                   </h3>
                   <Badge tone={job.employmentType === "internship" ? "green" : "purple"} className="shrink-0 text-[10px]">

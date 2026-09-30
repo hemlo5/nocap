@@ -1,4 +1,4 @@
-import { getStartupPulse } from "@/lib/services/startup-pulse";
+﻿import { getStartupPulse } from "@/lib/services/startup-pulse";
 import { Activity, RefreshCw, AlertCircle, ExternalLink, ArrowUpRight } from "lucide-react";
 import type { Metadata } from "next";
 import type { StoryCategory, PulseStory } from "@/lib/services/startup-pulse";
@@ -21,7 +21,7 @@ const CATEGORY_TABS: { value: StoryCategory | "all"; label: string }[] = [
 
 const CATEGORY_META: Record<StoryCategory, { label: string; className: string }> = {
   funding: { label: "Funding", className: "bg-emerald-50 text-emerald-700 ring-emerald-600/20" },
-  launch: { label: "Launch", className: "bg-blue-50 text-blue-700 ring-blue-600/20" },
+  launch: { label: "Launch", className: "bg-zinc-50 text-[#18181B] ring-[#18181B]/20" },
   trend: { label: "Trending", className: "bg-amber-50 text-amber-700 ring-amber-600/20" },
   news: { label: "News", className: "bg-zinc-100 text-zinc-700 ring-zinc-200/80" },
 };
@@ -79,7 +79,7 @@ function StoryCard({ story }: { story: PulseStory }) {
           </div>
         )}
 
-        <h3 className="text-sm font-semibold leading-snug text-zinc-900 line-clamp-3 group-hover:text-blue-600 transition-colors">
+        <h3 className="text-sm font-semibold leading-snug text-zinc-900 line-clamp-3 group-hover:text-[#18181B] transition-colors">
           <a
             href={story.url}
             target="_blank"
@@ -102,7 +102,7 @@ function StoryCard({ story }: { story: PulseStory }) {
           href={story.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-1 text-[11px] font-medium text-zinc-400 transition-colors group-hover:text-blue-600"
+          className="flex items-center gap-1 text-[11px] font-medium text-zinc-400 transition-colors group-hover:text-[#18181B]"
         >
           <span>Read on {story.source}</span>
           <ArrowUpRight className="h-3 w-3" aria-hidden />
@@ -203,7 +203,7 @@ export default async function PulsePage({
           <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-zinc-300 bg-white py-20 text-center">
             <Activity className="h-8 w-8 text-zinc-400" />
             <p className="text-sm font-medium text-zinc-600">No stories found for this category.</p>
-            <a href="/pulse" className="text-xs font-semibold text-blue-600 hover:underline">
+            <a href="/pulse" className="text-xs font-semibold text-[#18181B] hover:underline">
               View all stories →
             </a>
           </div>

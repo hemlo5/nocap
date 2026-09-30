@@ -1,9 +1,9 @@
-@import "tailwindcss";
+﻿@import "tailwindcss";
 @import "maplibre-gl/dist/maplibre-gl.css";
 
 :root {
-  --background: #f7f8fb;
-  --foreground: #111827;
+  --background: #f9fafb;
+  --foreground: #18181b;
 }
 
 @theme inline {

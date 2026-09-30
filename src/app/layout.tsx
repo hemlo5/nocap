@@ -15,8 +15,8 @@ export const viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "NearHire - Jobs, Startups & Market Insights",
-  description: "Discover opportunities near you, follow Bengaluru startups, and explore real market problems.",
+  title: "Hemlo â Jobs & Startups in Bengaluru",
+  description: "Find startup jobs, internships & tech roles on a live map of Bengaluru. 6,000+ opportunities from 150+ companies.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -24,9 +24,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable} h-full min-h-full antialiased bg-[#F7F8FB]`}
+      className={`${geistSans.variable} ${geistMono.variable} h-full min-h-full antialiased bg-[#F9FAFB]`}
     >
-      <body suppressHydrationWarning className="h-full min-h-screen flex flex-col bg-[#F7F8FB] text-[#111827]">
+      <body suppressHydrationWarning className="h-full min-h-screen flex flex-col bg-[#F9FAFB] text-[#18181B]">
         <MainNav />
         {children}
       </body>

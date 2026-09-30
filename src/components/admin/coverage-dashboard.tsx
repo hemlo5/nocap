@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -561,7 +561,7 @@ function MetricCard({
     <div className="rounded-lg border border-zinc-200/80 bg-white p-4 shadow-sm">
       <div className="flex items-center justify-between gap-3 text-[#6B7280]">
         <span className="text-xs font-semibold uppercase">{label}</span>
-        <span className="text-blue-600">{icon}</span>
+        <span className="text-[#18181B]">{icon}</span>
       </div>
       <div className="mt-3 text-2xl font-semibold text-[#111827]">
         {value.toLocaleString()}
@@ -657,7 +657,7 @@ function PanelHeader({
 }) {
   return (
     <div className="flex items-start gap-3 p-4">
-      <div className="flex h-9 w-9 items-center justify-center rounded-md bg-zinc-100 text-blue-600">
+      <div className="flex h-9 w-9 items-center justify-center rounded-md bg-zinc-100 text-[#18181B]">
         {icon}
       </div>
       <div>

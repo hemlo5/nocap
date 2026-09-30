@@ -144,14 +144,14 @@ function CardMiniRouteMap({
       <div className="relative w-full flex-1 min-h-[155px] sm:min-h-[185px] rounded-2xl overflow-hidden border border-black/[0.08] bg-[#f0f0e8] flex flex-col items-center justify-center p-4 sm:p-5 text-center select-none my-1">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(59,130,246,0.12),transparent_70%)] pointer-events-none" />
         <div className="relative mb-2 flex items-center justify-center">
-          <div className="absolute h-10 w-10 sm:h-12 sm:w-12 rounded-full border border-blue-500/25 animate-ping" />
-          <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-full bg-blue-500/10 border border-blue-400/30 flex items-center justify-center text-blue-500 shadow-sm">
+          <div className="absolute h-10 w-10 sm:h-12 sm:w-12 rounded-full border border-zinc-400/25 animate-ping" />
+          <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-full bg-zinc-100 border border-zinc-200/80 flex items-center justify-center text-zinc-600 shadow-sm">
             <Globe className="h-4 w-4" />
           </div>
         </div>
         <p className="text-xs sm:text-sm font-black text-zinc-900">100% Remote Position</p>
         <p className="text-[10px] sm:text-[11px] text-zinc-500 mt-0.5">Work from anywhere · Zero commute required</p>
-        <div className="mt-2 sm:mt-2.5 inline-flex items-center gap-1.5 rounded-full bg-blue-50 border border-blue-200 px-2.5 sm:px-3 py-0.5 text-[9px] sm:text-[9.5px] font-bold text-blue-700">
+        <div className="mt-2 sm:mt-2.5 inline-flex items-center gap-1.5 rounded-full bg-zinc-100 border border-zinc-200 px-2.5 sm:px-3 py-0.5 text-[9px] sm:text-[9.5px] font-bold text-[#18181B]">
           <Wifi className="h-2.5 w-2.5 sm:h-3 sm:w-3" /> Fully distributed worldwide
         </div>
       </div>

@@ -11,7 +11,7 @@ const tones = {
   purple: "bg-indigo-50 text-indigo-700 ring-1 ring-inset ring-indigo-600/20",
   gray: "bg-zinc-100 text-zinc-700 ring-1 ring-inset ring-zinc-200/80",
   zinc: "bg-zinc-900 text-zinc-100 ring-1 ring-inset ring-zinc-800",
-  blue: "bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-600/20",
+  blue: "bg-zinc-100 text-zinc-700 ring-1 ring-inset ring-zinc-400/30",
   amber: "bg-amber-50 text-amber-800 ring-1 ring-inset ring-amber-600/20",
 };
 

@@ -736,7 +736,7 @@ function MapButton({
       aria-label={label}
       title={label}
       onClick={onClick}
-      className="flex h-10 w-10 sm:h-9 sm:w-9 items-center justify-center border-b border-zinc-200/80 text-zinc-800 transition last:border-b-0 hover:bg-zinc-50 active:bg-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 touch-manipulation"
+      className="flex h-10 w-10 sm:h-9 sm:w-9 items-center justify-center border-b border-zinc-200/80 text-zinc-800 transition last:border-b-0 hover:bg-zinc-50 active:bg-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 touch-manipulation"
     >
       {children}
     </button>

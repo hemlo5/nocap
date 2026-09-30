@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import dynamic from "next/dynamic";
 import {
@@ -181,7 +181,7 @@ function LocationSearchBox({
           >
             {/* ── Input ── */}
             <div className="relative flex items-center">
-              <MapPin aria-hidden className="pointer-events-none absolute left-2.5 h-3.5 w-3.5 text-blue-600 z-10" />
+              <MapPin aria-hidden className="pointer-events-none absolute left-2.5 h-3.5 w-3.5 text-zinc-700 z-10" />
               <CommandInput
                 placeholder="Area, tech park or PIN in Bengaluru…"
                 value={inputValue}
@@ -198,7 +198,7 @@ function LocationSearchBox({
                   "h-8 w-full rounded-lg border border-zinc-200 pl-8 pr-6 text-xs font-medium",
                   "bg-white shadow-xs outline-none transition-all duration-150",
                   "placeholder:text-zinc-400 placeholder:font-normal",
-                  "focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20",
+                  "focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/10",
                   /* Force text colour so it's always visible regardless of parent (nav has text-white on dark page) */
                   "[color:#111827!important] [background-color:#f9fafb!important]",
                   "focus:[background-color:#ffffff!important]",
@@ -219,7 +219,7 @@ function LocationSearchBox({
               )}
               {loading && (
                 <div className="absolute right-2 flex items-center">
-                  <svg className="animate-spin h-3.5 w-3.5 text-blue-500" viewBox="0 0 24 24" fill="none">
+                  <svg className="animate-spin h-3.5 w-3.5 text-zinc-700" viewBox="0 0 24 24" fill="none">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
                   </svg>
@@ -237,7 +237,7 @@ function LocationSearchBox({
                   {loading && (
                     <CommandLoading>
                       <div className="flex items-center gap-2.5 px-4 py-3 text-xs text-zinc-500">
-                        <svg className="animate-spin h-3.5 w-3.5 text-blue-500 shrink-0" viewBox="0 0 24 24" fill="none">
+                        <svg className="animate-spin h-3.5 w-3.5 text-zinc-600 shrink-0" viewBox="0 0 24 24" fill="none">
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
                         </svg>
@@ -263,10 +263,10 @@ function LocationSearchBox({
                             key={`${p.lat}-${p.lng}-${i}`}
                             value={`pred-${i}-${primary}`}
                             onSelect={() => pick(p)}
-                            className="flex items-start gap-2.5 px-3 py-2 cursor-pointer aria-selected:bg-blue-50/80 aria-selected:text-blue-900"
+                            className="flex items-start gap-2.5 px-3 py-2 cursor-pointer aria-selected:bg-zinc-50 aria-selected:text-zinc-900"
                           >
-                            <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-50 aria-selected:bg-blue-600">
-                              <MapPin className="h-3.5 w-3.5 text-blue-600" />
+                            <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-zinc-100 aria-selected:bg-zinc-900">
+                              <MapPin className="h-3.5 w-3.5 text-zinc-700" />
                             </div>
                             <div className="min-w-0 flex-1">
                               <div className="text-xs font-bold text-zinc-900 truncate">{primary}</div>
@@ -301,7 +301,7 @@ function LocationSearchBox({
                           key={hub.name}
                           value={`hub-${hub.name}`}
                           onSelect={() => pick(hub.loc)}
-                          className="flex flex-col items-start gap-0.5 rounded-lg border border-zinc-200/80 bg-zinc-50 px-2.5 py-1.5 cursor-pointer aria-selected:bg-blue-50/90 aria-selected:border-blue-200 hover:bg-blue-50/80 hover:border-blue-200 transition-colors"
+                          className="flex flex-col items-start gap-0.5 rounded-lg border border-zinc-200/80 bg-zinc-50 px-2.5 py-1.5 cursor-pointer aria-selected:bg-zinc-50/90 aria-selected:border-zinc-200 hover:bg-zinc-50/80 hover:border-zinc-200 transition-colors"
                         >
                           <div className="flex items-center gap-1.5 w-full">
                             <Building2 className="h-3 w-3 text-zinc-400 shrink-0" />
@@ -339,7 +339,7 @@ function LocationSearchBox({
         className="h-8 flex items-center gap-1.5 px-2 text-xs font-medium bg-white text-zinc-700 border border-zinc-200 rounded-lg hover:bg-zinc-50 hover:text-zinc-950 active:scale-95 transition-all disabled:opacity-60 shrink-0 shadow-xs"
         title="Use GPS location"
       >
-        <LocateFixed className="h-3.5 w-3.5 text-blue-600" />
+        <LocateFixed className="h-3.5 w-3.5 text-zinc-700" />
         <span className="hidden md:inline">My location</span>
       </button>
     </div>
@@ -479,16 +479,16 @@ export function NearHireApp() {
 
   if (!mounted) {
     return (
-      <main className="flex h-[calc(100dvh-3.5rem)] min-h-0 flex-1 flex-col overflow-hidden bg-[#F7F8FB] text-zinc-900">
+      <main className="flex h-[calc(100dvh-3.5rem)] min-h-0 flex-1 flex-col overflow-hidden bg-white text-[#18181B]">
         <div className="flex flex-1 items-center justify-center bg-white">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#111827] border-t-transparent" />
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#18181B] border-t-transparent" />
         </div>
       </main>
     );
   }
 
   return (
-    <main className="flex h-[calc(100dvh-3.5rem)] min-h-0 flex-1 flex-col overflow-hidden bg-[#F7F8FB] text-zinc-900">
+    <main className="flex h-[calc(100dvh-3.5rem)] min-h-0 flex-1 flex-col overflow-hidden bg-white text-[#18181B]">
 
       {/* Portal: inject search into nav slot */}
       {mounted && typeof document !== "undefined" && (() => {
@@ -526,17 +526,17 @@ export function NearHireApp() {
             <div className="min-w-0 flex-1">
               {isBusy ? (
                 <div className="animate-pulse flex gap-2 sm:gap-3">
-                  <div className="h-3.5 w-24 sm:w-36 rounded bg-[#E5E7EB]" />
-                  <div className="h-3.5 w-16 sm:w-20 rounded bg-[#E5E7EB]" />
+                  <div className="h-3.5 w-24 sm:w-36 rounded bg-zinc-100" />
+                  <div className="h-3.5 w-16 sm:w-20 rounded bg-zinc-100" />
                 </div>
               ) : (
-                <div className="flex flex-wrap items-center gap-x-1.5 sm:gap-x-2 gap-y-0.5 text-xs text-[#6B7280]">
-                  <span className="font-semibold text-[#111827]">{total} opportunities</span>
+                <div className="flex flex-wrap items-center gap-x-1.5 sm:gap-x-2 gap-y-0.5 text-xs text-zinc-500">
+                  <span className="font-semibold text-[#18181B]">{total} opportunities</span>
                   <span className="hidden sm:inline">near {locationLabel}</span>
                 </div>
               )}
               {coverage && !isBusy && (
-                <p className="mt-0.5 text-[11px] sm:text-xs text-[#9CA3AF] truncate">
+                <p className="mt-0.5 text-[11px] sm:text-xs text-zinc-400 truncate">
                   {coverage.startupJobs} startup · {coverage.startupInternships} internship · {coverage.mappableJobs} mapped
                 </p>
               )}
@@ -551,7 +551,7 @@ export function NearHireApp() {
               className="flex items-center gap-1 sm:gap-1.5 rounded-lg border border-zinc-200/80 bg-white px-2 sm:px-2.5 py-1 sm:py-1.5 text-xs font-medium text-[#374151] hover:bg-[#F9FAFB] transition shadow-xs shrink-0 touch-manipulation active:scale-95"
             >
               {mapCollapsed ? (
-                <><MapPin className="h-3.5 w-3.5 text-blue-600" /><span className="hidden sm:inline">Show map</span><span className="sm:hidden text-[11px] font-semibold">Map</span></>
+                <><MapPin className="h-3.5 w-3.5 text-zinc-700" /><span className="hidden sm:inline">Show map</span><span className="sm:hidden text-[11px] font-semibold">Map</span></>
               ) : (
                 <><ChevronLeft className="h-3.5 w-3.5 text-zinc-600 hidden sm:inline" /><span className="hidden sm:inline">Hide map</span><span className="sm:hidden text-[11px] font-semibold">Cards</span></>
               )}
@@ -561,7 +561,7 @@ export function NearHireApp() {
           {/* Hub chip bar — horizontally scrollable with fade indicator */}
           <div className="relative shrink-0 border-b border-zinc-100">
             <div
-              className="flex items-center gap-1.5 overflow-x-auto px-3 sm:px-4 py-1.5 bg-[#FAFBFD]"
+              className="flex items-center gap-1.5 overflow-x-auto px-3 sm:px-4 py-1.5 bg-[#F9FAFB]"
               style={{ scrollbarWidth: "none" }}
             >
               <span className="shrink-0 flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-zinc-400 mr-0.5">
@@ -582,7 +582,7 @@ export function NearHireApp() {
               })}
             </div>
             {/* Right-edge fade shows users they can scroll */}
-            <div className="pointer-events-none absolute right-0 inset-y-0 w-10 bg-gradient-to-l from-[#FAFBFD] to-transparent" />
+            <div className="pointer-events-none absolute right-0 inset-y-0 w-10 bg-gradient-to-l from-[#F9FAFB] to-transparent" />
           </div>
 
           {/* Cards */}

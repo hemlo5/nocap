@@ -17,7 +17,7 @@ const buttonVariants = cva(
         ghost:
           "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100/80 active:bg-zinc-200/60 dark:text-zinc-400 dark:hover:text-white dark:hover:bg-zinc-800/80",
         accent:
-          "bg-blue-600 text-white shadow-xs hover:bg-blue-500 active:bg-blue-700 focus-visible:ring-blue-500/30",
+          "bg-[#18181B] text-white shadow-xs hover:bg-zinc-800 active:bg-zinc-900 focus-visible:ring-zinc-900/20",
         dark:
           "bg-zinc-950 text-zinc-100 border border-zinc-800 shadow-xs hover:bg-zinc-900 hover:border-zinc-700",
       },

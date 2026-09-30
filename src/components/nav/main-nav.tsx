@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
-import { Briefcase, Activity, Compass, MapPin } from "lucide-react";
+import { Briefcase, Activity, Compass } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 
 export function MainNav() {
@@ -42,11 +42,11 @@ export function MainNav() {
             isPainPoints ? "text-white" : "text-zinc-900",
           )}
         >
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-600 text-white shadow-2xs transition-transform group-hover:scale-105">
-            <MapPin className="h-4 w-4" aria-hidden />
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#18181B] text-white shadow-2xs transition-transform group-hover:scale-105">
+            <span className="text-xs font-black tracking-tight">H</span>
           </div>
           <div className="flex flex-col">
-            <span className="text-sm font-bold tracking-tight leading-none">NearHire</span>
+            <span className="text-sm font-black tracking-tight leading-none">hemlo</span>
             <span className={cn("text-[10px] font-medium tracking-normal leading-none mt-0.5", isPainPoints ? "text-zinc-500" : "text-zinc-400")}>
               Bengaluru
             </span>
@@ -71,7 +71,7 @@ export function MainNav() {
               isOpportunities
                 ? isPainPoints
                   ? "bg-zinc-800 text-white shadow-2xs"
-                  : "bg-zinc-100 text-zinc-900 shadow-2xs"
+                  : "bg-[#18181B] text-white shadow-2xs"
                 : isPainPoints
                   ? "text-zinc-400 hover:bg-zinc-800/60 hover:text-white"
                   : "text-zinc-600 hover:bg-zinc-100/70 hover:text-zinc-900",
@@ -94,7 +94,7 @@ export function MainNav() {
               isPulse
                 ? isPainPoints
                   ? "bg-zinc-800 text-white shadow-2xs"
-                  : "bg-zinc-100 text-zinc-900 shadow-2xs"
+                  : "bg-[#18181B] text-white shadow-2xs"
                 : isPainPoints
                   ? "text-zinc-400 hover:bg-zinc-800/60 hover:text-white"
                   : "text-zinc-600 hover:bg-zinc-100/70 hover:text-zinc-900",

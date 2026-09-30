@@ -80,7 +80,7 @@ export function MapSkeleton({
     >
       <div className="absolute inset-0 opacity-60 [background-image:linear-gradient(90deg,rgba(0,0,0,0.04)_1px,transparent_1px),linear-gradient(0deg,rgba(0,0,0,0.04)_1px,transparent_1px)] [background-size:64px_64px]" />
       <div className="absolute left-[28%] top-[42%] h-4 w-4 animate-pulse rounded-full border-2 border-white bg-emerald-500 shadow-md" />
-      <div className="absolute left-[58%] top-[34%] h-5 w-5 animate-pulse rounded-full border-2 border-white bg-blue-600 shadow-md" />
+      <div className="absolute left-[58%] top-[34%] h-5 w-5 animate-pulse rounded-full border-2 border-white bg-[#18181B] shadow-md" />
       <div className="absolute left-[70%] top-[62%] h-4 w-4 animate-pulse rounded-full border-2 border-white bg-sky-500 shadow-md" />
       <div className="absolute bottom-4 left-4 rounded-md border border-zinc-200/80 bg-white/95 px-3 py-1.5 text-xs font-semibold text-zinc-700 shadow-xs backdrop-blur-xs">
         {label}
