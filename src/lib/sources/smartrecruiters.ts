@@ -69,7 +69,7 @@ export class SmartRecruitersSource implements JobSource<SmartRecruitersPosting> 
         cache: "no-store",
         headers: {
           Accept: "application/json",
-          "User-Agent": "NearHire MVP (public SmartRecruiters adapter)",
+          "User-Agent": "Hemlo (public SmartRecruiters adapter)",
         },
       });
 

@@ -58,7 +58,7 @@ export class WorkableSource implements JobSource<WorkableJob> {
         signal: requestSignal(),
         headers: {
           Accept: "application/json",
-          "User-Agent": "NearHire MVP (public Workable careers feed adapter)",
+          "User-Agent": "Hemlo (public Workable careers feed adapter)",
         },
         cache: "no-store",
       },

@@ -1005,7 +1005,7 @@ function logSourceHealth(
   }
 
   console.info(
-    `[NearHire sources] ${summary.successful}/${summary.total} succeeded, ${summary.failed} failed. Raw accepted=${summary.rawAccepted}, location filtered=${summary.locationFiltered}, deduped=${summary.deduped}`,
+    `[Hemlo sources] ${summary.successful}/${summary.total} succeeded, ${summary.failed} failed. Raw accepted=${summary.rawAccepted}, location filtered=${summary.locationFiltered}, deduped=${summary.deduped}`,
   );
   if (
     summary.failed > 0 ||

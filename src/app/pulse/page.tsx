@@ -5,7 +5,7 @@ import type { StoryCategory, PulseStory } from "@/lib/services/startup-pulse";
 import { cn } from "@/lib/utils/cn";
 
 export const metadata: Metadata = {
-  title: "Startup Pulse - NearHire",
+  title: "Startup Pulse — hemlo",
   description: "Bengaluru startup stories, funding rounds, and what is booming in the Indian ecosystem.",
 };
 

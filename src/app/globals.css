@@ -46,7 +46,7 @@ input {
   width: 32px;
 }
 
-.nearhire-current-location {
+.hemlo-current-location {
   position: absolute;
   top: 0;
   left: 0;
@@ -62,7 +62,7 @@ input {
   pointer-events: none;
 }
 
-.nearhire-current-location::after {
+.hemlo-current-location::after {
   position: absolute;
   inset: -9px;
   border: 1px solid rgb(37 99 235 / 28%);
@@ -75,7 +75,7 @@ input {
   contain: layout style;
 }
 
-.nearhire-job-marker {
+.hemlo-job-marker {
   --marker-accent: #2563eb;
   position: absolute;
   top: 0;
@@ -92,15 +92,15 @@ input {
   transition-property: filter;
 }
 
-.nearhire-job-marker--internship {
+.hemlo-job-marker--internship {
   --marker-accent: #16a34a;
 }
 
-.nearhire-job-marker--remote {
+.hemlo-job-marker--remote {
   --marker-accent: #0ea5e9;
 }
 
-.nearhire-entity-marker {
+.hemlo-entity-marker {
   --marker-accent: #14b8a6;
   position: absolute;
   top: 0;
@@ -117,66 +117,66 @@ input {
   transition-property: filter;
 }
 
-.nearhire-entity-marker--investor {
+.hemlo-entity-marker--investor {
   --marker-accent: #f59e0b;
 }
 
-.nearhire-entity-marker--event {
+.hemlo-entity-marker--event {
   --marker-accent: #e11d48;
 }
 
-.nearhire-entity-marker--radar {
+.hemlo-entity-marker--radar {
   --marker-accent: #8b5cf6;
 }
 
-.nearhire-entity-marker--radar .nearhire-marker-ripple {
+.hemlo-entity-marker--radar .hemlo-marker-ripple {
   display: none !important;
 }
 
-.nearhire-job-marker:hover,
-.nearhire-job-marker.is-selected,
-.nearhire-entity-marker:hover,
-.nearhire-entity-marker:focus-visible {
+.hemlo-job-marker:hover,
+.hemlo-job-marker.is-selected,
+.hemlo-entity-marker:hover,
+.hemlo-entity-marker:focus-visible {
   filter: drop-shadow(0 12px 18px rgb(17 24 39 / 22%));
 }
 
-.nearhire-job-marker:hover .nearhire-marker-face,
-.nearhire-job-marker.is-selected .nearhire-marker-face,
-.nearhire-entity-marker:hover .nearhire-marker-face,
-.nearhire-entity-marker:focus-visible .nearhire-marker-face {
+.hemlo-job-marker:hover .hemlo-marker-face,
+.hemlo-job-marker.is-selected .hemlo-marker-face,
+.hemlo-entity-marker:hover .hemlo-marker-face,
+.hemlo-entity-marker:focus-visible .hemlo-marker-face {
   transform: scale(1.12);
 }
 
-.nearhire-marker-glow,
-.nearhire-marker-ripple,
-.nearhire-marker-face {
+.hemlo-marker-glow,
+.hemlo-marker-ripple,
+.hemlo-marker-face {
   position: absolute;
   border-radius: inherit;
   pointer-events: none;
 }
 
-.nearhire-marker-glow {
+.hemlo-marker-glow {
   inset: -3px;
   box-shadow: 0 0 8px 1px var(--marker-accent);
   opacity: 0.35;
 }
 
-.nearhire-marker-ripple {
+.hemlo-marker-ripple {
   inset: -5px;
   border: 2px solid var(--marker-accent);
   opacity: 0;
 }
 
-.nearhire-job-marker.is-selected .nearhire-marker-ripple {
-  animation: nearhire-marker-ripple 1.25s ease-out infinite;
+.hemlo-job-marker.is-selected .hemlo-marker-ripple {
+  animation: hemlo-marker-ripple 1.25s ease-out infinite;
 }
 
-.nearhire-entity-marker:hover .nearhire-marker-ripple,
-.nearhire-entity-marker:focus-visible .nearhire-marker-ripple {
-  animation: nearhire-marker-ripple 1.25s ease-out infinite;
+.hemlo-entity-marker:hover .hemlo-marker-ripple,
+.hemlo-entity-marker:focus-visible .hemlo-marker-ripple {
+  animation: hemlo-marker-ripple 1.25s ease-out infinite;
 }
 
-.nearhire-marker-face {
+.hemlo-marker-face {
   inset: 0;
   display: grid;
   place-items: center;
@@ -193,7 +193,7 @@ input {
   transition: transform 160ms ease;
 }
 
-.nearhire-marker-count {
+.hemlo-marker-count {
   position: absolute;
   right: -8px;
   top: -8px;
@@ -212,19 +212,19 @@ input {
   box-shadow: 0 6px 12px rgb(17 24 39 / 22%);
 }
 
-.nearhire-marker-face img {
+.hemlo-marker-face img {
   width: 100%;
   height: 100%;
   object-fit: contain;
   padding: 4px;
 }
 
-.nearhire-job-marker.has-logo .nearhire-marker-initials,
-.nearhire-entity-marker.has-logo .nearhire-marker-initials {
+.hemlo-job-marker.has-logo .hemlo-marker-initials,
+.hemlo-entity-marker.has-logo .hemlo-marker-initials {
   display: none;
 }
 
-@keyframes nearhire-marker-ripple {
+@keyframes hemlo-marker-ripple {
   0% {
     opacity: 0.65;
     transform: scale(0.72);
@@ -236,14 +236,14 @@ input {
   }
 }
 
-.nearhire-map-popup .maplibregl-popup-content {
+.hemlo-map-popup .maplibregl-popup-content {
   overflow: hidden;
   border-radius: 8px;
   padding: 0;
   box-shadow: 0 16px 36px rgb(17 24 39 / 20%);
 }
 
-.nearhire-map-popup .maplibregl-popup-close-button {
+.hemlo-map-popup .maplibregl-popup-close-button {
   right: 6px;
   top: 4px;
   color: #6b7280;
@@ -251,27 +251,27 @@ input {
   line-height: 1;
 }
 
-.nearhire-popup-card {
+.hemlo-popup-card {
   display: grid;
   gap: 6px;
   min-width: 220px;
   padding: 14px;
 }
 
-.nearhire-popup-card strong {
+.hemlo-popup-card strong {
   color: #111827;
   font-size: 14px;
   line-height: 1.35;
 }
 
-.nearhire-popup-card span,
-.nearhire-popup-card small {
+.hemlo-popup-card span,
+.hemlo-popup-card small {
   color: #4b5563;
   font-size: 12px;
   line-height: 1.45;
 }
 
-.nearhire-popup-card a {
+.hemlo-popup-card a {
   display: inline-flex;
   width: fit-content;
   margin-top: 4px;
@@ -284,7 +284,7 @@ input {
   text-decoration: none;
 }
 
-.nearhire-popup-list {
+.hemlo-popup-list {
   display: grid;
   gap: 4px;
   max-height: 160px;
@@ -294,7 +294,7 @@ input {
   list-style: none;
 }
 
-.nearhire-popup-list li {
+.hemlo-popup-list li {
   display: flex;
   justify-content: space-between;
   gap: 12px;
@@ -303,7 +303,7 @@ input {
   line-height: 1.4;
 }
 
-.nearhire-popup-list small {
+.hemlo-popup-list small {
   white-space: nowrap;
   color: #6b7280;
 }

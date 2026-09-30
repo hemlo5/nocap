@@ -28,7 +28,7 @@ const BENGALURU_REGISTRY_KEYS = new Set([
 ]);
 
 /**
- * A CompanyDiscoverySource backed by the existing NearHire source registry.
+ * A CompanyDiscoverySource backed by the existing Hemlo source registry.
  * Returns startups with confirmed Bengaluru operations so they appear as
  * map dots alongside YC companies.
  *
@@ -39,7 +39,7 @@ const BENGALURU_REGISTRY_KEYS = new Set([
  */
 export class RegistryStartupDiscoverySource implements CompanyDiscoverySource {
   id = "registry-startups";
-  name = "NearHire Registry";
+  name = "Hemlo Registry";
   type = "startup_directory" as const;
 
   async discoverCompanies(
@@ -63,7 +63,7 @@ export class RegistryStartupDiscoverySource implements CompanyDiscoverySource {
         (source): DiscoveredCompany => ({
           id: `registry:${source.provider}:${source.key}`,
           name: source.displayName ?? source.key,
-          source: "NearHire Registry",
+          source: "Hemlo Registry",
           sourceType: "ats",
           sourceUrl: source.careersUrl ?? source.website ?? null,
           website: source.website ?? null,
@@ -75,7 +75,7 @@ export class RegistryStartupDiscoverySource implements CompanyDiscoverySource {
           country: "India",
           industries: [],
           tags: [],
-          startup: source.startup ?? { isStartup: true, source: "NearHire Registry" },
+          startup: source.startup ?? { isStartup: true, source: "Hemlo Registry" },
           // Store the ATS key so fetchStartupEntities can look up office overrides
           detectedSource: {
             provider: source.provider,

@@ -58,7 +58,7 @@ export class PersonioSource implements JobSource<PersonioPosition> {
       cache: "no-store",
       headers: {
         Accept: "application/xml,text/xml",
-        "User-Agent": "NearHire MVP (public Personio adapter)",
+        "User-Agent": "Hemlo (public Personio adapter)",
       },
     });
 

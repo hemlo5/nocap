@@ -69,7 +69,7 @@ const JobDepthCarousel = dynamic(
 );
 
 const FilterPanel = dynamic(
-  () => import("@/components/jobs/filter-panel").then(m => ({ default: m.FilterPanel })),
+  () => import("@/components/jobs/filter-panel").then((mod) => mod),
   { ssr: false, loading: () => <FilterSkeleton /> },
 );
 
@@ -347,8 +347,8 @@ function LocationSearchBox({
 }
 
 
-// ─── Main NearHireApp ─────────────────────────────────────────────────────────
-export function NearHireApp() {
+// ─── Main HemloApp ─────────────────────────────────────────────────────────
+export function hemloApp() {
   const [locationInput, setLocationInput] = useState("Bengaluru, Karnataka");
   const [location, setLocation]           = useState<LocationSearchResult | null>(null);
   const [filters, setFilters]             = useState<FilterState>(defaultFilters);

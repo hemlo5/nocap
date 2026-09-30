@@ -60,7 +60,7 @@ async function fetchRedditPosts(): Promise<ProblemSource[]> {
   await Promise.allSettled(SUBREDDITS.map(async (sub) => {
     try {
       const url = `https://www.reddit.com/r/${sub}/search.json?q=${encodeURIComponent(PROBLEM_QUERY)}&sort=top&t=month&limit=25&restrict_sr=1`;
-      const res = await fetch(url, { headers: { "User-Agent": "NearHire/1.0 market research bot" }, signal: AbortSignal.timeout(8000), next: { revalidate: 21600 } });
+      const res = await fetch(url, { headers: { "User-Agent": "Hemlo/1.0 market research bot" }, signal: AbortSignal.timeout(8000), next: { revalidate: 21600 } });
       if (!res.ok) return;
       const json = (await res.json()) as { data?: { children?: RedditPost[] } };
       for (const post of json?.data?.children ?? []) {

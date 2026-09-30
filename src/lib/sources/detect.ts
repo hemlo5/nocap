@@ -130,7 +130,7 @@ export async function detectCareerSource(
     cache: "no-store",
     headers: {
       Accept: "text/html",
-      "User-Agent": "NearHire MVP (public careers ATS detector)",
+      "User-Agent": "Hemlo (public careers ATS detector)",
     },
   });
 

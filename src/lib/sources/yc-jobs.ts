@@ -52,7 +52,7 @@ export class YcJobsSource implements JobSource<YcJob> {
     const response = await fetch(`${YC_BASE_URL}/jobs/location/${location}`, {
       headers: {
         Accept: "text/html",
-        "User-Agent": "NearHire local development (contact: dev@nearhire.local)",
+        "User-Agent": "Hemlo (contact: dev@hemlo.local)",
       },
       signal: requestSignal(),
       next: { revalidate: 60 * 30 },

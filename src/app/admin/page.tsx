@@ -11,7 +11,7 @@ export default function AdminPage() {
         <Button asChild variant="secondary" size="sm">
           <Link href="/">
             <ArrowLeft className="h-4 w-4" />
-            Back to NearHire
+            Back to hemlo
           </Link>
         </Button>
         <div className="mt-8 flex items-start gap-4">

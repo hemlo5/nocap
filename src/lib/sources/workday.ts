@@ -41,7 +41,7 @@ export class WorkdaySource implements JobSource<WorkdayPosting> {
       headers: {
         Accept: "application/json",
         "Content-Type": "application/json",
-        "User-Agent": "NearHire MVP (public Workday adapter)",
+        "User-Agent": "Hemlo (public Workday adapter)",
       },
       body: JSON.stringify({
         appliedFacets: {},

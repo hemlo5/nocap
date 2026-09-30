@@ -191,7 +191,7 @@ export function getCuratedRadarEntities(
         description: zone.description,
         url: null,
         logoUrl: null,
-        source: "NearHire Discovery",
+        source: "Hemlo Discovery",
         sourceUrl: null,
         locationText: zone.locationText,
         latitude: zone.lat,

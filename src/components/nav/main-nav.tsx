@@ -122,7 +122,7 @@ export function MainNav() {
           </Link>
         </nav>
 
-        {/* Portal slot — NearHireApp injects location search here */}
+        {/* Portal slot — HemloApp injects location search here */}
         <div id="nav-search-slot" className="flex flex-1 items-center min-w-0 justify-end sm:justify-start" />
       </div>
     </header>

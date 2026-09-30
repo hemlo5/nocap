@@ -52,7 +52,7 @@ export class GreenhouseSource implements JobSource<GreenhouseJob> {
       signal: requestSignal(),
       headers: {
         Accept: "application/json",
-        "User-Agent": "NearHire MVP (official Greenhouse board adapter)",
+        "User-Agent": "Hemlo (official Greenhouse board adapter)",
       },
       cache: "no-store",
     });

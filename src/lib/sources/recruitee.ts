@@ -49,7 +49,7 @@ export class RecruiteeSource implements JobSource<RecruiteeOffer> {
       cache: "no-store",
       headers: {
         Accept: "application/json",
-        "User-Agent": "NearHire MVP (public Recruitee adapter)",
+        "User-Agent": "Hemlo (public Recruitee adapter)",
       },
     });
 

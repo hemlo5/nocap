@@ -263,7 +263,7 @@ async function fetchInvestorEntities(
     entities: merged,
     warnings: [],
     health: {
-      source: "NearHire Investor Registry",
+      source: "Hemlo Investor Registry",
       type: "investor",
       status: "success",
       entitiesFound: merged.length,
@@ -370,7 +370,7 @@ async function fetchOverpassPayload(
         headers: {
           Accept: "application/json",
           "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
-          "User-Agent": "NearHire local discovery dashboard",
+          "User-Agent": "Hemlo discovery dashboard",
         },
         body: new URLSearchParams({ data: overpassQuery }),
         signal: requestSignal(2000),
@@ -570,7 +570,7 @@ function dedupeEntitiesByNormName(entities: MapEntity[]): MapEntity[] {
 
 function sourceNameForLayer(layer: MapEntityType): string {
   if (layer === "startup") return "Startup Discovery";
-  if (layer === "investor") return "NearHire Investor Registry";
+  if (layer === "investor") return "Hemlo Investor Registry";
   return "OpenStreetMap Overpass";
 }
 

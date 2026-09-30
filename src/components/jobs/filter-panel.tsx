@@ -420,3 +420,4 @@ function FilterGroup({ label, value, options, onChange }: FilterGroupProps) {
     </fieldset>
   );
 }
+export default FilterPanel;

@@ -52,7 +52,7 @@ export class AshbySource implements JobSource<AshbyJob> {
         signal: requestSignal(),
         headers: {
           Accept: "application/json",
-          "User-Agent": "NearHire MVP (official Ashby job board adapter)",
+          "User-Agent": "Hemlo (official Ashby job board adapter)",
         },
         cache: "no-store",
       },

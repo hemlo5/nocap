@@ -77,7 +77,7 @@ export async function getStartupPulse(): Promise<{
 
 async function fetchFeed(feed: RssFeed): Promise<PulseStory[]> {
   const response = await fetch(feed.url, {
-    headers: { "User-Agent": "NearHire/1.0 startup pulse aggregator", Accept: "application/rss+xml, application/xml, text/xml" },
+    headers: { "User-Agent": "Hemlo/1.0 startup pulse aggregator", Accept: "application/rss+xml, application/xml, text/xml" },
     signal: AbortSignal.timeout(8000),
     next: { revalidate: 3600 },
   });

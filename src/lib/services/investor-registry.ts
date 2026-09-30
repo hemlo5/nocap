@@ -412,7 +412,7 @@ export function getCuratedInvestorEntities(
         description: investor.description,
         url: investor.website,
         logoUrl: faviconUrl(investor.website),
-        source: "NearHire Investor Registry",
+        source: "Hemlo Investor Registry",
         sourceUrl: investor.website,
         locationText: investor.locationText,
         latitude: investor.lat,

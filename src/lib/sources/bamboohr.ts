@@ -36,7 +36,7 @@ export class BambooHrSource implements JobSource<BambooJob> {
       cache: "no-store",
       headers: {
         Accept: "application/json",
-        "User-Agent": "NearHire MVP (public BambooHR adapter)",
+        "User-Agent": "Hemlo (public BambooHR adapter)",
       },
     });
 

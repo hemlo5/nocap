@@ -79,7 +79,7 @@ type EntityMarkerGroup = {
 };
 
 type MapStyleId = "street" | "light" | "night";
-type NearHireMapStyle = {
+type HemloMapStyle = {
   id: MapStyleId;
   label: string;
   style: StyleSpecification;
@@ -132,7 +132,7 @@ function createRasterStyle(
   } as StyleSpecification;
 }
 
-const mapStyles: NearHireMapStyle[] = [
+const mapStyles: HemloMapStyle[] = [
   {
     id: "street",
     label: "Street",
@@ -158,7 +158,7 @@ const mapStyles: NearHireMapStyle[] = [
       "raster-contrast": 0.35,
     }),
   },
-] satisfies NearHireMapStyle[];
+] satisfies HemloMapStyle[];
 
 function cloneStyle(style: StyleSpecification): StyleSpecification {
   return JSON.parse(JSON.stringify(style)) as StyleSpecification;
@@ -276,7 +276,7 @@ export default function JobMap({
       closeButton: true,
       closeOnMove: false,
       offset: 18,
-      className: "nearhire-map-popup",
+      className: "hemlo-map-popup",
     })
       .setLngLat(feature.geometry.coordinates)
       .setHTML(popupHtml(feature.properties))
@@ -295,7 +295,7 @@ export default function JobMap({
       closeButton: true,
       closeOnMove: false,
       offset: 18,
-      className: "nearhire-map-popup",
+      className: "hemlo-map-popup",
     })
       .setLngLat(group.primary.geometry.coordinates)
       .setHTML(entityPopupHtml(group))
@@ -843,7 +843,7 @@ function createJobMarkerElement(
 ): HTMLButtonElement {
   const element = document.createElement("button");
   element.type = "button";
-  element.className = `nearhire-job-marker nearhire-job-marker--${properties.markerType}`;
+  element.className = `hemlo-job-marker hemlo-job-marker--${properties.markerType}`;
   element.title =
     count > 1
       ? `${properties.company} - ${count} roles at this office`
@@ -851,15 +851,15 @@ function createJobMarkerElement(
   element.setAttribute("aria-label", element.title);
 
   const glow = document.createElement("span");
-  glow.className = "nearhire-marker-glow";
+  glow.className = "hemlo-marker-glow";
   element.appendChild(glow);
 
   const ripple = document.createElement("span");
-  ripple.className = "nearhire-marker-ripple";
+  ripple.className = "hemlo-marker-ripple";
   element.appendChild(ripple);
 
   const face = document.createElement("span");
-  face.className = "nearhire-marker-face";
+  face.className = "hemlo-marker-face";
   element.appendChild(face);
 
   if (properties.logoUrl) {
@@ -874,13 +874,13 @@ function createJobMarkerElement(
   }
 
   const initials = document.createElement("span");
-  initials.className = "nearhire-marker-initials";
+  initials.className = "hemlo-marker-initials";
   initials.textContent = properties.logoText;
   face.appendChild(initials);
 
   if (count > 1) {
     const badge = document.createElement("span");
-    badge.className = "nearhire-marker-count";
+    badge.className = "hemlo-marker-count";
     badge.textContent = String(count);
     element.appendChild(badge);
   }
@@ -894,7 +894,7 @@ function createEntityMarkerElement(
 ): HTMLButtonElement {
   const element = document.createElement("button");
   element.type = "button";
-  element.className = `nearhire-entity-marker nearhire-entity-marker--${properties.type}`;
+  element.className = `hemlo-entity-marker hemlo-entity-marker--${properties.type}`;
   element.title =
     count > 1
       ? `${count} ${entityLabelPlural(properties.type)} at this location`
@@ -902,17 +902,17 @@ function createEntityMarkerElement(
   element.setAttribute("aria-label", element.title);
 
   const glow = document.createElement("span");
-  glow.className = "nearhire-marker-glow";
+  glow.className = "hemlo-marker-glow";
   element.appendChild(glow);
 
   if (properties.type !== "radar") {
     const ripple = document.createElement("span");
-    ripple.className = "nearhire-marker-ripple";
+    ripple.className = "hemlo-marker-ripple";
     element.appendChild(ripple);
   }
 
   const face = document.createElement("span");
-  face.className = "nearhire-marker-face";
+  face.className = "hemlo-marker-face";
   element.appendChild(face);
 
   if (properties.logoUrl) {
@@ -927,13 +927,13 @@ function createEntityMarkerElement(
   }
 
   const initials = document.createElement("span");
-  initials.className = "nearhire-marker-initials";
+  initials.className = "hemlo-marker-initials";
   initials.textContent = properties.logoText;
   face.appendChild(initials);
 
   if (count > 1) {
     const badge = document.createElement("span");
-    badge.className = "nearhire-marker-count";
+    badge.className = "hemlo-marker-count";
     badge.textContent = String(count);
     element.appendChild(badge);
   }
@@ -1047,14 +1047,14 @@ function confidenceLabel(confidence: MapEntity["locationConfidence"]): string {
 
 function createCurrentLocationElement(): HTMLDivElement {
   const element = document.createElement("div");
-  element.className = "nearhire-current-location";
+  element.className = "hemlo-current-location";
   element.title = "Search location";
   return element;
 }
 
 function popupHtml(properties: JobFeatureProperties): string {
   return `
-    <div class="nearhire-popup-card">
+    <div class="hemlo-popup-card">
       <strong>${escapeHtml(properties.title)}</strong>
       <span>${escapeHtml(properties.company)}</span>
       <small>${escapeHtml(properties.location)} - ${escapeHtml(properties.distance)}</small>
@@ -1068,7 +1068,7 @@ function entityPopupHtml(group: EntityMarkerGroup): string {
 
   if (properties.type === "radar") {
     return `
-      <div class="nearhire-popup-card nearhire-radar-popup" style="min-width: 250px;">
+      <div class="hemlo-popup-card hemlo-radar-popup" style="min-width: 250px;">
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
           <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#8b5cf6;box-shadow:0 0 10px #8b5cf6;"></span>
           <span style="font-size:11px;font-weight:700;letter-spacing:0.06em;color:#7c3aed;text-transform:uppercase;">Discovery Radar Â· 18h Countdown</span>
@@ -1117,14 +1117,14 @@ function entityPopupHtml(group: EntityMarkerGroup): string {
     : "";
 
   return `
-    <div class="nearhire-popup-card">
+    <div class="hemlo-popup-card">
       <strong>${escapeHtml(title)}</strong>
       <span>${escapeHtml(entityLabel(properties.type))}</span>
       <small>${escapeHtml(properties.location)} - ${escapeHtml(properties.distance)}</small>
       
       ${
         group.features.length > 1
-          ? `<ul class="nearhire-popup-list">${extraItems}${
+          ? `<ul class="hemlo-popup-list">${extraItems}${
               hiddenCount > 0 ? `<li>+${hiddenCount} more</li>` : ""
             }</ul>`
           : `<span>${escapeHtml(properties.description)}</span>`

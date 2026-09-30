@@ -1921,6 +1921,6 @@ async function mapWithConcurrency<T, R>(
 function nominatimUserAgent(): string {
   const email = process.env.NEARHIRE_NOMINATIM_EMAIL;
   return email
-    ? `NearHire MVP (${email})`
-    : "NearHire MVP local development; contact via NEARHIRE_NOMINATIM_EMAIL";
+    ? `Hemlo (${email})`
+    : "Hemlo local development; contact via NEARHIRE_NOMINATIM_EMAIL";
 }

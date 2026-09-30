@@ -5,7 +5,7 @@ import type { ProblemSector } from "@/lib/services/pain-points";
 import { PainPointsCarousel } from "@/components/pain-points/pain-points-carousel";
 
 export const metadata: Metadata = {
-  title: "Market Pain Points - NearHire",
+  title: "Market Pain Points — hemlo",
   description:
     "Real market problems surfaced from Reddit and Hacker News — whitespace gaps and opportunities worth solving in India.",
 };

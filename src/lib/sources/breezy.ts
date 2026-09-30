@@ -43,7 +43,7 @@ export class BreezySource implements JobSource<BreezyJob> {
       cache: "no-store",
       headers: {
         Accept: "application/json",
-        "User-Agent": "NearHire MVP (public Breezy HR adapter)",
+        "User-Agent": "Hemlo (public Breezy HR adapter)",
       },
     });
 

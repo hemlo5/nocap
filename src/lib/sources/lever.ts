@@ -43,7 +43,7 @@ export class LeverSource implements JobSource<LeverPosting> {
         signal: requestSignal(),
         headers: {
           Accept: "application/json",
-          "User-Agent": "NearHire MVP (official Lever posting adapter)",
+          "User-Agent": "Hemlo (official Lever posting adapter)",
         },
         cache: "no-store",
       },
