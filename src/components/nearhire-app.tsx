@@ -595,12 +595,13 @@ export function NearHireApp() {
               )}
             </div>
             <div className={cn("absolute inset-0 transition-all duration-500 ease-[cubic-bezier(0.25,1,0.5,1)]", mapCollapsed ? "opacity-0 pointer-events-none z-0 -translate-y-3" : "opacity-100 pointer-events-auto z-10 translate-y-0")}>
-              <div className="grid h-full min-h-0 flex-1 lg:overflow-hidden lg:grid-cols-[172px_minmax(0,1fr)]">
-                {/* Desktop-only filter sidebar — mobile uses MobileFilterDrawer */}
-                <div className="hidden lg:contents">
+              <div className="flex h-full min-h-0 overflow-hidden">
+                {/* Desktop filter sidebar — hidden on mobile, drawer used instead */}
+                <aside className="hidden lg:flex lg:w-[172px] lg:shrink-0 lg:flex-col lg:border-r lg:border-zinc-100 overflow-y-auto">
                   {isBusy ? <FilterSkeleton /> : <FilterPanel filters={filters} onChange={setFilters} />}
-                </div>
-                <div className="min-h-0 h-full overflow-y-auto">
+                </aside>
+                {/* Job cards — fills all remaining width on every screen size */}
+                <div className="min-w-0 flex-1 overflow-y-auto overscroll-contain">
                   {isBusy ? <LoadingState /> : jobs.length === 0 ? (
                     <EmptyState radius={filters.radius} onExpand={() => setFilters({ ...filters, radius: 50 })} onReset={() => setFilters(defaultFilters)} />
                   ) : (
