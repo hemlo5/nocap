@@ -286,8 +286,8 @@ export const JobCard = React.memo(function JobCard({ job, selected, onSelect, ex
             <Button asChild size="sm" className="bg-white text-zinc-900 hover:bg-white/90 font-bold border-0 shadow-sm">
               <a href={job.applyUrl} target="_blank" rel="noreferrer">Apply <ArrowUpRight className="h-3.5 w-3.5" /></a>
             </Button>
-            <Button asChild size="sm" className="bg-white/20 text-white hover:bg-white/30 border-0 font-semibold backdrop-blur-sm">
-              <Link href={`/jobs/${encodeURIComponent(job.id)}`}>Details</Link>
+            <Button size="sm" className="bg-white/20 text-white hover:bg-white/30 border-0 font-semibold backdrop-blur-sm" type="button" onClick={() => onSelect(job)}>
+              Details
             </Button>
             <Button asChild size="sm" variant="ghost" className="ml-auto text-white/80 hover:text-white text-xs">
               <a href={`https://www.ambitionbox.com/overview/${job.companyName.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")}-overview`} target="_blank" rel="noreferrer">
@@ -401,8 +401,8 @@ export const JobCard = React.memo(function JobCard({ job, selected, onSelect, ex
                 Apply <ArrowUpRight className="h-3 w-3" />
               </a>
             </Button>
-            <Button asChild size="sm" variant="secondary" className="h-7 px-2.5 text-xs font-medium">
-              <Link href={`/jobs/${encodeURIComponent(job.id)}`}>Details</Link>
+            <Button size="sm" variant="secondary" className="h-7 px-2.5 text-xs font-medium" type="button" onClick={() => onSelect(job)}>
+              Details
             </Button>
             {job.postedAt && (
               <span className="ml-auto text-[10px] text-zinc-400 font-medium">
