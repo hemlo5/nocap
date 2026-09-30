@@ -348,7 +348,7 @@ function LocationSearchBox({
 
 
 // ─── Main HemloApp ─────────────────────────────────────────────────────────
-export function hemloApp() {
+export function NearHireApp() {
   const [locationInput, setLocationInput] = useState("Bengaluru, Karnataka");
   const [location, setLocation]           = useState<LocationSearchResult | null>(null);
   const [filters, setFilters]             = useState<FilterState>(defaultFilters);
