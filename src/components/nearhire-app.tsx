@@ -607,7 +607,7 @@ export function NearHireApp() {
                   ) : (
                     <div className="space-y-3 p-3 sm:p-4">
                       {jobs.map(job => (
-                        <JobCard key={job.id} job={job} selected={job.id === selectedJobId} onSelect={j => { setSelectedJobId(j.id); setMapCollapsed(true); }} expanded={false} />
+                        <JobCard key={job.id} job={job} selected={job.id === selectedJobId} onSelect={j => setSelectedJobId(j.id)} expanded={false} />
                       ))}
                     </div>
                   )}
