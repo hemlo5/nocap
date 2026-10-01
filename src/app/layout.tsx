@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { MainNav } from "@/components/nav/main-nav";
+import { HemloNav } from "@/components/nav/hemlo-nav";
 import "./globals.css";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
@@ -15,7 +15,7 @@ export const viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "Hemlo  -  Jobs & Startups in Bengaluru",
+  title: "Hemlo — Jobs & Startups in Bengaluru",
   description: "Find startup jobs, internships & tech roles on a live map of Bengaluru. 6,000+ opportunities from 150+ companies.",
 };
 
@@ -27,7 +27,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${geistSans.variable} ${geistMono.variable} h-full min-h-full antialiased bg-[#F9FAFB]`}
     >
       <body suppressHydrationWarning className="h-full min-h-screen flex flex-col bg-[#F9FAFB] text-[#18181B]">
-        <MainNav />
+        <HemloNav />
         {children}
       </body>
     </html>

@@ -6,7 +6,7 @@ import { useEffect } from "react";
 import { Briefcase, Activity, Compass } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 
-export function MainNav() {
+export function HemloNav() {
   const pathname = usePathname();
 
   const isOpportunities = pathname === "/";
