@@ -24,7 +24,6 @@ import {
   scoreJob,
 } from "@/lib/services/ranking";
 import { normalizeKey, splitJobId } from "@/lib/utils/strings";
-import { isNonBengaluruLocation } from "@/lib/location/normalize";
 
 const DEFAULT_SOURCE_CACHE_TTL_MS = 1000 * 60 * 15; // 15 minutes
 const DEFAULT_MAX_MAP_JOBS = 1000;
@@ -123,7 +122,16 @@ export async function getNearbyJobs(
       job.longitude >= 77.2 &&
       job.longitude <= 77.9;
 
-    if (isNonBengaluruLocation(job.locationText)) return false;
+    // Reject jobs whose locationText is explicitly outside India (US, UK, EU, etc.).
+    // verifiedOfficeOverride stamps BLR coords on sourceKey-matched jobs even when
+    // the job is for a non-India office — we must filter those out here.
+    const locLower = (job.locationText ?? "").toLowerCase();
+    const isExplicitlyNonIndia =
+      /\b(united states|usa|new york|san francisco|london|uk|europe|canada|australia|singapore|dubai|uae|germany|france|netherlands)\b/.test(
+        locLower,
+      ) && !/\b(india|bengaluru|bangalore)\b/.test(locLower);
+
+    if (isExplicitlyNonIndia) return false;
 
     return isBlrCoord || isBengaluruRelevantJob(job);
   });
@@ -376,10 +384,6 @@ function isUsableJob(job: NormalizedJob): boolean {
     return false;
   }
 
-  if (isNonBengaluruLocation(job.locationText)) {
-    return false;
-  }
-
   if (!/^https?:\/\//i.test(job.applyUrl)) {
     return false;
   }
@@ -409,9 +413,6 @@ function applyFilters(
   query: NearbyJobsQuery,
 ): NormalizedJob[] {
   return jobs.filter((job) => {
-    if (isNonBengaluruLocation(job.locationText)) {
-      return false;
-    }
     if (job.workMode === "remote" && !remoteJobMatchesQueryRegion(job, query)) {
       return false;
     }
@@ -802,9 +803,6 @@ function mapExclusionReason(
 }
 
 function isBengaluruRelevantJob(job: NormalizedJob): boolean {
-  if (isNonBengaluruLocation(job.locationText)) {
-    return false;
-  }
   const location = normalizeKey(
     `${job.locationText} ${job.city ?? ""} ${job.state ?? ""} ${job.country ?? ""}`,
   );
@@ -817,7 +815,7 @@ function isBengaluruRelevantJob(job: NormalizedJob): boolean {
   }
   return (
     job.workMode === "remote" &&
-    /\b(india|bharat|apac|asia|global|worldwide|anywhere)\b/.test(location)
+    /\b(india|in|bharat|apac|asia|global|worldwide|anywhere)\b/.test(location)
   );
 }
 
@@ -825,9 +823,6 @@ function remoteJobMatchesQueryRegion(
   job: NormalizedJob,
   query: NearbyJobsQuery,
 ): boolean {
-  if (isNonBengaluruLocation(job.locationText)) {
-    return false;
-  }
   const normalizedLocation = normalizeKey(job.locationText);
 
   if (
@@ -839,10 +834,8 @@ function remoteJobMatchesQueryRegion(
   }
 
   if (query.lat >= 6 && query.lat <= 38 && query.lng >= 68 && query.lng <= 98) {
-    return (
-      /\b(india|bharat|bengaluru|bangalore|blr|karnataka)\b/.test(
-        normalizedLocation,
-      ) || /,\s*in\b/i.test(job.locationText)
+    return /\b(india|bharat|in|bengaluru|bangalore|blr)\b/.test(
+      normalizedLocation,
     );
   }
 
