@@ -308,7 +308,7 @@ export const JobCard = React.memo(function JobCard({ job, selected, onSelect, ex
     <article
       id={`job-card-${cssSafeId(job.id)}`}
       className={cn(
-        "group relative rounded-xl border bg-white shadow-2xs transition-all duration-150 ease-out hover:border-zinc-300 hover:shadow-xs",
+        "group relative rounded-xl border bg-white shadow-whisper shadow-whisper-hover transition-all duration-150 ease-out hover:border-zinc-300",
         selected
           ? "border-zinc-900 ring-2 ring-zinc-900/10"
           : "border-zinc-200/80",
@@ -335,14 +335,14 @@ export const JobCard = React.memo(function JobCard({ job, selected, onSelect, ex
                     {job.employmentType === "full_time" ? "Full-time" : toTitleCase(job.employmentType)}
                   </Badge>
                 </div>
-                <p className="mt-0.5 text-xs font-medium text-zinc-500 truncate">{job.companyName}</p>
+                <p className="mt-0.5 text-xs font-medium text-[#71717A] truncate">{job.companyName}</p>
               </div>
             </div>
 
             {/* Badges */}
             <div className="mt-2.5 flex flex-wrap gap-1">
               {job.workMode === "remote" && (
-                <span className="inline-flex items-center gap-1 rounded-md bg-sky-50 px-2 py-0.5 text-[10px] font-medium text-sky-700 ring-1 ring-inset ring-sky-600/20">
+                <span className="inline-flex items-center gap-1 rounded-md bg-zinc-100 px-2 py-0.5 text-[10px] font-medium text-zinc-600 ring-1 ring-inset ring-zinc-200/70">
                   <Wifi className="h-2.5 w-2.5" /> Remote
                 </span>
               )}
@@ -352,7 +352,7 @@ export const JobCard = React.memo(function JobCard({ job, selected, onSelect, ex
                 </span>
               )}
               {job.startup?.isStartup && (
-                <span className="inline-flex items-center gap-1 rounded-md bg-indigo-50 px-2 py-0.5 text-[10px] font-medium text-indigo-700 ring-1 ring-inset ring-indigo-600/20">
+                <span className="inline-flex items-center gap-1 rounded-md bg-zinc-900 px-2 py-0.5 text-[10px] font-semibold text-white ring-0">
                   <Rocket className="h-2.5 w-2.5" />
                   {job.startup.stage ? stageLabel(job.startup.stage) : "Startup"}
                 </span>
@@ -370,19 +370,19 @@ export const JobCard = React.memo(function JobCard({ job, selected, onSelect, ex
             {/* Metrics */}
             <div className="mt-2.5 grid grid-cols-2 gap-2">
               <div className="rounded-lg bg-zinc-50 border border-zinc-100/80 p-2">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Pay</p>
-                <p className={cn("text-xs font-semibold truncate mt-0.5", salary === "Not disclosed" ? "text-zinc-400 font-normal" : "text-zinc-900")}>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-[#94A3B8] font-mono">Pay</p>
+                <p className={cn("text-xs font-semibold truncate mt-0.5", salary === "Not disclosed" ? "text-[#94A3B8] font-normal italic" : "text-[#18181B]")}>
                   {salary}
                 </p>
               </div>
               <div className="rounded-lg bg-zinc-50 border border-zinc-100/80 p-2">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Distance</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-[#94A3B8] font-mono">Distance</p>
                 <p className="text-xs font-semibold text-zinc-900 mt-0.5">{distance}</p>
               </div>
             </div>
 
             {/* Location & verification */}
-            <div className="mt-2.5 flex items-center justify-between text-[11px] text-zinc-400">
+            <div className="mt-2.5 flex items-center justify-between text-[11px] text-[#71717A]">
               <span className="flex items-center gap-1 truncate max-w-[65%]">
                 <MapPin className="h-3 w-3 shrink-0 text-zinc-400" />
                 <span className="truncate">{job.locationText}</span>
@@ -405,7 +405,7 @@ export const JobCard = React.memo(function JobCard({ job, selected, onSelect, ex
               Details
             </Button>
             {job.postedAt && (
-              <span className="ml-auto text-[10px] text-zinc-400 font-medium">
+              <span className="ml-auto text-[10px] text-[#71717A] font-medium">
                 {postedLabel(job.postedAt)}
               </span>
             )}

@@ -58,8 +58,8 @@ export default async function JobPage({ params }: JobPageProps) {
 
   if (!job) {
     return (
-      <main className="min-h-screen bg-[#F7F8FB] px-4 py-12 text-zinc-900">
-        <div className="mx-auto max-w-xl rounded-2xl border border-zinc-200/80 bg-white p-8 text-center shadow-2xs">
+      <main className="min-h-screen bg-[#F9FAFB] px-4 py-12 text-[#18181B]">
+        <div className="mx-auto max-w-xl rounded-2xl border border-zinc-200/60 bg-white p-8 text-center shadow-whisper">
           <h1 className="text-xl font-bold tracking-tight text-zinc-900">Opportunity not found</h1>
           <p className="mt-2 text-xs text-zinc-500">
             This opening may have closed or moved. Return to the discovery map to find live opportunities.
@@ -80,7 +80,7 @@ export default async function JobPage({ params }: JobPageProps) {
   const reviewSlug = job.companyName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
   return (
-    <main className="min-h-screen bg-[#F7F8FB] px-4 py-8 text-zinc-900 sm:px-6">
+    <main className="min-h-screen bg-[#F9FAFB] px-4 py-8 text-[#18181B] sm:px-6">
       <div className="mx-auto max-w-4xl">
         {/* Navigation Breadcrumb */}
         <div className="mb-6 flex items-center justify-between">
@@ -98,7 +98,7 @@ export default async function JobPage({ params }: JobPageProps) {
         </div>
 
         {/* Main Card */}
-        <article className="overflow-hidden rounded-2xl border border-zinc-200/80 bg-white shadow-2xs">
+        <article className="overflow-hidden rounded-2xl border border-zinc-200/60 bg-white shadow-whisper">
           {/* Header */}
           <header className="border-b border-zinc-100 p-6 sm:p-8">
             <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
@@ -147,28 +147,28 @@ export default async function JobPage({ params }: JobPageProps) {
 
           {/* Metric Tiles */}
           <section className="grid grid-cols-2 gap-3 border-b border-zinc-100 bg-zinc-50/50 p-6 sm:grid-cols-4">
-            <div className="rounded-xl border border-zinc-200/70 bg-white p-3.5 shadow-2xs">
+            <div className="rounded-xl border border-zinc-200/60 bg-white p-3.5 shadow-whisper">
               <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1">
                 <IndianRupee className="h-3 w-3" /> Compensation
               </p>
               <p className="mt-1 text-xs font-bold text-zinc-900 truncate">{salaryLabel(job)}</p>
             </div>
 
-            <div className="rounded-xl border border-zinc-200/70 bg-white p-3.5 shadow-2xs">
+            <div className="rounded-xl border border-zinc-200/60 bg-white p-3.5 shadow-whisper">
               <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1">
                 <Navigation className="h-3 w-3" /> Location
               </p>
               <p className="mt-1 text-xs font-bold text-zinc-900 truncate">{distanceLabel(job)}</p>
             </div>
 
-            <div className="rounded-xl border border-zinc-200/70 bg-white p-3.5 shadow-2xs">
+            <div className="rounded-xl border border-zinc-200/60 bg-white p-3.5 shadow-whisper">
               <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1">
                 <CalendarClock className="h-3 w-3" /> Posted
               </p>
               <p className="mt-1 text-xs font-bold text-zinc-900 truncate">{postedLabel(job.postedAt)}</p>
             </div>
 
-            <div className="rounded-xl border border-zinc-200/70 bg-white p-3.5 shadow-2xs">
+            <div className="rounded-xl border border-zinc-200/60 bg-white p-3.5 shadow-whisper">
               <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1">
                 <CheckCircle2 className="h-3 w-3 text-emerald-600" /> Verification
               </p>
@@ -179,16 +179,16 @@ export default async function JobPage({ params }: JobPageProps) {
           {/* Details & Description */}
           <div className="grid gap-8 p-6 sm:p-8 lg:grid-cols-[1fr_260px]">
             <div>
-              <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+              <h2 className="text-[10px] font-bold uppercase tracking-widest text-[#94A3B8] font-mono">
                 Role &amp; Team Details
               </h2>
-              <div className="mt-4 whitespace-pre-line text-xs sm:text-sm leading-relaxed text-zinc-700 font-normal">
+              <div className="mt-4 whitespace-pre-line text-xs sm:text-sm leading-[1.65] text-[#71717A] font-normal">
                 {job.description || "Refer to the official portal for comprehensive responsibility details and requirements."}
               </div>
 
               {job.skills && job.skills.length > 0 && (
                 <div className="mt-8">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+                  <h3 className="text-[10px] font-bold uppercase tracking-widest text-[#94A3B8] font-mono">
                     Required Skills &amp; Stack
                   </h3>
                   <div className="mt-3 flex flex-wrap gap-1.5">

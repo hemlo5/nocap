@@ -3,7 +3,7 @@ import type {
   LocationSearchResult,
   NormalizedJob,
 } from "@/lib/types";
-import { normalizeLocation } from "@/lib/location/normalize";
+import { normalizeLocation, isNonBengaluruLocation } from "@/lib/location/normalize";
 import { verifiedOfficeOverride } from "@/lib/services/office-overrides";
 import { haversineKm } from "@/lib/utils/distance";
 import { compact, normalizeKey } from "@/lib/utils/strings";
@@ -1456,6 +1456,10 @@ export async function attachBestCoordinates(
   }
 
   return jobs.flatMap((job): NormalizedJob[] => {
+    if (isWithinIndia(userLocation) && isNonBengaluruLocation(job.locationText)) {
+      return [];
+    }
+
     if (hasCoordinates(job)) {
       // Even if the job already has ATS-supplied coordinates, check for a verified office
       // override first. ATS coords for the same company can differ by meters between jobs,
@@ -1832,7 +1836,10 @@ function remoteMatchesUserRegion(
   }
 
   if (isWithinIndia(userLocation)) {
-    return /\b(india|bharat|in)\b/.test(normalized);
+    return (
+      /\b(india|bharat|bengaluru|bangalore|blr|karnataka)\b/.test(normalized) ||
+      /,\s*in\b/i.test(text)
+    );
   }
 
   if (isWithinUnitedStates(userLocation)) {

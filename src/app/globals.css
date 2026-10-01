@@ -55,9 +55,9 @@ input {
   height: 16px;
   border: 3px solid #ffffff;
   border-radius: 999px;
-  background: #111827;
+  background: #18181B;
   box-shadow:
-    0 0 0 2px rgb(37 99 235 / 55%),
+    0 0 0 2px rgb(24 24 27 / 30%),
     0 8px 18px rgb(17 24 39 / 28%);
   pointer-events: none;
 }
@@ -65,7 +65,7 @@ input {
 .hemlo-current-location::after {
   position: absolute;
   inset: -9px;
-  border: 1px solid rgb(37 99 235 / 28%);
+  border: 1px solid rgb(24 24 27 / 15%);
   border-radius: inherit;
   content: "";
 }
@@ -186,7 +186,7 @@ input {
   box-shadow:
     0 0 0 2px color-mix(in srgb, var(--marker-accent) 62%, transparent),
     0 8px 18px rgb(17 24 39 / 20%);
-  color: #111827;
+  color: #18181B;
   font-size: 9px;
   font-weight: 800;
   line-height: 1;
@@ -203,7 +203,7 @@ input {
   place-items: center;
   border: 2px solid #ffffff;
   border-radius: 999px;
-  background: #111827;
+  background: #18181B;
   color: #ffffff;
   font-size: 9px;
   font-weight: 800;
@@ -246,7 +246,7 @@ input {
 .hemlo-map-popup .maplibregl-popup-close-button {
   right: 6px;
   top: 4px;
-  color: #6b7280;
+  color: #71717A;
   font-size: 18px;
   line-height: 1;
 }
@@ -259,14 +259,14 @@ input {
 }
 
 .hemlo-popup-card strong {
-  color: #111827;
+  color: #18181B;
   font-size: 14px;
   line-height: 1.35;
 }
 
 .hemlo-popup-card span,
 .hemlo-popup-card small {
-  color: #4b5563;
+  color: #71717A;
   font-size: 12px;
   line-height: 1.45;
 }
@@ -276,7 +276,7 @@ input {
   width: fit-content;
   margin-top: 4px;
   border-radius: 6px;
-  background: #635bff;
+  background: #18181B;
   padding: 7px 10px;
   color: #ffffff;
   font-size: 12px;
@@ -298,17 +298,56 @@ input {
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  color: #111827;
+  color: #18181B;
   font-size: 12px;
   line-height: 1.4;
 }
 
 .hemlo-popup-list small {
   white-space: nowrap;
-  color: #6b7280;
+  color: #71717A;
 }
 
 
+
+/* == Design system utilities == */
+.shadow-whisper {
+  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.05);
+}
+
+.shadow-whisper-hover {
+  transition: box-shadow 200ms ease, transform 200ms ease;
+}
+.shadow-whisper-hover:hover {
+  box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.09);
+  transform: translateY(-1px);
+}
+
+/* Shimmer animation for skeleton loaders */
+@keyframes shimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(90deg,
+    rgb(244 244 245) 0%,
+    rgb(250 250 250) 40%,
+    rgb(244 244 245) 100%
+  );
+  background-size: 800px 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+/* Staggered card entrance */
+@keyframes card-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.animate-card-in {
+  animation: card-in 0.3s ease both;
+}
 /* Custom sleek scrollbar */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }

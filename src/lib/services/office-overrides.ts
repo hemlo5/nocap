@@ -1,5 +1,6 @@
 import type { LocationSearchResult, NormalizedJob } from "@/lib/types";
 import { normalizeKey } from "@/lib/utils/strings";
+import { isNonBengaluruLocation } from "@/lib/location/normalize";
 
 type OfficeOverride = LocationSearchResult & {
   sourceKeys: string[];
@@ -1669,37 +1670,44 @@ const officeOverrides: OfficeOverride[] = [
 export function verifiedOfficeOverride(
   job: NormalizedJob,
 ): LocationSearchResult | null {
-  const location = normalizeKey(job.locationText);
-
-  // Hard skip: remote job that is explicitly for outside India (e.g. US Remote, EMEA Remote)
-  if (
-    /\bremote\b/.test(location) &&
-    /\b(us|usa|united states|uk|europe|canada|apac|asia|latam|germany|france|australia)\b/.test(location) &&
-    !/\b(india|bangalore|bengaluru)\b/.test(location)
-  ) {
-    return null;
-  }
-  // Hard skip: job is explicitly for a different major Indian city (not BLR)
-  if (
-    /\b(mumbai|delhi|hyderabad|chennai|kolkata|pune|gurugram|gurgaon|noida)\b/.test(location) &&
-    !/\b(bangalore|bengaluru)\b/.test(location)
-  ) {
+  // If the job location explicitly points outside Bengaluru/India, never override with BLR office coordinates
+  if (isNonBengaluruLocation(job.locationText)) {
     return null;
   }
 
   const normalizedCompany = normalizeKey(job.companyName);
 
   return (
-    officeOverrides.find((office) =>
-      // Exact ATS source key match — trust the registry regardless of locationText
-      office.sourceKeys.includes(job.sourceKey) ||
-      // Company name match — additionally require BLR in locationText (fuzzy, safer)
-      Boolean(
+    officeOverrides.find((office) => {
+      const matchSource = office.sourceKeys.includes(job.sourceKey);
+      const matchCompany = Boolean(
         office.companyNames &&
-          office.companyNames.some((c) => normalizedCompany.includes(c)) &&
-          office.matchLocation.test(job.locationText),
-      ),
-    ) ?? null
+          office.companyNames.some((c) => normalizedCompany.includes(c)),
+      );
+
+      if (!matchSource && !matchCompany) return false;
+
+      // Location match: MUST match the office's matchLocation (e.g. Bangalore/Bengaluru)
+      // OR the locationText mentions Bengaluru tech hubs
+      if (
+        office.matchLocation.test(job.locationText) ||
+        /\b(bengaluru|bangalore|blr|koramangala|hsr|indiranagar|whitefield|bellandur|marathahalli|hebbal|manyata|electronic city|sarjapur|kadubeesanahalli|domlur|yemalur|btm|jp nagar|jayanagar|bagmane|ecospace|cessna|itpl)\b/i.test(
+          job.locationText,
+        )
+      ) {
+        return true;
+      }
+
+      // If location is blank or generic India, only trust if it's an India-headquartered startup / source
+      const loc = (job.locationText ?? "").toLowerCase();
+      const isIndiaGeneric =
+        /\b(india|bharat)\b/.test(loc) || loc.trim() === "";
+      if (isIndiaGeneric && matchSource && !/\bremote\b/.test(loc)) {
+        return true;
+      }
+
+      return false;
+    }) ?? null
   );
 }
 

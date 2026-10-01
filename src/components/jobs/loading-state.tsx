@@ -8,23 +8,23 @@ export function LoadingState({ count = 5 }: LoadingStateProps) {
       {Array.from({ length: count }).map((_, index) => (
         <div
           key={index}
-          className="rounded-xl border border-zinc-200/80 bg-white p-3.5 shadow-2xs space-y-3 animate-pulse"
+          className="rounded-xl border border-zinc-200/60 bg-white p-3.5 shadow-whisper space-y-3"
         >
           <div className="flex items-start gap-3">
-            <div className="h-10 w-10 rounded-xl bg-zinc-100 shrink-0" />
+            <div className="h-10 w-10 rounded-xl skeleton-shimmer shrink-0" />
             <div className="flex-1 space-y-1.5">
-              <div className="h-3.5 w-3/4 rounded bg-zinc-200" />
-              <div className="h-3 w-1/3 rounded bg-zinc-100" />
+              <div className="h-3.5 w-3/4 rounded skeleton-shimmer" />
+              <div className="h-3 w-1/3 rounded skeleton-shimmer" />
             </div>
           </div>
           <div className="flex gap-1.5">
-            <div className="h-4 w-16 rounded bg-zinc-100" />
-            <div className="h-4 w-14 rounded bg-zinc-100" />
-            <div className="h-4 w-18 rounded bg-zinc-100" />
+            <div className="h-4 w-16 rounded skeleton-shimmer" />
+            <div className="h-4 w-14 rounded skeleton-shimmer" />
+            <div className="h-4 w-18 rounded skeleton-shimmer" />
           </div>
           <div className="grid grid-cols-2 gap-2 pt-1">
-            <div className="h-10 rounded-lg bg-zinc-50 border border-zinc-100" />
-            <div className="h-10 rounded-lg bg-zinc-50 border border-zinc-100" />
+            <div className="h-10 rounded-lg skeleton-shimmer" />
+            <div className="h-10 rounded-lg skeleton-shimmer" />
           </div>
         </div>
       ))}
@@ -34,28 +34,28 @@ export function LoadingState({ count = 5 }: LoadingStateProps) {
 
 export function FilterSkeleton() {
   return (
-    <aside className="border-b border-zinc-200/80 bg-white p-3.5 sm:p-4 lg:border-b-0 lg:border-r space-y-4 animate-pulse">
+    <aside className="border-b border-zinc-200/80 bg-white p-3.5 sm:p-4 lg:border-b-0 lg:border-r space-y-4">
       <div className="flex items-center justify-between pb-3 border-b border-zinc-100">
-        <div className="h-4 w-16 rounded bg-zinc-200" />
+        <div className="h-4 w-16 rounded skeleton-shimmer" />
       </div>
       <div className="space-y-2">
-        <div className="h-3 w-14 rounded bg-zinc-100" />
-        <div className="h-8 w-full rounded-md bg-zinc-100" />
+        <div className="h-3 w-14 rounded skeleton-shimmer" />
+        <div className="h-8 w-full rounded-md skeleton-shimmer" />
       </div>
       <div className="space-y-2">
-        <div className="h-3 w-12 rounded bg-zinc-100" />
+        <div className="h-3 w-12 rounded skeleton-shimmer" />
         <div className="grid grid-cols-2 gap-1.5 rounded-lg bg-zinc-100 p-1">
-          <div className="h-6 rounded bg-zinc-200" />
-          <div className="h-6 rounded bg-zinc-200" />
+          <div className="h-6 rounded skeleton-shimmer" />
+          <div className="h-6 rounded skeleton-shimmer" />
         </div>
       </div>
       {Array.from({ length: 4 }).map((_, index) => (
         <div key={index} className="space-y-2">
-          <div className="h-3 w-16 rounded bg-zinc-100" />
+          <div className="h-3 w-16 rounded skeleton-shimmer" />
           <div className="flex flex-wrap gap-1.5">
-            <div className="h-6 w-12 rounded bg-zinc-100" />
-            <div className="h-6 w-16 rounded bg-zinc-100" />
-            <div className="h-6 w-14 rounded bg-zinc-100" />
+            <div className="h-6 w-12 rounded skeleton-shimmer" />
+            <div className="h-6 w-16 rounded skeleton-shimmer" />
+            <div className="h-6 w-14 rounded skeleton-shimmer" />
           </div>
         </div>
       ))}

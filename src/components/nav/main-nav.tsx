@@ -8,25 +8,32 @@ import { cn } from "@/lib/utils/cn";
 
 export function MainNav() {
   const pathname = usePathname();
-  const isPainPoints = pathname === "/pain-points" || pathname === "/pulse";
+
+  const isOpportunities = pathname === "/";
+  const isPulse = pathname.startsWith("/pulse");
+  const isPainPoints = pathname.startsWith("/pain-points");
 
   useEffect(() => {
-    document.documentElement.style.backgroundColor = isPainPoints ? "#09090b" : "#F9FAFB";
-    return () => { document.documentElement.style.backgroundColor = ""; };
+    if (typeof document === "undefined") return;
+    const bg = isPainPoints ? "#070709" : "#F7F8FB";
+    document.documentElement.style.backgroundColor = bg;
+    document.body.style.backgroundColor = bg;
   }, [isPainPoints]);
 
   return (
     <header
       suppressHydrationWarning
       className={cn(
-        "sticky top-0 z-40 w-full border-b backdrop-blur-md transition-colors duration-300",
+        "sticky top-0 z-50 w-full shrink-0 border-b backdrop-blur-md transition-colors duration-200",
         isPainPoints
-          ? "border-zinc-800/60 bg-zinc-950/90 text-zinc-100"
-          : "border-zinc-200/70 bg-white/90 text-zinc-900",
+          ? "border-zinc-800/80 bg-[#070709]/90 text-white"
+          : "border-zinc-200/80 bg-white/90 text-zinc-900",
       )}
     >
-      <div className="mx-auto flex h-11 max-w-[1600px] items-center gap-1 px-3 sm:gap-2 sm:px-4">
-
+      <div
+        suppressHydrationWarning
+        className="mx-auto flex h-14 max-w-screen-2xl items-center gap-2 sm:gap-4 px-3 sm:px-6"
+      >
         {/* Brand */}
         <Link
           href="/"
@@ -35,77 +42,90 @@ export function MainNav() {
             isPainPoints ? "text-white" : "text-zinc-900",
           )}
         >
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#18181B] text-white shadow-sm transition-transform group-hover:scale-105">
-            <span className="text-xs font-black tracking-tight select-none">H</span>
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#18181B] text-white shadow-2xs transition-transform group-hover:scale-105">
+            <span className="text-xs font-black tracking-tight">H</span>
           </div>
           <div className="flex flex-col">
-            <span suppressHydrationWarning className="text-sm font-black tracking-tight leading-none">
-              hemlo
-            </span>
+            <span className="text-sm font-black tracking-tight leading-none">hemlo</span>
             <span className={cn("text-[10px] font-medium tracking-normal leading-none mt-0.5", isPainPoints ? "text-zinc-500" : "text-zinc-400")}>
               Bengaluru
             </span>
           </div>
         </Link>
 
-        {/* Nav links */}
-        <nav className="flex items-center gap-0.5 sm:gap-1 ml-1" aria-label="Main navigation">
+        <div
+          className={cn(
+            "hidden sm:block h-4 w-px shrink-0",
+            isPainPoints ? "bg-zinc-800" : "bg-zinc-200",
+          )}
+          aria-hidden
+        />
+
+        {/* Nav Links — Vercel segmented style */}
+        <nav className="flex items-center gap-1 shrink-0" aria-label="Main navigation">
           <Link
             href="/"
+            aria-current={isOpportunities ? "page" : undefined}
             className={cn(
-              "flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-semibold transition-colors sm:px-2.5",
-              pathname === "/" || pathname === ""
+              "group relative flex items-center gap-1.5 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-semibold transition-all duration-150",
+              isOpportunities
                 ? isPainPoints
-                  ? "bg-zinc-800 text-white"
-                  : "bg-[#18181B] text-white"
+                  ? "bg-zinc-800 text-white shadow-2xs"
+                  : "bg-[#18181B] text-white shadow-2xs"
                 : isPainPoints
-                  ? "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
-                  : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900",
+                  ? "text-zinc-400 hover:bg-zinc-800/60 hover:text-white"
+                  : "text-zinc-600 hover:bg-zinc-100/70 hover:text-zinc-900",
             )}
+            title="Opportunities & Map"
           >
-            <Briefcase className="h-3.5 w-3.5 shrink-0" aria-hidden />
-            <span className="hidden sm:inline">Opportunities</span>
-            <span className="sm:hidden">Jobs</span>
-            {pathname === "/" && (
-              <span className="ml-0.5 h-1.5 w-1.5 rounded-full bg-emerald-400 shrink-0" aria-hidden />
+            <Briefcase className="h-3.5 w-3.5 shrink-0 opacity-75 group-hover:opacity-100" aria-hidden />
+            <span className="hidden md:inline">Opportunities</span>
+            <span className="md:hidden">Jobs</span>
+            {isOpportunities && (
+              <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-500 ring-2 ring-emerald-400/20" />
             )}
           </Link>
 
           <Link
             href="/pulse"
+            aria-current={isPulse ? "page" : undefined}
             className={cn(
-              "flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-semibold transition-colors sm:px-2.5",
-              pathname === "/pulse"
-                ? "bg-[#18181B] text-white"
+              "group relative flex items-center gap-1.5 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-semibold transition-all duration-150",
+              isPulse
+                ? isPainPoints
+                  ? "bg-zinc-800 text-white shadow-2xs"
+                  : "bg-[#18181B] text-white shadow-2xs"
                 : isPainPoints
-                  ? "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
-                  : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900",
+                  ? "text-zinc-400 hover:bg-zinc-800/60 hover:text-white"
+                  : "text-zinc-600 hover:bg-zinc-100/70 hover:text-zinc-900",
             )}
+            title="Startup Pulse & News"
           >
-            <Activity className="h-3.5 w-3.5 shrink-0" aria-hidden />
+            <Activity className="h-3.5 w-3.5 shrink-0 opacity-75 group-hover:opacity-100" aria-hidden />
             <span>Pulse</span>
           </Link>
 
           <Link
             href="/pain-points"
+            aria-current={isPainPoints ? "page" : undefined}
             className={cn(
-              "flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-semibold transition-colors sm:px-2.5",
-              pathname === "/pain-points"
-                ? "bg-[#18181B] text-white"
-                : isPainPoints
-                  ? "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
-                  : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900",
+              "group relative flex items-center gap-1.5 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-semibold transition-all duration-150",
+              isPainPoints
+                ? "bg-zinc-800 text-white shadow-2xs ring-1 ring-zinc-700/60"
+                : "text-zinc-600 hover:bg-zinc-100/70 hover:text-zinc-900",
             )}
+            title="Market Whitespace & Gaps"
           >
-            <Compass className="h-3.5 w-3.5 shrink-0" aria-hidden />
+            <Compass className="h-3.5 w-3.5 shrink-0 opacity-75 group-hover:opacity-100" aria-hidden />
             <span className="hidden sm:inline">Pain Points</span>
-            <span className="sm:hidden">Insights</span>
+            <span className="sm:hidden">Gaps</span>
           </Link>
         </nav>
 
         {/* Portal slot — HemloApp injects location search here */}
-        <div id="nav-search-slot" className="ml-auto flex items-center" />
+        <div id="nav-search-slot" className="flex flex-1 items-center min-w-0 justify-end sm:justify-start" />
       </div>
     </header>
   );
 }
+// hemlo
