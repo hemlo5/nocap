@@ -1,4 +1,4 @@
-﻿import type { Metadata } from "next";
+import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { MainNav } from "@/components/nav/main-nav";
 import "./globals.css";
@@ -15,7 +15,7 @@ export const viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "Hemlo â Jobs & Startups in Bengaluru",
+  title: "Hemlo  -  Jobs & Startups in Bengaluru",
   description: "Find startup jobs, internships & tech roles on a live map of Bengaluru. 6,000+ opportunities from 150+ companies.",
 };
 
