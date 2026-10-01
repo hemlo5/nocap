@@ -15,7 +15,7 @@ export const viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "Hemlo — Jobs & Startups in Bengaluru",
+  title: "Hemlo - Jobs & Startups in Bengaluru",
   description: "Find startup jobs, internships & tech roles on a live map of Bengaluru. 6,000+ opportunities from 150+ companies.",
 };
 
