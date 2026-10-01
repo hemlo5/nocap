@@ -1,5 +1,5 @@
-import { NearHireApp } from "@/components/nearhire-app";
+import { HemloApp } from "@/components/hemlo-app";
 
 export default function Home() {
-  return <NearHireApp />;
+  return <HemloApp />;
 }

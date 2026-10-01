@@ -95,7 +95,7 @@ async function fetchAlgoliaOptions(): Promise<AlgoliaOpts> {
   const response = await fetch(`${YC_COMPANIES_URL}?regions=India`, {
     headers: {
       Accept: "text/html",
-      "User-Agent": "NearHire local development (public YC directory discovery)",
+      "User-Agent": "Hemlo local development (public YC directory discovery)",
     },
     signal: requestSignal(),
     next: { revalidate: 60 * 60 * 6 },

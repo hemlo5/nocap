@@ -89,7 +89,7 @@ async function fetchHtml(url: string): Promise<string> {
   const response = await fetch(url, {
     headers: {
       Accept: "text/html",
-      "User-Agent": "NearHire local development (public careers discovery)",
+      "User-Agent": "Hemlo local development (public careers discovery)",
     },
     signal: requestSignal(7000),
     next: { revalidate: 60 * 60 * 24 },
@@ -141,7 +141,7 @@ async function findWorkingPlausiblePath(website: string): Promise<string | null>
         method: "GET",
         headers: {
           Accept: "text/html",
-          "User-Agent": "NearHire local development (public careers discovery)",
+          "User-Agent": "Hemlo local development (public careers discovery)",
         },
         signal: requestSignal(5000),
         next: { revalidate: 60 * 60 * 24 },

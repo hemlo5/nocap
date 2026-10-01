@@ -46,7 +46,7 @@ export function MainNav() {
             <span className="text-xs font-black tracking-tight">H</span>
           </div>
           <div className="flex flex-col">
-            <span className="text-sm font-black tracking-tight leading-none">hemlo</span>
+            <span className="text-sm font-black tracking-tight leading-none">Hemlo</span>
             <span className={cn("text-[10px] font-medium tracking-normal leading-none mt-0.5", isPainPoints ? "text-zinc-500" : "text-zinc-400")}>
               Bengaluru
             </span>
