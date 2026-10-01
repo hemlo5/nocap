@@ -129,3 +129,5 @@ export function HemloNav() {
   );
 }
 // hemlo
+
+export { HemloNav as MainNav };
