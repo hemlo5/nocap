@@ -2,13 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Map, Briefcase, MessageSquareText } from "lucide-react";
+import { Map, Briefcase, Info } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 
 export function HemloNav() {
   const pathname = usePathname();
+  const isHome = pathname === "/";
   const isMap = pathname.startsWith("/map") || pathname.startsWith("/nocap");
-  const isOpportunities = pathname === "/" || pathname.startsWith("/opportunities");
+  const isAbout = pathname.startsWith("/about");
+  const isOpportunities = pathname.startsWith("/opportunities");
 
   return (
     <header
@@ -20,7 +22,7 @@ export function HemloNav() {
       <div suppressHydrationWarning className="mx-auto flex h-14 max-w-screen-2xl items-center gap-2 sm:gap-4 px-3 sm:px-6">
         {/* Brand */}
         <Link
-          href="/map"
+          href="/"
           className="group flex shrink-0 items-center transition-opacity hover:opacity-90 mr-2"
         >
           <img
@@ -47,18 +49,33 @@ export function HemloNav() {
                 ? "bg-[#18181B] text-white shadow-2xs"
                 : "text-zinc-600 hover:bg-zinc-100/70 hover:text-zinc-900",
             )}
-            title="Map"
+            title="Interactive Map"
           >
             <Map className="h-3.5 w-3.5 shrink-0 opacity-75 group-hover:opacity-100" aria-hidden />
             <span>Map</span>
           </Link>
 
           <Link
-            href="/"
+            href="/about"
+            aria-current={isAbout ? "page" : undefined}
+            className={cn(
+              "group relative flex items-center gap-1.5 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-semibold transition-all duration-150",
+              isAbout
+                ? "bg-[#18181B] text-white shadow-2xs"
+                : "text-zinc-600 hover:bg-zinc-100/70 hover:text-zinc-900",
+            )}
+            title="About NoCapBLR"
+          >
+            <Info className="h-3.5 w-3.5 shrink-0 opacity-75 group-hover:opacity-100" aria-hidden />
+            <span>About</span>
+          </Link>
+
+          <Link
+            href="/opportunities"
             aria-current={isOpportunities ? "page" : undefined}
             className={cn(
               "group relative flex items-center gap-1.5 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-semibold transition-all duration-150",
-              isOpportunities && !isMap
+              isOpportunities
                 ? "bg-[#18181B] text-white shadow-2xs"
                 : "text-zinc-600 hover:bg-zinc-100/70 hover:text-zinc-900",
             )}

@@ -121,3 +121,63 @@ export const nocapPlaces: NocapPlace[] = [
 export function findNocapPlace(id: string) {
   return nocapPlaces.find((place) => place.id === id) ?? null;
 }
+
+export function slugifyArea(area: string): string {
+  return area
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
+export function getAllAreas(): Array<{ slug: string; name: string; count: number }> {
+  const map = new Map<string, { slug: string; name: string; count: number }>();
+  for (const place of nocapPlaces) {
+    const slug = slugifyArea(place.area);
+    const existing = map.get(slug);
+    if (existing) {
+      existing.count += 1;
+    } else {
+      map.set(slug, { slug, name: place.area, count: 1 });
+    }
+  }
+  return Array.from(map.values()).sort((a, b) => b.count - a.count);
+}
+
+export function findPlacesByArea(areaSlug: string): NocapPlace[] {
+  return nocapPlaces.filter((place) => slugifyArea(place.area) === areaSlug);
+}
+
+export function findPlacesByCategory(category: string): NocapPlace[] {
+  return nocapPlaces.filter((place) => place.category === category);
+}
+
+export const categoryDetails: Record<
+  string,
+  { name: string; tag: string; description: string }
+> = {
+  eat: {
+    name: "Food & Drink",
+    tag: "Iconic Eats, Filter Coffee, Craft Breweries & Street Food",
+    description:
+      "Unfiltered opinions on Bengaluru's legendary breakfast spots, modern bistros, microbreweries, and street eats. Real people, no paid influencer hype.",
+  },
+  street: {
+    name: "Streets & Walks",
+    tag: "High Streets, Commercial Hubs, Night Walks & Markets",
+    description:
+      "Firsthand reviews of Bengaluru's most vibrant streets—from Church Street's weekend buzz to Commercial Street's shopping sprawl.",
+  },
+  park: {
+    name: "Parks & Lakes",
+    tag: "Lakes, Green Corridors, Walking Tracks & Nature Escapes",
+    description:
+      "Real community feedback on green lungs, jogging trails, clean waters, and weekend retreats across Bengaluru.",
+  },
+  culture: {
+    name: "Culture & Arts",
+    tag: "Galleries, Theatres, Heritage Spaces & Creative Hubs",
+    description:
+      "Bengaluru's theatre scene, independent art galleries, heritage palaces, and reading spaces reviewed by locals.",
+  },
+};
+
