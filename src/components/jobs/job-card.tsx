@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import React, { useEffect, useState } from "react";
 import {
   ArrowUpRight, Building2, CalendarClock, CheckCircle2,
@@ -150,8 +149,6 @@ export const JobCard = React.memo(function JobCard({ job, selected, onSelect, ex
   const mid   = lighten(color, 20);
   const dark  = darken(color, 50);
   const rgb   = toRgb(color);
-  const brand = `rgb(${rgb})`;
-
   // ── EXPANDED: full view (map hidden) ──────────────────────────────────────
   if (expanded) {
     const gradient = `linear-gradient(135deg, rgb(${toRgb(light)}) 0%, rgb(${toRgb(mid)}) 45%, rgb(${toRgb(dark)}) 100%)`;

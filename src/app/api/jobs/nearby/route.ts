@@ -16,6 +16,7 @@ export async function GET(request: Request) {
     lat: data.lat,
     lng: data.lng,
     radius: data.radius,
+    sourceDiscovery: data.source_discovery,
     sourceProvider: data.source_provider,
     employmentType: data.employment_type,
     field: data.field,

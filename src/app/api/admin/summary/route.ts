@@ -1,4 +1,5 @@
 import { buildCompanyRegistry } from "@/lib/services/company-registry";
+import { discoverJobSources } from "@/lib/services/source-discovery";
 import { getEnabledSources } from "@/lib/sources";
 import { requireBearerSecret } from "@/lib/validation";
 
@@ -48,6 +49,7 @@ export async function GET(request: Request) {
     0,
   );
   const registry = await getCompanyRegistrySummary();
+  const discovery = await getSourceDiscoverySummary();
 
   return Response.json({
     totals: {
@@ -66,9 +68,14 @@ export async function GET(request: Request) {
       companiesWithSupportedAts: registry.coverage.withSupportedAts,
       companiesWithUnsupportedAts: registry.coverage.withUnsupportedAts,
       activelyHiringCompanies: registry.coverage.activelyHiring,
+      discoveredSources: discovery.totals.supportedSources,
+      discoveredSourcesValidated: discovery.totals.validatedSources,
+      discoveredSourcesFailed: discovery.totals.failedSources,
+      unsupportedDiscoveredSources: discovery.totals.unsupportedSources,
     },
     sources: sourceSummaries,
     companyRegistry: registry,
+    sourceDiscovery: discovery,
     note: "Live source mode: no database, queue, cron worker, Redis, or PostGIS is used for search.",
   });
 }
@@ -162,4 +169,61 @@ function summarizeUnsupported(
   }
 
   return [...byPlatform.values()].sort((a, b) => b.companies - a.companies);
+}
+
+async function getSourceDiscoverySummary(): Promise<{
+  totals: {
+    companiesConsidered: number;
+    supportedSources: number;
+    validatedSources: number;
+    failedSources: number;
+    unsupportedSources: number;
+  };
+  sample: Array<{
+    companyName: string;
+    provider: string;
+    key: string;
+    confidence: string;
+    discoveryMethod: string;
+    status: string;
+    jobsFetched: number | null;
+  }>;
+  warning?: string;
+}> {
+  try {
+    const discovery = await discoverJobSources({
+      city: "Bengaluru",
+      country: "India",
+      includeRemote: true,
+      maxCompanies: 500,
+      detectLimit: 180,
+      maxSources: 180,
+      validate: false,
+    });
+
+    return {
+      totals: discovery.totals,
+      sample: discovery.discoveredSources.slice(0, 20).map((item) => ({
+        companyName: item.companyName,
+        provider: item.source.provider,
+        key: item.source.key,
+        confidence: item.confidence,
+        discoveryMethod: item.discoveryMethod,
+        status: item.status,
+        jobsFetched: item.jobsFetched,
+      })),
+    };
+  } catch (error) {
+    return {
+      totals: {
+        companiesConsidered: 0,
+        supportedSources: 0,
+        validatedSources: 0,
+        failedSources: 0,
+        unsupportedSources: 0,
+      },
+      sample: [],
+      warning: error instanceof Error ? error.message : String(error),
+    };
+  }
 }

@@ -1,4 +1,4 @@
-import { buildCompanyRegistry } from "@/lib/services/company-registry";
+import { discoverJobSources } from "@/lib/services/source-discovery";
 import { requireBearerSecret } from "@/lib/validation";
 
 export async function GET(request: Request) {
@@ -12,37 +12,36 @@ export async function GET(request: Request) {
   const country = url.searchParams.get("country") || "India";
   const query = url.searchParams.get("query") || undefined;
   const includeRemote = url.searchParams.get("include_remote") !== "false";
-  const maxResults = parsePositiveInt(url.searchParams.get("limit"), 150);
-  const detectCareers = url.searchParams.get("detect_careers") === "true";
-  const detectLimit = parsePositiveInt(url.searchParams.get("detect_limit"), 20);
+  const maxResults = parsePositiveInt(url.searchParams.get("limit"), 500);
+  const detectLimit = parsePositiveInt(url.searchParams.get("detect_limit"), 180);
+  const maxSources = parsePositiveInt(url.searchParams.get("max_sources"), 180);
+  const validate = url.searchParams.get("validate") === "true";
 
-  const registry = await buildCompanyRegistry(
-    {
-      city,
-      country,
-      query,
-      includeRemote,
-      maxResults,
-    },
-    {
-      includeDiscovery: true,
-      detectCareers,
-      maxDetectedCareers: detectLimit,
-    },
-  );
+  const discovery = await discoverJobSources({
+    city,
+    country,
+    query,
+    includeRemote,
+    maxCompanies: maxResults,
+    detectLimit,
+    maxSources,
+    validate,
+  });
 
   return Response.json({
-    totals: registry.coverage,
-    companies: registry.companies,
-    unsupportedSources: registry.unsupportedSources,
-    unsupportedSummary: summarizeUnsupported(registry.unsupportedSources),
+    totals: discovery.totals,
+    discoveredSources: discovery.discoveredSources,
+    unsupportedSources: discovery.unsupportedSources,
+    unsupportedSummary: summarizeUnsupported(discovery.unsupportedSources),
+    generatedAt: discovery.generatedAt,
+    cached: discovery.cached,
     note:
-      "Canonical in-memory company registry. No database or persistent crawler is used in this phase.",
+      "Discovery-generated ATS sources feed the existing NearHire adapters. No database or persistent crawler is used in this phase.",
   });
 }
 
 function summarizeUnsupported(
-  unsupportedSources: Awaited<ReturnType<typeof buildCompanyRegistry>>["unsupportedSources"],
+  unsupportedSources: Awaited<ReturnType<typeof discoverJobSources>>["unsupportedSources"],
 ) {
   const byPlatform = new Map<
     string,

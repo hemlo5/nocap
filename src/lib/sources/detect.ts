@@ -125,24 +125,32 @@ export async function detectCareerSource(
     return direct;
   }
 
-  const response = await fetch(careersUrl, {
-    signal: requestSignal(6000),
-    cache: "no-store",
-    headers: {
-      Accept: "text/html",
-      "User-Agent": "Hemlo (public careers ATS detector)",
-    },
-  });
+  try {
+    const response = await fetch(careersUrl, {
+      signal: requestSignal(6000),
+      cache: "no-store",
+      headers: {
+        Accept: "text/html",
+        "User-Agent": "Hemlo (public careers ATS detector)",
+      },
+    });
 
-  if (!response.ok) {
+    if (!response.ok) {
+      return {
+        platform: null,
+        provider: null,
+        supported: false,
+      };
+    }
+
+    return detectFromText(await response.text());
+  } catch {
     return {
       platform: null,
       provider: null,
       supported: false,
     };
   }
-
-  return detectFromText(await response.text());
 }
 
 export function detectFromText(text: string): CareerSourceDetectionResult {

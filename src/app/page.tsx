@@ -1,5 +1,5 @@
-import { HemloApp } from "@/components/hemlo-app";
+import { redirect } from "next/navigation";
 
 export default function Home() {
-  return <HemloApp />;
+  redirect("/nocap");
 }

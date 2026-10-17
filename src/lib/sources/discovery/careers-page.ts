@@ -28,6 +28,7 @@ const PLAUSIBLE_CAREERS_PATHS = [
   "/open-positions",
   "/opportunities",
 ];
+const MAX_DISCOVERY_HTML_BYTES = 1_500_000;
 
 export async function discoverCareersPage(
   company: CompanyInput,
@@ -92,14 +93,22 @@ async function fetchHtml(url: string): Promise<string> {
       "User-Agent": "Hemlo local development (public careers discovery)",
     },
     signal: requestSignal(7000),
-    next: { revalidate: 60 * 60 * 24 },
+    cache: "no-store",
   });
 
   if (!response.ok) {
     throw new Error(`Careers discovery fetch returned ${response.status}`);
   }
 
-  return response.text();
+  const size = Number.parseInt(response.headers.get("content-length") ?? "", 10);
+  if (Number.isFinite(size) && size > MAX_DISCOVERY_HTML_BYTES) {
+    throw new Error(`Careers discovery page is too large (${size} bytes)`);
+  }
+
+  const html = await response.text();
+  return html.length > MAX_DISCOVERY_HTML_BYTES
+    ? html.slice(0, MAX_DISCOVERY_HTML_BYTES)
+    : html;
 }
 
 function extractCareerLinks(html: string, baseUrl: string): LinkCandidate[] {
@@ -144,7 +153,7 @@ async function findWorkingPlausiblePath(website: string): Promise<string | null>
           "User-Agent": "Hemlo local development (public careers discovery)",
         },
         signal: requestSignal(5000),
-        next: { revalidate: 60 * 60 * 24 },
+        cache: "no-store",
       });
 
       if (

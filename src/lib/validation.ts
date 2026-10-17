@@ -11,6 +11,7 @@ export const nearbyJobsSchema = z.object({
   lat: z.coerce.number().min(-90).max(90),
   lng: z.coerce.number().min(-180).max(180),
   radius: z.coerce.number().min(1).max(150).default(10),
+  source_discovery: z.enum(["off", "validated"]).optional().default("off"),
   source_provider: z.enum(["all", "yc"]).optional().default("all"),
   employment_type: z
     .union([z.enum(["all"]), z.enum(employmentTypes)])

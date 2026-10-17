@@ -1,3 +1,4 @@
+import { BengaluruSeedDiscoverySource } from "@/lib/sources/discovery/bengaluru-seeds";
 import { YcDirectoryDiscoverySource } from "@/lib/sources/discovery/yc-directory";
 import { RegistryStartupDiscoverySource } from "@/lib/sources/registry-startup-source";
 import type {
@@ -78,6 +79,7 @@ export async function discoverStartupCompanies(
 
 export function getStartupDiscoverySources(): CompanyDiscoverySource[] {
   return [
+    new BengaluruSeedDiscoverySource(),
     new YcDirectoryDiscoverySource(),
     new RegistryStartupDiscoverySource(),
   ];

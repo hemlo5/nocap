@@ -74,7 +74,11 @@ export function MapSkeleton({
 }: MapSkeletonProps) {
   return (
     <div
-      className="relative h-full min-h-[260px] w-full overflow-hidden bg-zinc-100"
+      className={
+        compact
+          ? "relative h-full min-h-[180px] w-full overflow-hidden bg-zinc-100"
+          : "relative h-full min-h-[260px] w-full overflow-hidden bg-zinc-100"
+      }
       aria-busy="true"
       aria-label={label}
     >

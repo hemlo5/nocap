@@ -1,8 +1,8 @@
-import { getEnabledSources, getSourceById } from "@/lib/sources";
+import { createSource, getEnabledSources, getSourceById } from "@/lib/sources";
 import { getSourceConfigs } from "@/lib/sources/default-sources";
+import { getDiscoveredSourceConfigs } from "@/lib/services/source-discovery";
 import type {
   CompanySummary,
-  Coordinates,
   CoverageSummary,
   JobSource,
   NearbyJobsQuery,
@@ -11,6 +11,7 @@ import type {
   SearchDebugSummary,
   SourceHealth,
   SourceHealthSummary,
+  SourceProvider,
 } from "@/lib/types";
 import {
   classifyStartupRoleType,
@@ -25,7 +26,7 @@ import {
 } from "@/lib/services/ranking";
 import { normalizeKey, splitJobId } from "@/lib/utils/strings";
 
-const DEFAULT_SOURCE_CACHE_TTL_MS = 1000 * 60 * 15; // 15 minutes
+const DEFAULT_SOURCE_CACHE_TTL_MS = 1000 * 60 * 60; // 60 minutes
 const DEFAULT_MAX_MAP_JOBS = 1000;
 
 type SourceCacheEntry = {
@@ -42,7 +43,7 @@ type LiveResultCache = {
   sources: SourceHealthSummary;
 };
 
-let cachedLiveResult: LiveResultCache | null = null;
+const liveResultCache = new Map<string, LiveResultCache>();
 
 
 
@@ -51,23 +52,9 @@ export async function getNearbyJobs(
 ): Promise<NearbyJobsResponse> {
   const live = await getNearbyJobsFromLiveSources(query);
 
-  const ranked = applyFilters(live.jobs, query)
+  const filtered = applyFilters(live.jobs, query)
     .map((job) => ({ ...job, score: scoreJob(job, query) }))
-    .sort((a, b) => {
-      if (query.workMode !== "remote" && hasMapPin(a) !== hasMapPin(b)) {
-        return hasMapPin(a) ? -1 : 1;
-      }
-      if ((b.score ?? 0) !== (a.score ?? 0)) {
-        return (b.score ?? 0) - (a.score ?? 0);
-      }
-      return (
-        (a.distanceKm ?? Number.POSITIVE_INFINITY) -
-        (b.distanceKm ?? Number.POSITIVE_INFINITY)
-      );
-    });
-
-  const filtered =
-    query.workMode === "remote" ? ranked : interleaveMapPinGroups(ranked);
+    .sort((a, b) => compareNearbyJobs(a, b, query));
 
   // Map jobs: Show all jobs with proper office coordinates across Bengaluru
   // (applying user's keyword, role, and source filters, but NOT restricted by local radius)
@@ -168,7 +155,7 @@ export async function getJobById(id: string): Promise<NormalizedJob | null> {
     return null;
   }
 
-  const source = getSourceById(parts.provider, parts.sourceKey);
+  const source = await getSourceForJobId(parts.provider, parts.sourceKey);
   if (!source) {
     return null;
   }
@@ -216,16 +203,25 @@ async function getNearbyJobsFromLiveSources(query: NearbyJobsQuery): Promise<{
   warnings: string[];
   sources: SourceHealthSummary;
 }> {
+  const cacheKey = liveResultCacheKey(query);
+  const cachedLiveResult = liveResultCache.get(cacheKey);
   if (cachedLiveResult && cachedLiveResult.expiresAt > Date.now()) {
+    const jobsForLocation = dedupeJobs(
+      await attachBestCoordinates(cachedLiveResult.jobs, {
+        lat: query.lat,
+        lng: query.lng,
+      }),
+    );
+
     return {
-      jobs: cachedLiveResult.jobs,
+      jobs: jobsForLocation,
       warnings: cachedLiveResult.warnings,
       sources: cachedLiveResult.sources,
     };
   }
 
   const warnings: string[] = [];
-  const sources = getEnabledSources(query);
+  const sources = await getRunnableSources(query);
 
   // Fetch sources in batches of 10 to avoid connection saturation
   const BATCH_SIZE = 35;
@@ -310,12 +306,12 @@ async function getNearbyJobsFromLiveSources(query: NearbyJobsQuery): Promise<{
   });
   logSourceHealth(sourceSummary, health);
 
-  cachedLiveResult = {
+  liveResultCache.set(cacheKey, {
     expiresAt: Date.now() + DEFAULT_SOURCE_CACHE_TTL_MS,
     jobs: deduped,
     warnings,
     sources: sourceSummary,
-  };
+  });
 
   return {
     jobs: deduped,
@@ -324,12 +320,104 @@ async function getNearbyJobsFromLiveSources(query: NearbyJobsQuery): Promise<{
   };
 }
 
+function liveResultCacheKey(query: NearbyJobsQuery): string {
+  return JSON.stringify({
+    sourceDiscovery: query.sourceDiscovery ?? "off",
+    sourceProvider: query.sourceProvider ?? "all",
+    workMode: query.workMode ?? "any",
+    employmentType: query.employmentType ?? "all",
+    field: query.field ?? "all",
+    query: normalizeKey(query.query ?? ""),
+    startupOnly: Boolean(query.startupOnly),
+    studentRelevantOnly: Boolean(query.studentRelevantOnly),
+    startupRoleType: query.startupRoleType ?? "all",
+    showRemoteOnMap: Boolean(query.showRemoteOnMap),
+  });
+}
+
+async function getRunnableSources(query: NearbyJobsQuery): Promise<JobSource[]> {
+  const manualSources = getEnabledSources(query);
+  if (query.sourceDiscovery !== "validated") {
+    return dedupeRunnableSources(manualSources);
+  }
+
+  const discoveredSources = (
+    await getDiscoveredSourceConfigs({
+      city: "Bengaluru",
+      country: "India",
+      includeRemote: query.workMode === "remote" || query.showRemoteOnMap,
+      query: query.query,
+      sourceProvider: query.sourceProvider,
+      maxCompanies: 220,
+      detectLimit: 60,
+      maxSources: 48,
+      validate: true,
+    })
+  ).map(createSource);
+
+  return dedupeRunnableSources([...manualSources, ...discoveredSources]);
+}
+
+async function getSourceForJobId(
+  provider: string,
+  sourceKey: string,
+): Promise<JobSource | null> {
+  const registrySource = getSourceById(provider, sourceKey);
+  if (registrySource) {
+    return registrySource;
+  }
+  if (!isKnownSourceProvider(provider)) {
+    return null;
+  }
+
+  const discovered = await getDiscoveredSourceConfigs({
+    city: "Bengaluru",
+    country: "India",
+    includeRemote: true,
+    sourceProvider: provider,
+  });
+  const discoveredSource = discovered.find(
+    (source) => source.provider === provider && source.key === sourceKey,
+  );
+  return discoveredSource ? createSource(discoveredSource) : null;
+}
+
+function dedupeRunnableSources(sources: JobSource[]): JobSource[] {
+  const byKey = new Map<string, JobSource>();
+  for (const source of sources) {
+    const key = `${source.provider}:${source.source.key}:${source.source.site ?? ""}`;
+    const existing = byKey.get(key);
+    if (!existing || (source.source.priority ?? 0) > (existing.source.priority ?? 0)) {
+      byKey.set(key, source);
+    }
+  }
+  return [...byKey.values()].sort(
+    (a, b) => (b.source.priority ?? 0) - (a.source.priority ?? 0),
+  );
+}
+
+function isKnownSourceProvider(provider: string): provider is SourceProvider {
+  return [
+    "yc",
+    "greenhouse",
+    "lever",
+    "ashby",
+    "smartrecruiters",
+    "workable",
+    "recruitee",
+    "personio",
+    "bamboohr",
+    "breezy",
+    "workday",
+  ].includes(provider);
+}
+
 async function fetchSourceJobs(
-  source: ReturnType<typeof getEnabledSources>[number],
+  source: JobSource,
   includeContent: boolean,
   query?: NearbyJobsQuery,
 ): Promise<{ jobs: unknown[]; cached: boolean }> {
-  const cacheKey = sourceCacheKey(source, includeContent, query);
+  const cacheKey = sourceCacheKey(source, includeContent);
   const cached = sourceJobsCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) {
     return { jobs: cached.jobs, cached: true };
@@ -351,7 +439,7 @@ async function fetchSourceJobs(
         ? [query.employmentType]
         : undefined,
     query: query?.query,
-    maxResults: 300,
+    maxResults: 150,
   });
   sourceJobsCache.set(cacheKey, {
     jobs,
@@ -362,11 +450,10 @@ async function fetchSourceJobs(
 }
 
 function sourceCacheKey(
-  source: ReturnType<typeof getEnabledSources>[number],
+  source: JobSource,
   includeContent: boolean,
-  _query?: NearbyJobsQuery,
 ): string {
-  return `${source.provider}:${source.source.key}:${includeContent ? "content" : "raw"}`;
+  return `${source.provider}:${source.source.key}:${source.source.site ?? ""}:${includeContent ? "content" : "raw"}`;
 }
 
 function sourceCacheTtlMs(): number {
@@ -859,43 +946,62 @@ function hasMapPin(job: NormalizedJob): boolean {
   return typeof job.latitude === "number" && typeof job.longitude === "number";
 }
 
-function interleaveMapPinGroups(jobs: NormalizedJob[]): NormalizedJob[] {
-  const groups = new Map<string, NormalizedJob[]>();
-  const withoutPins: NormalizedJob[] = [];
-
-  for (const job of jobs) {
-    if (!hasMapPin(job)) {
-      withoutPins.push(job);
-      continue;
-    }
-
-    const key = `${job.latitude!.toFixed(4)},${job.longitude!.toFixed(4)}`;
-    const group = groups.get(key);
-    if (group) {
-      group.push(job);
-    } else {
-      groups.set(key, [job]);
-    }
+function compareNearbyJobs(
+  a: NormalizedJob,
+  b: NormalizedJob,
+  query: NearbyJobsQuery,
+): number {
+  if (query.workMode === "remote") {
+    return compareScoreThenDistance(a, b);
   }
 
-  const activeGroups = [...groups.values()];
-  const interleaved: NormalizedJob[] = [];
-
-  while (activeGroups.length > 0) {
-    const remainingGroups: NormalizedJob[][] = [];
-    for (const group of activeGroups) {
-      const next = group.shift();
-      if (next) {
-        interleaved.push(next);
-      }
-      if (group.length > 0) {
-        remainingGroups.push(group);
-      }
-    }
-    activeGroups.splice(0, activeGroups.length, ...remainingGroups);
+  const aLocalPin = isLocalPinnedJob(a);
+  const bLocalPin = isLocalPinnedJob(b);
+  if (aLocalPin !== bLocalPin) {
+    return aLocalPin ? -1 : 1;
   }
 
-  return [...interleaved, ...withoutPins];
+  const aDistance = a.distanceKm ?? Number.POSITIVE_INFINITY;
+  const bDistance = b.distanceKm ?? Number.POSITIVE_INFINITY;
+  const aBand = distanceBand(aDistance);
+  const bBand = distanceBand(bDistance);
+  if (aBand !== bBand) {
+    return aBand - bBand;
+  }
+
+  if (aBand <= 3 && Math.abs(aDistance - bDistance) > 0.75) {
+    return aDistance - bDistance;
+  }
+
+  return compareScoreThenDistance(a, b);
+}
+
+function compareScoreThenDistance(a: NormalizedJob, b: NormalizedJob): number {
+  if ((b.score ?? 0) !== (a.score ?? 0)) {
+    return (b.score ?? 0) - (a.score ?? 0);
+  }
+  return (
+    (a.distanceKm ?? Number.POSITIVE_INFINITY) -
+    (b.distanceKm ?? Number.POSITIVE_INFINITY)
+  );
+}
+
+function isLocalPinnedJob(job: NormalizedJob): boolean {
+  return (
+    hasMapPin(job) &&
+    job.workMode !== "remote" &&
+    job.locationConfidence === "exact_office"
+  );
+}
+
+function distanceBand(distanceKm: number): number {
+  if (!Number.isFinite(distanceKm)) return 99;
+  if (distanceKm <= 1) return 0;
+  if (distanceKm <= 3) return 1;
+  if (distanceKm <= 5) return 2;
+  if (distanceKm <= 10) return 3;
+  if (distanceKm <= 20) return 4;
+  return 5;
 }
 
 function buildMapJobs(

@@ -29,6 +29,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+*.log
 nearhire-dev.*.log
 chrome-headless.out.txt
 chrome-profile-test*/
@@ -46,3 +47,6 @@ nearhire-*-check.png
 next-env.d.ts
 
 /src/generated/prisma/
+
+# Local pre-Supabase NoCap Reddit cache. It may contain externally scraped content.
+/data/nocap/

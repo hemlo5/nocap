@@ -1,0 +1,280 @@
+"use client";
+
+import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, forwardRef } from "react";
+import type { GeoJSONSource, Map as MapLibreMap, Marker, StyleSpecification } from "maplibre-gl";
+import type { NocapPlace, NocapPlaceCategory } from "@/lib/nocap/places";
+import type { NocapReview } from "@/lib/nocap/community";
+import type { NocapUserPlace } from "@/lib/nocap/community";
+
+export type NocapMapHandle = {
+  flyToUser: (lat: number, lng: number) => void;
+  showRadiusCircle: (lat: number, lng: number, radiusKm: number) => void;
+  hideRadiusCircle: () => void;
+  enterPinMode: () => void;
+  exitPinMode: () => void;
+};
+
+type NocapMapProps = {
+  places: NocapPlace[];
+  reviews: NocapReview[];
+  userPlaces: NocapUserPlace[];
+  selectedPlaceId: string | null;
+  onSelectPlace: (id: string) => void;
+  onSelectUserPlace: (id: string) => void;
+  userLocation: { lat: number; lng: number } | null;
+  onPinDrop?: (lat: number, lng: number) => void;
+};
+
+type MapLibreModule = typeof import("maplibre-gl");
+type PlaceFeature = { type: "Feature"; geometry: { type: "Point"; coordinates: [number, number] }; properties: { id: string; category: NocapPlaceCategory; label: string; selected: boolean } };
+type PlaceFeatureCollection = { type: "FeatureCollection"; features: PlaceFeature[] };
+
+const sourceId = "nocap-places";
+const haloLayerId = "nocap-place-halos";
+const dotLayerId = "nocap-place-dots";
+const radiusSourceId = "nocap-radius";
+const radiusLayerId = "nocap-radius-fill";
+const radiusBorderLayerId = "nocap-radius-border";
+const emptyPlaces: PlaceFeatureCollection = { type: "FeatureCollection", features: [] };
+const cartoKey = process.env.NEXT_PUBLIC_CARTO_BASEMAPS_KEY;
+const tileUrl = `https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png${cartoKey ? `?key=${cartoKey}` : ""}`;
+
+function mapStyle(): StyleSpecification {
+  return { version: 8, sources: { nocapBase: { type: "raster", tiles: [tileUrl], tileSize: 256, maxzoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>' } }, layers: [{ id: "nocap-background", type: "background", paint: { "background-color": "#e9e7e2" } }, { id: "nocap-base", type: "raster", source: "nocapBase", minzoom: 0, maxzoom: 22, paint: { "raster-fade-duration": 0 } }] } as StyleSpecification;
+}
+
+function placeData(places: NocapPlace[], selectedPlaceId: string | null): PlaceFeatureCollection {
+  return { type: "FeatureCollection", features: places.map((place) => ({ type: "Feature", geometry: { type: "Point", coordinates: [place.longitude, place.latitude] }, properties: { id: place.id, category: place.category, label: place.category === "eat" ? "F" : place.category === "street" ? "S" : place.category === "park" ? "P" : "C", selected: place.id === selectedPlaceId } })) };
+}
+
+function ensurePlaceLayers(map: MapLibreMap) {
+  if (!map.getSource(sourceId)) map.addSource(sourceId, { type: "geojson", data: emptyPlaces });
+  if (!map.getLayer(haloLayerId)) map.addLayer({ id: haloLayerId, type: "circle", source: sourceId, paint: { "circle-radius": ["case", ["get", "selected"], 16, 12], "circle-color": "#ffffff", "circle-opacity": 0.5, "circle-stroke-width": 0 } });
+  if (!map.getLayer(dotLayerId)) map.addLayer({ id: dotLayerId, type: "circle", source: sourceId, paint: { "circle-radius": ["case", ["get", "selected"], 5, 4], "circle-color": ["match", ["get", "category"], "eat", "#d9381e", "street", "#2563eb", "park", "#15803d", "#7c3aed"], "circle-stroke-width": 1.5, "circle-stroke-color": "#ffffff" } });
+}
+
+function radiusGeoJSON(lat: number, lng: number, radiusKm: number) {
+  const points = 64;
+  const coords: [number, number][] = [];
+  for (let i = 0; i <= points; i++) {
+    const angle = (i / points) * 2 * Math.PI;
+    const dx = radiusKm / (111.32 * Math.cos((lat * Math.PI) / 180));
+    const dy = radiusKm / 110.574;
+    coords.push([lng + dx * Math.cos(angle), lat + dy * Math.sin(angle)]);
+  }
+  return { type: "FeatureCollection" as const, features: [{ type: "Feature" as const, geometry: { type: "Polygon" as const, coordinates: [coords] }, properties: {} }] };
+}
+
+export const NocapMap = forwardRef<NocapMapHandle, NocapMapProps>(function NocapMap(
+  { places, reviews, userPlaces, selectedPlaceId, onSelectPlace, onSelectUserPlace, userLocation, onPinDrop },
+  ref
+) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<MapLibreMap | null>(null);
+  const placeMarkersRef = useRef<Marker[]>([]);
+  const userPlaceMarkersRef = useRef<Marker[]>([]);
+  const reviewMarkersRef = useRef<Marker[]>([]);
+  const userMarkerRef = useRef<Marker | null>(null);
+  const onSelectPlaceRef = useRef(onSelectPlace);
+  const onSelectUserPlaceRef = useRef(onSelectUserPlace);
+  const onPinDropRef = useRef(onPinDrop);
+  const pinModeRef = useRef(false);
+  const [mapReady, setMapReady] = useState(false);
+  const [zoomedIn, setZoomedIn] = useState(false);
+  const mapPlaces = useMemo(() => placeData(places, selectedPlaceId), [places, selectedPlaceId]);
+
+  useEffect(() => { onSelectPlaceRef.current = onSelectPlace; }, [onSelectPlace]);
+  useEffect(() => { onSelectUserPlaceRef.current = onSelectUserPlace; }, [onSelectUserPlace]);
+  useEffect(() => { onPinDropRef.current = onPinDrop; }, [onPinDrop]);
+
+  // Expose methods to parent
+  useImperativeHandle(ref, () => ({
+    flyToUser(lat: number, lng: number) {
+      mapRef.current?.flyTo({ center: [lng, lat], zoom: 14.5, duration: 900, essential: true });
+    },
+    showRadiusCircle(lat: number, lng: number, radiusKm: number) {
+      const map = mapRef.current;
+      if (!map || !mapReady) return;
+      const data = radiusGeoJSON(lat, lng, radiusKm);
+      if (!map.getSource(radiusSourceId)) {
+        map.addSource(radiusSourceId, { type: "geojson", data });
+        map.addLayer({ id: radiusLayerId, type: "fill", source: radiusSourceId, paint: { "fill-color": "#3b82f6", "fill-opacity": 0.08 } }, haloLayerId);
+        map.addLayer({ id: radiusBorderLayerId, type: "line", source: radiusSourceId, paint: { "line-color": "#3b82f6", "line-width": 2, "line-opacity": 0.4, "line-dasharray": [3, 3] } }, haloLayerId);
+      } else {
+        (map.getSource(radiusSourceId) as GeoJSONSource).setData(data);
+      }
+    },
+    hideRadiusCircle() {
+      const map = mapRef.current;
+      if (!map) return;
+      if (map.getLayer(radiusLayerId)) map.removeLayer(radiusLayerId);
+      if (map.getLayer(radiusBorderLayerId)) map.removeLayer(radiusBorderLayerId);
+      if (map.getSource(radiusSourceId)) map.removeSource(radiusSourceId);
+    },
+    enterPinMode() {
+      pinModeRef.current = true;
+      const canvas = mapRef.current?.getCanvas();
+      if (canvas) canvas.style.cursor = "crosshair";
+    },
+    exitPinMode() {
+      pinModeRef.current = false;
+      const canvas = mapRef.current?.getCanvas();
+      if (canvas) canvas.style.cursor = "";
+    },
+  }), [mapReady]);
+
+  // Boot map
+  useEffect(() => {
+    let cancelled = false;
+    async function boot() {
+      if (!containerRef.current || mapRef.current) return;
+      const maplibregl: MapLibreModule = await import("maplibre-gl");
+      if (cancelled || !containerRef.current) return;
+      const map = new maplibregl.Map({ container: containerRef.current, style: mapStyle(), center: [77.6046, 12.9716], zoom: 10.45, minZoom: 9.5, maxZoom: 18, maxBounds: [[77.34, 12.72], [77.9, 13.2]], pixelRatio: Math.min(window.devicePixelRatio || 1, 1.5), attributionControl: false, dragRotate: false, touchPitch: false });
+      mapRef.current = map;
+      map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+      map.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-right");
+      map.on("load", () => { if (!cancelled) { ensurePlaceLayers(map); map.resize(); setMapReady(true); } });
+      map.on("zoom", () => { setZoomedIn(map.getZoom() >= 13.5); });
+      map.on("click", haloLayerId, (event) => {
+        if (pinModeRef.current) return; // let the general click handle it
+        const id = event.features?.[0]?.properties?.id;
+        if (typeof id === "string") onSelectPlaceRef.current(id);
+      });
+      // General map click for pin drop mode
+      map.on("click", (event) => {
+        if (!pinModeRef.current) return;
+        const { lng, lat } = event.lngLat;
+        onPinDropRef.current?.(lat, lng);
+      });
+      map.on("mouseenter", haloLayerId, () => { if (!pinModeRef.current) map.getCanvas().style.cursor = "pointer"; });
+      map.on("mouseleave", haloLayerId, () => { if (!pinModeRef.current) map.getCanvas().style.cursor = ""; });
+    }
+    boot();
+    return () => { cancelled = true; placeMarkersRef.current.forEach((m) => m.remove()); userPlaceMarkersRef.current.forEach((m) => m.remove()); reviewMarkersRef.current.forEach((m) => m.remove()); userMarkerRef.current?.remove(); mapRef.current?.remove(); mapRef.current = null; setMapReady(false); };
+  }, []);
+
+  // Update GeoJSON data
+  useEffect(() => { const map = mapRef.current; if (!map || !mapReady) return; ensurePlaceLayers(map); (map.getSource(sourceId) as GeoJSONSource | undefined)?.setData(mapPlaces); }, [mapPlaces, mapReady]);
+
+  // Render photo markers for hardcoded places
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+    const targetMap = map;
+    let cancelled = false;
+    async function renderPlaceMarkers() {
+      const maplibregl: MapLibreModule = await import("maplibre-gl");
+      if (cancelled || mapRef.current !== targetMap) return;
+      placeMarkersRef.current.forEach((m) => m.remove());
+      placeMarkersRef.current = places.map((place) => {
+        const anchor = document.createElement("div");
+        const marker = document.createElement("button");
+        const label = place.category === "eat" ? "F" : place.category === "street" ? "S" : place.category === "park" ? "P" : "C";
+        const image = document.createElement("img");
+        marker.type = "button";
+        marker.className = `nocap-marker nocap-marker--${place.category}${place.id === selectedPlaceId ? " is-selected" : ""}`;
+        marker.setAttribute("aria-label", `Open reviews for ${place.name}`);
+        marker.textContent = label;
+        image.className = "nocap-marker-photo";
+        image.alt = "";
+        image.loading = "lazy";
+        image.src = `/api/nocap/place-image/${place.id}`;
+        image.addEventListener("error", () => image.remove());
+        marker.append(image);
+        const nameLabel = document.createElement("span");
+        nameLabel.className = "nocap-marker-label";
+        nameLabel.textContent = place.name.length > 16 ? place.name.slice(0, 14) + "\u2026" : place.name;
+        anchor.append(marker);
+        if (mapRef.current && mapRef.current.getZoom() >= 13.5) anchor.append(nameLabel);
+        marker.addEventListener("click", (event) => { event.stopPropagation(); if (!pinModeRef.current) onSelectPlaceRef.current(place.id); });
+        return new maplibregl.Marker({ element: anchor, anchor: "center" }).setLngLat([place.longitude, place.latitude]).addTo(targetMap);
+      });
+    }
+    renderPlaceMarkers();
+    return () => { cancelled = true; placeMarkersRef.current.forEach((m) => m.remove()); placeMarkersRef.current = []; };
+  }, [mapReady, places, selectedPlaceId, zoomedIn]);
+
+  // Render user-pinned place markers (yellow/orange)
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+    const targetMap = map;
+    let cancelled = false;
+    async function renderUserPlaceMarkers() {
+      const maplibregl: MapLibreModule = await import("maplibre-gl");
+      if (cancelled || mapRef.current !== targetMap) return;
+      userPlaceMarkersRef.current.forEach((m) => m.remove());
+      userPlaceMarkersRef.current = userPlaces.map((up) => {
+        const anchor = document.createElement("div");
+        const marker = document.createElement("button");
+        marker.type = "button";
+        marker.className = `nocap-marker nocap-marker--user${up.id === selectedPlaceId ? " is-selected" : ""}`;
+        marker.setAttribute("aria-label", `Open reviews for ${up.name}`);
+        marker.textContent = "U";
+        const nameLabel = document.createElement("span");
+        nameLabel.className = "nocap-marker-label";
+        nameLabel.textContent = up.name.length > 16 ? up.name.slice(0, 14) + "\u2026" : up.name;
+        anchor.append(marker);
+        if (mapRef.current && mapRef.current.getZoom() >= 13.5) anchor.append(nameLabel);
+        marker.addEventListener("click", (event) => { event.stopPropagation(); if (!pinModeRef.current) onSelectUserPlaceRef.current(up.id); });
+        return new maplibregl.Marker({ element: anchor, anchor: "center" }).setLngLat([up.longitude, up.latitude]).addTo(targetMap);
+      });
+    }
+    renderUserPlaceMarkers();
+    return () => { cancelled = true; userPlaceMarkersRef.current.forEach((m) => m.remove()); userPlaceMarkersRef.current = []; };
+  }, [mapReady, userPlaces, selectedPlaceId, zoomedIn]);
+
+  // Render review markers
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+    const targetMap = map;
+    let cancelled = false;
+    async function renderReviewMarkers() {
+      const maplibregl: MapLibreModule = await import("maplibre-gl");
+      if (cancelled || mapRef.current !== targetMap) return;
+      reviewMarkersRef.current.forEach((m) => m.remove());
+      reviewMarkersRef.current = reviews.map((review) => {
+        const anchor = document.createElement("div");
+        const marker = document.createElement("button");
+        marker.type = "button";
+        marker.className = `nocap-review-marker${review.isLegit ? " is-legit" : ""}`;
+        marker.title = `${review.profile.displayName}'s local review${review.isLegit ? " (Legit \u2605)" : ""}`;
+        marker.setAttribute("aria-label", `Open ${review.profile.displayName}'s review`);
+        marker.textContent = review.profile.displayName.slice(0, 1).toUpperCase();
+        marker.addEventListener("click", (event) => {
+          event.stopPropagation();
+          if (!pinModeRef.current) onSelectPlaceRef.current(review.placeId);
+        });
+        anchor.append(marker);
+        return new maplibregl.Marker({ element: anchor, anchor: "center" }).setLngLat([review.longitude, review.latitude]).addTo(targetMap);
+      });
+    }
+    renderReviewMarkers();
+    return () => { cancelled = true; reviewMarkersRef.current.forEach((m) => m.remove()); reviewMarkersRef.current = []; };
+  }, [mapReady, reviews]);
+
+  // User location blue dot
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+    let cancelled = false;
+    async function renderUserDot() {
+      if (!userLocation) { userMarkerRef.current?.remove(); userMarkerRef.current = null; return; }
+      const maplibregl: MapLibreModule = await import("maplibre-gl");
+      if (cancelled) return;
+      userMarkerRef.current?.remove();
+      const dot = document.createElement("div");
+      dot.className = "nocap-user-dot";
+      userMarkerRef.current = new maplibregl.Marker({ element: dot, anchor: "center" }).setLngLat([userLocation.lng, userLocation.lat]).addTo(map!);
+    }
+    renderUserDot();
+    return () => { cancelled = true; };
+  }, [mapReady, userLocation]);
+
+  // Fly to selected place
+  useEffect(() => { const place = places.find((item) => item.id === selectedPlaceId) || userPlaces.find((item) => item.id === selectedPlaceId); if (place && mapRef.current) mapRef.current.flyTo({ center: [place.longitude, place.latitude], zoom: 14.5, duration: 650, essential: true }); }, [places, userPlaces, selectedPlaceId]);
+
+  return <div className="relative h-full w-full overflow-hidden"><div ref={containerRef} className="h-full w-full" /><div className="pointer-events-none absolute left-3 top-3 z-10 hidden lg:flex overflow-hidden rounded-lg border border-white/80 bg-white/94 text-[11px] font-semibold text-zinc-600 shadow-sm backdrop-blur"><span className="bg-zinc-900 px-3 py-2 text-white">Bengaluru</span><span className="px-3 py-2">Community map</span></div><div className="pointer-events-none absolute bottom-4 left-3 z-10 hidden rounded-lg border border-white/80 bg-white/94 px-3 py-2 text-xs text-zinc-600 shadow-sm backdrop-blur sm:block">Photo dots are places. Green-ringed dots are reviews from that spot.</div></div>;
+});

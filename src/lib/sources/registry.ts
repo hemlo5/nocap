@@ -1129,6 +1129,8 @@ const companySources: RegistryEntry[] = [
   source("greenhouse", "uniphore", "Uniphore", "https://www.uniphore.com/company/careers/", 78, startup()),
   source("greenhouse", "keka", "Keka HR", "https://keka.com/careers/", 76, startup()),
   source("greenhouse", "zenduty", "Zenduty", "https://www.zenduty.com/careers/", 72, startup()),
+  source("greenhouse", "porter", "Porter", "https://porter.in/careers", 92, startup()),
+  source("greenhouse", "raven", "Raven", "https://www.ravenapp.dev/careers", 88, startup()),
 
   // ── Lever additions ──────────────────────────────────────────────────────
   source("lever", "zepto", "Zepto", "https://www.zeptonow.com/careers", 88, startup()),
@@ -1141,6 +1143,8 @@ const companySources: RegistryEntry[] = [
   source("lever", "atlan", "Atlan", "https://atlan.com/careers/", 80, startup()),
   source("lever", "slintel", "Slintel (6sense)", "https://www.slintel.com/careers", 72, startup()),
   source("lever", "facilio", "Facilio", "https://facilio.com/careers/", 74, startup()),
+  source("lever", "fampay", "FamPay", "https://fampay.in/careers", 92, startup()),
+  source("lever", "porter", "Porter", "https://porter.in/careers", 91, startup()),
 
   // ── Ashby additions ──────────────────────────────────────────────────────
   source("ashby", "browserstack", "BrowserStack", "https://jobs.ashbyhq.com/browserstack", 94, startup()),
@@ -1158,6 +1162,8 @@ const companySources: RegistryEntry[] = [
   source("ashby", "exotel", "Exotel", "https://jobs.ashbyhq.com/exotel", 78, startup()),
   source("ashby", "jio-haptik", "Jio Haptik", "https://jobs.ashbyhq.com/jio-haptik", 78, startup()),
   source("ashby", "yellowmessenger", "Yellow.ai", "https://jobs.ashbyhq.com/yellowmessenger", 80, startup()),
+  source("ashby", "ema", "Ema", "https://www.ema.co/careers", 92, startup()),
+  source("ashby", "bolna", "Bolna AI", "https://bolna.ai/careers", 90, startup()),
 
   // ── SmartRecruiters additions ─────────────────────────────────────────────
   source("smartrecruiters", "Wipro", "Wipro", "https://careers.wipro.com", 88),
@@ -1179,6 +1185,8 @@ const companySources: RegistryEntry[] = [
   source("smartrecruiters", "Paytm", "Paytm", "https://paytm.com/careers", 90, startup()),
   source("smartrecruiters", "BYJU'S", "BYJU'S", "https://byjus.com/careers/", 88, startup()),
   source("smartrecruiters", "Razorpay", "Razorpay", "https://razorpay.com/jobs/", 96, startup()),
+  source("smartrecruiters", "Lokal", "Lokal", "https://lokalapp.com/careers", 89, startup()),
+  source("smartrecruiters", "NarayanaHealth", "Narayana Health", "https://www.narayanahealth.org/careers", 87),
 
   // ── Workable additions ──────────────────────────────────────────────────
   source("workable", "dgraph", "Dgraph Labs / Hypermode", "https://hypermode.com/careers", 78, startup()),
@@ -1348,5 +1356,5 @@ function maxSourcesPerRequest(): number {
     process.env.NEARHIRE_MAX_SOURCES_PER_REQUEST ?? "",
     10,
   );
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 150;
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 70;
 }

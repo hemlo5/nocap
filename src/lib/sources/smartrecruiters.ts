@@ -4,7 +4,12 @@ import {
   classifyWorkMode,
   extractSkills,
 } from "@/lib/classifiers";
-import type { JobSource, NormalizedJob, SourceConfig } from "@/lib/types";
+import type {
+  JobSource,
+  NormalizedJob,
+  SourceConfig,
+  SourceFetchContext,
+} from "@/lib/types";
 import { requestSignal } from "@/lib/utils/fetch";
 import {
   compact,
@@ -53,11 +58,12 @@ export class SmartRecruitersSource implements JobSource<SmartRecruitersPosting> 
 
   constructor(public source: SourceConfig) {}
 
-  async fetchJobs(): Promise<SmartRecruitersPosting[]> {
+  async fetchJobs(options?: SourceFetchContext): Promise<SmartRecruitersPosting[]> {
     const allJobs: SmartRecruitersPosting[] = [];
     const limit = 100;
+    const maxResults = Math.max(1, Math.min(options?.maxResults ?? 150, 300));
 
-    for (let offset = 0; offset < 300; offset += limit) {
+    for (let offset = 0; offset < maxResults; offset += limit) {
       const url = new URL(
         `https://api.smartrecruiters.com/v1/companies/${this.source.key}/postings`,
       );
@@ -83,12 +89,16 @@ export class SmartRecruitersSource implements JobSource<SmartRecruitersPosting> 
       const jobs = payload.content ?? [];
       allJobs.push(...jobs);
 
-      if (jobs.length < limit || allJobs.length >= (payload.totalFound ?? 0)) {
+      if (
+        jobs.length < limit ||
+        allJobs.length >= (payload.totalFound ?? 0) ||
+        allJobs.length >= maxResults
+      ) {
         break;
       }
     }
 
-    return allJobs;
+    return allJobs.slice(0, maxResults);
   }
 
   normalize(job: SmartRecruitersPosting): NormalizedJob | null {

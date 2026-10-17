@@ -22,23 +22,6 @@ const CACHE_TTL_MS = 1000 * 60 * 60 * 6;
 type CacheEntry = { expiresAt: number; problems: MarketProblem[] };
 const problemCache = new Map<string, CacheEntry>();
 
-const SECTOR_PATTERNS: [ProblemSector, RegExp][] = [
-  ["fintech", /\b(upi|payment|bank|loan|credit|insurance|invest|mutual fund|neobank|fintech)\b/i],
-  ["edtech", /\b(education|school|college|tuition|learn|course|upskill|edtech|skill)\b/i],
-  ["healthcare", /\b(hospital|doctor|medicine|health|clinic|pharmacy|mental health)\b/i],
-  ["logistics", /\b(deliver|shipping|logistics|supply chain|warehouse|last.?mile|courier)\b/i],
-  ["hrtech", /\b(hiring|recruitment|hr|payroll|employee|job portal|talent)\b/i],
-  ["proptech", /\b(rent|housing|flat|pg|hostel|property|real estate|landlord|tenant)\b/i],
-  ["agritech", /\b(farm|crop|agri|kisan|mandi|produce|irrigation)\b/i],
-  ["saas", /\b(saas|software|api|tool|platform|dashboard|analytics|crm|erp)\b/i],
-  ["consumer", /\b(food|restaurant|grocery|ecommerce|shopping|app|consumer|d2c|brand)\b/i],
-];
-
-function detectSector(text: string): ProblemSector {
-  for (const [sector, pattern] of SECTOR_PATTERNS) { if (pattern.test(text)) return sector; }
-  return "other";
-}
-
 const PROBLEM_PATTERNS = [
   /why (is|are|doesn.t|don.t|can.t|won.t)/i, /nobody (solves|is solving)/i,
   /frustrated (with|by|about)/i, /pain point/i, /problem (with|in|of)/i,

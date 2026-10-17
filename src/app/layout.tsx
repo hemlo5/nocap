@@ -15,8 +15,17 @@ export const viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "Hemlo - Jobs & Startups in Bengaluru",
-  description: "Find startup jobs, internships & tech roles on a live map of Bengaluru. 6,000+ opportunities from 150+ companies.",
+  title: "NoCap Bengaluru — Local place reviews",
+  description: "A map of Bengaluru places with location-bound community reviews. Real people, real places, right where they experienced them.",
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/icon.png", type: "image/png", sizes: "512x512" },
+    ],
+    apple: [
+      { url: "/apple-icon.png", sizes: "180x180", type: "image/png" },
+    ],
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

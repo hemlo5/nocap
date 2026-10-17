@@ -939,13 +939,11 @@ export function JobDepthCarousel({
   selectedJobId,
   onSelectJob,
   userCoords,
-  userLocationLabel,
 }: {
   jobs: NormalizedJob[];
   selectedJobId: string | null;
   onSelectJob: (id: string) => void;
   userCoords?: { lat: number; lng: number };
-  userLocationLabel?: string;
 }) {
   const [activeIndex, setActiveIndex] = useState(() => {
     if (!selectedJobId || jobs.length === 0) return 0;
@@ -1004,7 +1002,8 @@ export function JobDepthCarousel({
     if (!selectedJobId || jobs.length === 0) return;
     const found = jobs.findIndex((j) => j.id === selectedJobId);
     if (found !== -1 && found !== activeIndex) {
-      setActiveIndex(found);
+      const frame = window.requestAnimationFrame(() => setActiveIndex(found));
+      return () => window.cancelAnimationFrame(frame);
     }
   }, [selectedJobId, jobs, activeIndex]);
 

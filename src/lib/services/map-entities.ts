@@ -1,7 +1,9 @@
 import { discoverStartupCompanies } from "@/lib/services/startup-discovery";
 import { getCuratedInvestorEntities } from "@/lib/services/investor-registry";
+import { getCuratedEventEntities } from "@/lib/services/event-registry";
 import { getCuratedRadarEntities } from "@/lib/services/radar-registry";
 import { lookupOfficeBySourceKey } from "@/lib/services/office-overrides";
+import { getSourceConfigs } from "@/lib/sources/default-sources";
 import type {
   Coordinates,
   DiscoveredCompany,
@@ -19,7 +21,7 @@ const OVERPASS_URLS = [
   "https://overpass-api.de/api/interpreter",
   "https://overpass.kumi.systems/api/interpreter",
 ];
-const DEFAULT_ENTITY_LAYERS: MapEntityType[] = ["startup", "investor", "event", "radar"];
+const DEFAULT_ENTITY_LAYERS: MapEntityType[] = ["company", "startup", "investor", "event", "radar"];
 const BENGALURU_LABEL = "Bengaluru, Karnataka, India";
 
 // 1-hour in-memory cache for Overpass responses (expensive, rate-limited API)
@@ -122,6 +124,8 @@ async function fetchLayer(
   limit: number,
 ): Promise<LayerResult> {
   switch (layer) {
+    case "company":
+      return fetchCompanyEntities(center, radiusKm, limit);
     case "startup":
       return fetchStartupEntities(center, radiusKm, limit);
     case "investor":
@@ -136,6 +140,76 @@ async function fetchLayer(
 // ---------------------------------------------------------------------------
 // Startup layer — only confirmed physical office locations
 // ---------------------------------------------------------------------------
+
+async function fetchCompanyEntities(
+  center: Coordinates,
+  radiusKm: number,
+  limit: number,
+): Promise<LayerResult> {
+  const startedAt = performance.now();
+  const sources = getSourceConfigs().filter((source) => source.enabled !== false);
+  const rawEntities: MapEntity[] = [];
+
+  for (const source of sources) {
+    const lookupKeys = [
+      source.key,
+      `${source.provider}:${source.key}`,
+      source.displayName ?? "",
+    ].filter(Boolean);
+    const office = lookupKeys
+      .map((key) => lookupOfficeBySourceKey(key))
+      .find(Boolean);
+
+    if (!office) {
+      continue;
+    }
+
+    const companyName = source.displayName ?? source.key;
+    const coords = { lat: office.lat, lng: office.lng };
+    const entity: MapEntity = {
+      id: `company:${source.provider}:${source.key}`,
+      type: source.startup?.isStartup ? "startup" : "company",
+      name: companyName,
+      description: source.startup?.isStartup
+        ? "Startup from the NearHire verified ATS registry."
+        : "Company from the NearHire verified ATS registry.",
+      url: source.website ?? source.careersUrl ?? null,
+      logoUrl: companyFavicon(source.website),
+      source: source.provider,
+      sourceUrl: source.careersUrl ?? source.website ?? null,
+      locationText: office.label,
+      latitude: office.lat,
+      longitude: office.lng,
+      distanceKm: haversineKm(center, coords),
+      locationConfidence: "exact_office",
+      metadata: {
+        provider: source.provider,
+        sourceKey: source.key,
+        sourceType: source.type ?? "ats",
+        activelyHiring: true,
+        startup: Boolean(source.startup?.isStartup),
+      },
+    };
+
+    if ((entity.distanceKm ?? Number.POSITIVE_INFINITY) <= radiusKm) {
+      rawEntities.push(entity);
+    }
+  }
+
+  return {
+    entities: dedupeEntitiesByNormName(rawEntities)
+      .sort((a, b) => (a.distanceKm ?? 999) - (b.distanceKm ?? 999))
+      .slice(0, limit),
+    warnings: [],
+    health: {
+      source: `NearHire Company Registry (${sources.length} companies checked)`,
+      type: "company",
+      status: "success",
+      entitiesFound: rawEntities.length,
+      durationMs: Math.round(performance.now() - startedAt),
+    },
+  };
+}
 
 async function fetchStartupEntities(
   center: Coordinates,
@@ -283,27 +357,52 @@ async function fetchOverpassEntities(
   limit: number,
 ): Promise<LayerResult> {
   const startedAt = performance.now();
+  const curatedEntities =
+    kind === "event" ? getCuratedEventEntities(center, radiusKm) : [];
   const overpassQuery =
     kind === "investor"
       ? investorOverpassQuery(center, radiusKm, limit)
       : eventOverpassQuery(center, radiusKm, limit);
 
-  const payload = await fetchOverpassPayload(overpassQuery);
-  const entities = (payload.elements ?? [])
-    .map((element) => overpassElementToEntity(kind, element, center))
-    .filter((entity): entity is MapEntity => Boolean(entity))
-    .filter((entity) => withinRadius(entity, center, radiusKm))
-    .slice(0, limit);
+  let overpassEntities: MapEntity[] = [];
+  let status: MapEntitySourceHealth["status"] = "success";
+  let error: string | undefined;
+  try {
+    const payload = await Promise.race([
+      fetchOverpassPayload(overpassQuery),
+      new Promise<{ elements?: OverpassElement[] }>((_, reject) =>
+        setTimeout(() => reject(new Error(`${kind} Overpass timeout`)), 900),
+      ),
+    ]);
+    overpassEntities = (payload.elements ?? [])
+      .map((element) => overpassElementToEntity(kind, element, center))
+      .filter((entity): entity is MapEntity => Boolean(entity))
+      .filter((entity) => withinRadius(entity, center, radiusKm));
+  } catch (caught) {
+    if (curatedEntities.length === 0) {
+      status = "failed";
+      error = caught instanceof Error ? caught.message : String(caught);
+    }
+  }
+
+  const entities = dedupeEntitiesByNormName([
+    ...curatedEntities,
+    ...overpassEntities,
+  ]).slice(0, limit);
 
   return {
     entities,
     warnings: [],
     health: {
-      source: "OpenStreetMap Overpass",
+      source:
+        kind === "event"
+          ? "NearHire Event Registry + OpenStreetMap"
+          : "OpenStreetMap Overpass",
       type: kind === "investor" ? "investor" : "event",
-      status: "success",
+      status,
       entitiesFound: entities.length,
       durationMs: Math.round(performance.now() - startedAt),
+      error,
     },
   };
 }
@@ -569,6 +668,7 @@ function dedupeEntitiesByNormName(entities: MapEntity[]): MapEntity[] {
 }
 
 function sourceNameForLayer(layer: MapEntityType): string {
+  if (layer === "company") return "NearHire Company Registry";
   if (layer === "startup") return "Startup Discovery";
   if (layer === "investor") return "Hemlo Investor Registry";
   return "OpenStreetMap Overpass";

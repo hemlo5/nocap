@@ -1,0 +1,96 @@
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+import type { NocapMention } from "./places";
+import type { NocapPlace } from "./places";
+import type { NocapReview } from "./community";
+
+type CachedRecord = {
+  id?: string;
+  url?: string | null;
+  subreddit?: string | null;
+  author?: string | null;
+  title?: string;
+  body?: string;
+  createdAt?: string | null;
+  evidenceType?: string;
+};
+
+type CachedPlace = {
+  status?: string;
+  scannedAt?: string;
+  records?: CachedRecord[];
+};
+
+type EvidenceCache = { places?: Record<string, CachedPlace> };
+
+const cachePath = join(process.cwd(), "data", "nocap", "reddit-reviews.json");
+
+async function readEvidenceCache(): Promise<EvidenceCache> {
+  try {
+    return JSON.parse(await readFile(cachePath, "utf8")) as EvidenceCache;
+  } catch {
+    return {};
+  }
+}
+
+export async function getReviewedPlaceIds() {
+  const cache = await readEvidenceCache();
+  return Object.entries(cache.places ?? {})
+    .filter(([, entry]) => entry.status === "ready" && (entry.records?.length ?? 0) > 0)
+    .map(([placeId]) => placeId);
+}
+
+export async function getLocalPlaceMentions(placeId: string): Promise<NocapMention[]> {
+  const cache = await readEvidenceCache();
+  const entry = cache.places?.[placeId];
+  if (!entry || entry.status !== "ready") return [];
+
+  return (entry.records ?? [])
+    .filter((record) => Boolean(record.url) && Boolean(record.body || record.title))
+    .map((record, index) => ({
+      id: record.id ?? `${placeId}-${index}`,
+      placeId,
+      permalink: record.url as string,
+      subreddit: record.subreddit ?? "reddit",
+      excerpt: (record.body || record.title || "").slice(0, 420),
+      score: null,
+      createdAt: record.createdAt ?? entry.scannedAt ?? new Date(0).toISOString(),
+      author: record.author ?? null,
+      topics: record.evidenceType ? [record.evidenceType] : [],
+    }));
+}
+
+export async function getArchivedPlaceReviews(place: NocapPlace): Promise<NocapReview[]> {
+  const mentions = await getLocalPlaceMentions(place.id);
+  return mentions
+    .map((mention) => ({ ...mention, excerpt: cleanExcerpt(mention.excerpt) }))
+    .filter((mention) =>
+      mention.excerpt.length >= 12 && !/^\[deleted\]$/i.test(mention.excerpt),
+    )
+    .slice(0, 30)
+    .map((mention) => ({
+    id: `archive-${mention.id}`,
+    placeId: place.id,
+    profile: { id: "local-note", displayName: "Local note", avatarUrl: null, bio: null },
+    body: mention.excerpt,
+    rating: null,
+    latitude: place.latitude,
+    longitude: place.longitude,
+    isLegit: false,
+    paymentId: null,
+    createdAt: mention.createdAt,
+    updatedAt: mention.createdAt,
+    }));
+}
+
+function cleanExcerpt(value: string) {
+  return value
+    .replace(/&#(x[\da-f]+|\d+);/gi, (_match, entity: string) => String.fromCodePoint(entity.startsWith("x") ? Number.parseInt(entity.slice(1), 16) : Number.parseInt(entity, 10)))
+    .replace(/\s*submitted by\s*.*?(?:\[comments\]|$)/i, "")
+    .replace(/\/?u\/[\w-]+/gi, "")
+    .replace(/\br\/[^\s]+/gi, "")
+    .replace(/\breddit\b/gi, "community")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 420);
+}

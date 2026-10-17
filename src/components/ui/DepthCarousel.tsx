@@ -134,22 +134,40 @@ const DepthCarousel = ({
   const reducedRef = useRef(false);
 
   const [active, setActive] = useState(0);
-  onChangeRef.current = onChange;
-  cfgRef.current = {
+
+  useEffect(() => {
+    onChangeRef.current = onChange;
+    cfgRef.current = {
+      count,
+      depth,
+      spread,
+      tilt,
+      tiltDirection,
+      visibleCards,
+      falloff,
+      blur,
+      duration,
+      ease,
+      loop,
+      cardWidth,
+      autoplayDelay,
+    };
+  }, [
+    autoplayDelay,
+    blur,
+    cardWidth,
     count,
     depth,
+    duration,
+    ease,
+    falloff,
+    loop,
+    onChange,
     spread,
     tilt,
     tiltDirection,
     visibleCards,
-    falloff,
-    blur,
-    duration,
-    ease,
-    loop,
-    cardWidth,
-    autoplayDelay,
-  };
+  ]);
 
   const layout = useCallback((pos: number) => {
     const cfg = cfgRef.current;

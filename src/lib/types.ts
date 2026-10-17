@@ -40,7 +40,7 @@ export const startupRoleTypes = [
   "other",
 ] as const;
 
-export const mapEntityTypes = ["startup", "investor", "event", "radar"] as const;
+export const mapEntityTypes = ["company", "startup", "investor", "event", "radar"] as const;
 
 export type EmploymentType = (typeof employmentTypes)[number];
 export type WorkMode = (typeof workModes)[number];
@@ -279,6 +279,7 @@ export type NearbyJobsQuery = {
   lat: number;
   lng: number;
   radius: number;
+  sourceDiscovery?: "off" | "validated";
   sourceProvider?: SourceProvider | "all";
   employmentType?: EmploymentType | "all";
   field?: JobField | "all";

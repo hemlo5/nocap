@@ -1,5 +1,5 @@
 ﻿import { getStartupPulse } from "@/lib/services/startup-pulse";
-import { Activity, RefreshCw, AlertCircle, ExternalLink, ArrowUpRight } from "lucide-react";
+import { Activity, RefreshCw, AlertCircle, ArrowUpRight } from "lucide-react";
 import type { Metadata } from "next";
 import type { StoryCategory, PulseStory } from "@/lib/services/startup-pulse";
 import { cn } from "@/lib/utils/cn";

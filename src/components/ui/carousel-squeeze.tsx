@@ -194,18 +194,17 @@ export function SqueezeCarousel({
     const ms = reduced ? 0 : duration;
 
     const ids = useId();
-    const seed = useRef(0);
+    const seed = useRef(visible);
     const strip = useRef<HTMLDivElement>(null);
 
     /* --- the strip -------------------------------------------------------- */
 
-    const window0 = () =>
+    const [cards, setCards] = useState<Card[]>(() =>
         Array.from({ length: visible }, (_, p) => ({
-            key: seed.current++,
+            key: p,
             slide: wrap(defaultIndex + p),
-        }));
-
-    const [cards, setCards] = useState<Card[]>(window0);
+        })),
+    );
     // Which column each card sits in: its place in the strip plus this. Stepping
     // on pushes it down, so the card that was column 0 becomes column −1 — a
     // slat, on its way out of the left edge.
@@ -291,17 +290,6 @@ export function SqueezeCarousel({
         },
         // eslint-disable-next-line react-hooks/exhaustive-deps
         [count, ms, settle],
-    );
-
-    const go = useCallback(
-        (to: number) => {
-            const here = open;
-            if (to === here) return;
-            const forward = wrap(to - here);
-            step(forward <= count / 2 ? forward : forward - count);
-        },
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        [open, count, step],
     );
 
     useEffect(() => {
@@ -633,4 +621,3 @@ function Action({ slide, shown }: { slide: SqueezeSlide; shown: boolean }) {
 }
 
 export default SqueezeCarousel;
-
