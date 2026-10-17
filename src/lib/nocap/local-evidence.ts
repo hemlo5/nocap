@@ -1,7 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { NocapMention } from "./places";
-import type { NocapPlace } from "./places";
+import { nocapPlaces, type NocapMention, type NocapPlace } from "./places";
 import type { NocapReview } from "./community";
 
 type CachedRecord = {
@@ -81,6 +80,44 @@ export async function getArchivedPlaceReviews(place: NocapPlace): Promise<NocapR
     createdAt: mention.createdAt,
     updatedAt: mention.createdAt,
     }));
+}
+
+export async function getAllArchivedReviews(): Promise<NocapReview[]> {
+  const cache = await readEvidenceCache();
+  const places = cache.places ?? {};
+  const placeMap = new Map(nocapPlaces.map((p) => [p.id, p]));
+  const results: NocapReview[] = [];
+
+  for (const [placeId, entry] of Object.entries(places)) {
+    if (entry.status !== "ready" || !entry.records) continue;
+    const place = placeMap.get(placeId);
+    if (!place) continue;
+
+    const placeReviews = (entry.records ?? [])
+      .filter((record) => Boolean(record.url) && Boolean(record.body || record.title))
+      .map((record, index) => {
+        const excerpt = cleanExcerpt((record.body || record.title || "").slice(0, 420));
+        return {
+          id: `archive-${record.id ?? `${placeId}-${index}`}`,
+          placeId,
+          profile: { id: "local-note", displayName: "Local note", avatarUrl: null, bio: null },
+          body: excerpt,
+          rating: null,
+          latitude: place.latitude,
+          longitude: place.longitude,
+          isLegit: false,
+          paymentId: null,
+          createdAt: record.createdAt ?? entry.scannedAt ?? new Date(0).toISOString(),
+          updatedAt: record.createdAt ?? entry.scannedAt ?? new Date(0).toISOString(),
+        };
+      })
+      .filter((r) => r.body.length >= 12 && !/^\[deleted\]$/i.test(r.body))
+      .slice(0, 30);
+
+    results.push(...placeReviews);
+  }
+
+  return results;
 }
 
 function cleanExcerpt(value: string) {

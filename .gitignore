@@ -48,5 +48,3 @@ next-env.d.ts
 
 /src/generated/prisma/
 
-# Local pre-Supabase NoCap Reddit cache. It may contain externally scraped content.
-/data/nocap/

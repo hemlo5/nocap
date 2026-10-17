@@ -1,4 +1,5 @@
 import { nocapPlaces } from "@/lib/nocap/places";
+import { getAllArchivedReviews } from "@/lib/nocap/local-evidence";
 import { createAdminClient, isSupabaseConfigured } from "@/lib/supabase/server";
 import type { NocapReview, NocapUserPlace } from "@/lib/nocap/community";
 import type { NocapPlaceCategory } from "@/lib/nocap/places";
@@ -26,6 +27,10 @@ export async function GET() {
       .limit(500);
     userPlaces = (placesData ?? []).map(toUserPlace);
   }
+
+  // Include all archived community notes/reviews from Reddit
+  const archivedReviews = await getAllArchivedReviews();
+  reviews = [...reviews, ...archivedReviews];
 
   return Response.json(
     { places: nocapPlaces, userPlaces, reviews, supabaseConfigured: isSupabaseConfigured(), updatedAt: new Date().toISOString() },
