@@ -257,6 +257,11 @@ function ProfileShell({ children }: { children: React.ReactNode }) {
           <ArrowLeft className="h-3.5 w-3.5" />Back to NoCap
         </Link>
         {children}
+        <div className="mt-12 text-center text-[11px] text-zinc-400">
+          <Link href="/privacy" className="hover:text-zinc-600 transition-colors underline underline-offset-2">
+            Privacy Policy
+          </Link>
+        </div>
       </div>
     </main>
   );
