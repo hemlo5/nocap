@@ -2,15 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Map, Briefcase, Info } from "lucide-react";
+import { Map, Briefcase, Info, HelpCircle, Flame } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 
 export function HemloNav() {
   const pathname = usePathname();
-  const isHome = pathname === "/";
   const isMap = pathname.startsWith("/map") || pathname.startsWith("/nocap");
-  const isAbout = pathname.startsWith("/about");
   const isOpportunities = pathname.startsWith("/opportunities");
+  const isWhyNocap = pathname.startsWith("/why-nocap") || pathname.startsWith("/what-is-nocap");
+  const isAbout = pathname.startsWith("/about");
 
   return (
     <header
@@ -23,7 +23,7 @@ export function HemloNav() {
         {/* Brand */}
         <Link
           href="/"
-          className="group flex shrink-0 items-center transition-opacity hover:opacity-90 mr-2"
+          className="group flex shrink-0 items-center transition-opacity hover:opacity-90 mr-1"
         >
           <img
             src="/nocap-logo.png"
@@ -38,7 +38,7 @@ export function HemloNav() {
           aria-hidden
         />
 
-        {/* Nav Links */}
+        {/* Left Nav Links */}
         <nav className="flex items-center gap-1 shrink-0" aria-label="Main navigation">
           <Link
             href="/map"
@@ -53,21 +53,6 @@ export function HemloNav() {
           >
             <Map className="h-3.5 w-3.5 shrink-0 opacity-75 group-hover:opacity-100" aria-hidden />
             <span>Map</span>
-          </Link>
-
-          <Link
-            href="/about"
-            aria-current={isAbout ? "page" : undefined}
-            className={cn(
-              "group relative flex items-center gap-1.5 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-semibold transition-all duration-150",
-              isAbout
-                ? "bg-[#18181B] text-white shadow-2xs"
-                : "text-zinc-600 hover:bg-zinc-100/70 hover:text-zinc-900",
-            )}
-            title="About NoCapBLR"
-          >
-            <Info className="h-3.5 w-3.5 shrink-0 opacity-75 group-hover:opacity-100" aria-hidden />
-            <span>About</span>
           </Link>
 
           <Link
@@ -86,8 +71,44 @@ export function HemloNav() {
           </Link>
         </nav>
 
-        {/* Portal slot — NoCap app injects profile button + search here */}
-        <div suppressHydrationWarning id="nav-search-slot" className="flex flex-1 items-center min-w-0 justify-end sm:justify-start gap-3" />
+        {/* Spacer */}
+        <div className="flex-1" />
+
+        {/* Right Most Navigation & Account Slot */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          <Link
+            href="/why-nocap"
+            aria-current={isWhyNocap ? "page" : undefined}
+            className={cn(
+              "group relative flex items-center gap-1.5 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-semibold transition-all duration-150",
+              isWhyNocap
+                ? "bg-[#18181B] text-white shadow-2xs"
+                : "text-zinc-600 hover:bg-zinc-100/70 hover:text-zinc-900",
+            )}
+            title="What is NoCap & Why NoCap"
+          >
+            <HelpCircle className="h-3.5 w-3.5 shrink-0 opacity-75 group-hover:opacity-100 text-amber-500" aria-hidden />
+            <span>Why NoCap</span>
+          </Link>
+
+          <Link
+            href="/about"
+            aria-current={isAbout ? "page" : undefined}
+            className={cn(
+              "group relative flex items-center gap-1.5 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-semibold transition-all duration-150",
+              isAbout
+                ? "bg-[#18181B] text-white shadow-2xs"
+                : "text-zinc-600 hover:bg-zinc-100/70 hover:text-zinc-900",
+            )}
+            title="About NoCapBLR"
+          >
+            <Info className="h-3.5 w-3.5 shrink-0 opacity-75 group-hover:opacity-100" aria-hidden />
+            <span>About</span>
+          </Link>
+
+          {/* Portal slot — AccountButton and Profile injected here */}
+          <div suppressHydrationWarning id="nav-search-slot" className="flex items-center gap-2 pl-1" />
+        </div>
       </div>
     </header>
   );
