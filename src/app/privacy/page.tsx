@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft, Shield, MapPin, Lock, Eye, RefreshCw, Mail } from "lucide-react";
+import { SiteFooter } from "@/components/nav/site-footer";
 
 export const metadata: Metadata = {
   title: "Privacy Policy | NoCap Bengaluru",
@@ -9,8 +10,9 @@ export const metadata: Metadata = {
 
 export default function PrivacyPolicyPage() {
   return (
-    <main className="min-h-[calc(100dvh-3.5rem)] bg-[#F6F5F2] text-zinc-950 py-10 px-4 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-3xl">
+    <div className="flex min-h-screen flex-col bg-[#F6F5F2] text-zinc-950">
+      <main className="flex-1 py-10 sm:py-16 px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-3xl">
         {/* Back Link */}
         <Link
           href="/map"
@@ -161,19 +163,10 @@ export default function PrivacyPolicyPage() {
           </section>
         </div>
 
-        {/* Footer */}
-        <div className="mt-10 pb-8 text-center text-xs text-zinc-400">
-          <p>&copy; {new Date().getFullYear()} NoCap Bengaluru. All rights reserved.</p>
-          <div className="mt-2 flex items-center justify-center gap-4">
-            <Link href="/map" className="hover:text-zinc-700 transition-colors">Map</Link>
-            <span>·</span>
-            <Link href="/nocap/profile" className="hover:text-zinc-700 transition-colors">My Profile</Link>
-            <span>·</span>
-            <Link href="/privacy" className="text-zinc-900 font-semibold">Privacy Policy</Link>
-          </div>
         </div>
-      </div>
-    </main>
+      </main>
+      <SiteFooter />
+    </div>
   );
 }
 

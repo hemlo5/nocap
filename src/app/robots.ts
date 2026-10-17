@@ -14,7 +14,7 @@ export default function robots(): MetadataRoute.Robots {
           "/categories/",
           "/areas/",
           "/about",
-          "/why-nocap",
+          "/what-nocap",
           "/guidelines",
           "/terms",
           "/privacy",

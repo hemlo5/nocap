@@ -131,8 +131,9 @@ export default async function CategoryPage({ params }: Props) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <main className="min-h-[calc(100dvh-3.5rem)] bg-[#F6F5F2] text-zinc-950 py-10 px-4 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-5xl">
+      <div className="flex min-h-screen flex-col bg-[#F6F5F2] text-zinc-950">
+        <main className="flex-1 py-10 px-4 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-5xl">
           {/* Breadcrumbs */}
           <nav
             aria-label="Breadcrumbs"
@@ -240,7 +241,8 @@ export default async function CategoryPage({ params }: Props) {
         </div>
       </main>
       <SiteFooter />
-    </>
-  );
+    </div>
+  </>
+);
 }
 

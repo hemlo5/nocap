@@ -82,10 +82,10 @@ export function SiteFooter() {
             <ul className="mt-4 space-y-2.5">
               <li>
                 <Link
-                  href="/why-nocap"
+                  href="/what-nocap"
                   className="text-xs text-zinc-600 hover:text-zinc-950 font-medium transition-colors"
                 >
-                  What is NoCap & Why NoCap
+                  What NoCap
                 </Link>
               </li>
               <li>
