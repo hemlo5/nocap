@@ -9,10 +9,10 @@ export async function GET(request: Request) {
   const origin = forwardedHost
     ? `${forwardedProto}://${forwardedHost.split(",")[0].trim()}`
     : url.origin;
-  const next = url.searchParams.get("next")?.startsWith("/") ? url.searchParams.get("next")! : "/nocap";
+  const next = url.searchParams.get("next")?.startsWith("/") ? url.searchParams.get("next")! : "/map";
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!code || !supabaseUrl || !supabaseKey) return NextResponse.redirect(new URL("/nocap?auth=unavailable", origin));
+  if (!code || !supabaseUrl || !supabaseKey) return NextResponse.redirect(new URL("/map?auth=unavailable", origin));
 
   let response = NextResponse.redirect(new URL(next, origin));
   const supabase = createServerClient(supabaseUrl, supabaseKey, {

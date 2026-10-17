@@ -202,7 +202,7 @@ export function NocapApp() {
 
   async function signIn() {
     if (!hasSupabaseBrowserConfig()) return;
-    await createSupabaseBrowserClient().auth.signInWithOAuth({ provider: "google", options: { redirectTo: `${window.location.origin}/auth/callback?next=/nocap` } });
+    await createSupabaseBrowserClient().auth.signInWithOAuth({ provider: "google", options: { redirectTo: `${window.location.origin}/auth/callback?next=/map` } });
   }
 
   async function signOut() {

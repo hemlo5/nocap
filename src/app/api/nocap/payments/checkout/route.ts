@@ -43,7 +43,7 @@ export async function POST(request: Request) {
       customer: { email, name },
       billing_address: { country: "IN" },
       metadata: { review_id: reviewId, user_id: user.id },
-      return_url: `${origin}/nocap?legit=success&review_id=${reviewId}`,
+      return_url: `${origin}/map?legit=success&review_id=${reviewId}`,
     }),
   });
 

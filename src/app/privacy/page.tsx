@@ -13,10 +13,10 @@ export default function PrivacyPolicyPage() {
       <div className="mx-auto max-w-3xl">
         {/* Back Link */}
         <Link
-          href="/nocap"
+          href="/map"
           className="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-500 hover:text-zinc-950 transition-colors mb-6"
         >
-          <ArrowLeft className="h-3.5 w-3.5" /> Back to NoCap Map
+          <ArrowLeft className="h-3.5 w-3.5" /> Back to Map
         </Link>
 
         {/* Header Card */}
@@ -165,7 +165,7 @@ export default function PrivacyPolicyPage() {
         <div className="mt-10 pb-8 text-center text-xs text-zinc-400">
           <p>&copy; {new Date().getFullYear()} NoCap Bengaluru. All rights reserved.</p>
           <div className="mt-2 flex items-center justify-center gap-4">
-            <Link href="/nocap" className="hover:text-zinc-700 transition-colors">Explore Map</Link>
+            <Link href="/map" className="hover:text-zinc-700 transition-colors">Map</Link>
             <span>·</span>
             <Link href="/nocap/profile" className="hover:text-zinc-700 transition-colors">My Profile</Link>
             <span>·</span>
@@ -176,3 +176,4 @@ export default function PrivacyPolicyPage() {
     </main>
   );
 }
+

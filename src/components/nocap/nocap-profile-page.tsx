@@ -253,8 +253,8 @@ function ProfileShell({ children }: { children: React.ReactNode }) {
   return (
     <main className="min-h-[calc(100dvh-3.5rem)] bg-[#F6F5F2] px-4 py-8 text-zinc-950 sm:px-8">
       <div className="mx-auto max-w-2xl">
-        <Link href="/nocap" className="mb-6 inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-500 hover:text-zinc-950">
-          <ArrowLeft className="h-3.5 w-3.5" />Back to NoCap
+        <Link href="/map" className="mb-6 inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-500 hover:text-zinc-950">
+          <ArrowLeft className="h-3.5 w-3.5" />Back to Map
         </Link>
         {children}
         <div className="mt-12 text-center text-[11px] text-zinc-400">

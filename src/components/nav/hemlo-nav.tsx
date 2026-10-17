@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils/cn";
 
 export function HemloNav() {
   const pathname = usePathname();
-  const isNoCap = pathname.startsWith("/nocap");
+  const isMap = pathname.startsWith("/map") || pathname.startsWith("/nocap");
   const isOpportunities = pathname === "/" || pathname.startsWith("/opportunities");
 
   return (
@@ -20,7 +20,7 @@ export function HemloNav() {
       <div suppressHydrationWarning className="mx-auto flex h-14 max-w-screen-2xl items-center gap-2 sm:gap-4 px-3 sm:px-6">
         {/* Brand */}
         <Link
-          href="/nocap"
+          href="/map"
           className="group flex shrink-0 items-center transition-opacity hover:opacity-90 mr-2"
         >
           <img
@@ -39,15 +39,15 @@ export function HemloNav() {
         {/* Nav Links */}
         <nav className="flex items-center gap-1 shrink-0" aria-label="Main navigation">
           <Link
-            href="/nocap"
-            aria-current={isNoCap ? "page" : undefined}
+            href="/map"
+            aria-current={isMap ? "page" : undefined}
             className={cn(
               "group relative flex items-center gap-1.5 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-semibold transition-all duration-150",
-              isNoCap
+              isMap
                 ? "bg-[#18181B] text-white shadow-2xs"
                 : "text-zinc-600 hover:bg-zinc-100/70 hover:text-zinc-900",
             )}
-            title="NoCap map"
+            title="Map"
           >
             <Map className="h-3.5 w-3.5 shrink-0 opacity-75 group-hover:opacity-100" aria-hidden />
             <span>Map</span>
@@ -58,7 +58,7 @@ export function HemloNav() {
             aria-current={isOpportunities ? "page" : undefined}
             className={cn(
               "group relative flex items-center gap-1.5 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-semibold transition-all duration-150",
-              isOpportunities && !isNoCap
+              isOpportunities && !isMap
                 ? "bg-[#18181B] text-white shadow-2xs"
                 : "text-zinc-600 hover:bg-zinc-100/70 hover:text-zinc-900",
             )}
