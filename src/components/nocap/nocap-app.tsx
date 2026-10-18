@@ -205,7 +205,18 @@ export function NocapApp() {
   async function signIn() {
     if (!hasSupabaseBrowserConfig()) return;
     trackEvent("sign_in_start", { method: "google" });
-    await createSupabaseBrowserClient().auth.signInWithOAuth({ provider: "google", options: { redirectTo: `${window.location.origin}/auth/callback?next=/map` } });
+    const { error } = await createSupabaseBrowserClient().auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback?next=/map`,
+        queryParams: {
+          prompt: "select_account",
+        },
+      },
+    });
+    if (error) {
+      console.error("[NoCap Auth] signInWithOAuth failed:", error.message);
+    }
   }
 
   async function signOut() {

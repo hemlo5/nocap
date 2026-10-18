@@ -37,5 +37,8 @@ export async function getAuthenticatedUser(request: Request) {
 export async function getGoogleUser(request: Request) {
   const user = await getAuthenticatedUser(request);
   if (!user) return null;
-  return user.app_metadata.provider === "google" ? user : null;
+  const provider = user.app_metadata?.provider;
+  const providers = user.app_metadata?.providers;
+  const isGoogle = provider === "google" || (Array.isArray(providers) && providers.includes("google"));
+  return isGoogle || provider ? user : null;
 }
