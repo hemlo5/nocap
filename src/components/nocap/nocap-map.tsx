@@ -73,7 +73,6 @@ export const NocapMap = forwardRef<NocapMapHandle, NocapMapProps>(function Nocap
   const mapRef = useRef<MapLibreMap | null>(null);
   const placeMarkersRef = useRef<Marker[]>([]);
   const userPlaceMarkersRef = useRef<Marker[]>([]);
-  const reviewMarkersRef = useRef<Marker[]>([]);
   const userMarkerRef = useRef<Marker | null>(null);
   const onSelectPlaceRef = useRef(onSelectPlace);
   const onSelectUserPlaceRef = useRef(onSelectUserPlace);
@@ -162,7 +161,7 @@ export const NocapMap = forwardRef<NocapMapHandle, NocapMapProps>(function Nocap
       map.on("mouseleave", haloLayerId, () => { if (!pinModeRef.current) map.getCanvas().style.cursor = ""; });
     }
     boot();
-    return () => { cancelled = true; placeMarkersRef.current.forEach((m) => m.remove()); userPlaceMarkersRef.current.forEach((m) => m.remove()); reviewMarkersRef.current.forEach((m) => m.remove()); userMarkerRef.current?.remove(); mapRef.current?.remove(); mapRef.current = null; setMapReady(false); };
+    return () => { cancelled = true; placeMarkersRef.current.forEach((m) => m.remove()); userPlaceMarkersRef.current.forEach((m) => m.remove()); userMarkerRef.current?.remove(); mapRef.current?.remove(); mapRef.current = null; setMapReady(false); };
   }, []);
 
   // Update GeoJSON data
@@ -236,36 +235,6 @@ export const NocapMap = forwardRef<NocapMapHandle, NocapMapProps>(function Nocap
     return () => { cancelled = true; userPlaceMarkersRef.current.forEach((m) => m.remove()); userPlaceMarkersRef.current = []; };
   }, [mapReady, userPlaces, selectedPlaceId, zoomedIn]);
 
-  // Render review markers
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !mapReady) return;
-    const targetMap = map;
-    let cancelled = false;
-    async function renderReviewMarkers() {
-      const maplibregl: MapLibreModule = await import("maplibre-gl");
-      if (cancelled || mapRef.current !== targetMap) return;
-      reviewMarkersRef.current.forEach((m) => m.remove());
-      reviewMarkersRef.current = reviews.map((review) => {
-        const anchor = document.createElement("div");
-        const marker = document.createElement("button");
-        marker.type = "button";
-        marker.className = `nocap-review-marker${review.isLegit ? " is-legit" : ""}`;
-        marker.title = `${review.profile.displayName}'s local review${review.isLegit ? " (Legit \u2605)" : ""}`;
-        marker.setAttribute("aria-label", `Open ${review.profile.displayName}'s review`);
-        marker.textContent = review.profile.displayName.slice(0, 1).toUpperCase();
-        marker.addEventListener("click", (event) => {
-          event.stopPropagation();
-          if (!pinModeRef.current) onSelectPlaceRef.current(review.placeId);
-        });
-        anchor.append(marker);
-        return new maplibregl.Marker({ element: anchor, anchor: "center" }).setLngLat([review.longitude, review.latitude]).addTo(targetMap);
-      });
-    }
-    renderReviewMarkers();
-    return () => { cancelled = true; reviewMarkersRef.current.forEach((m) => m.remove()); reviewMarkersRef.current = []; };
-  }, [mapReady, reviews]);
-
   // User location blue dot
   useEffect(() => {
     const map = mapRef.current;
@@ -287,5 +256,5 @@ export const NocapMap = forwardRef<NocapMapHandle, NocapMapProps>(function Nocap
   // Fly to selected place
   useEffect(() => { const place = places.find((item) => item.id === selectedPlaceId) || userPlaces.find((item) => item.id === selectedPlaceId); if (place && mapRef.current) mapRef.current.flyTo({ center: [place.longitude, place.latitude], zoom: 14.5, duration: 650, essential: true }); }, [places, userPlaces, selectedPlaceId]);
 
-  return <div className="relative h-full w-full overflow-hidden"><div ref={containerRef} className="h-full w-full" /><div className="pointer-events-none absolute left-3 top-3 z-10 hidden lg:flex overflow-hidden rounded-lg border border-white/80 bg-white/94 text-[11px] font-semibold text-zinc-600 shadow-sm backdrop-blur"><span className="bg-zinc-900 px-3 py-2 text-white">Bengaluru</span><span className="px-3 py-2">Community map</span></div><div className="pointer-events-none absolute bottom-4 left-3 z-10 hidden rounded-lg border border-white/80 bg-white/94 px-3 py-2 text-xs text-zinc-600 shadow-sm backdrop-blur sm:block">Photo dots are places. Green-ringed dots are reviews from that spot.</div></div>;
+  return <div className="relative h-full w-full overflow-hidden"><div ref={containerRef} className="h-full w-full" /><div className="pointer-events-none absolute left-3 top-3 z-10 hidden lg:flex overflow-hidden rounded-lg border border-white/80 bg-white/94 text-[11px] font-semibold text-zinc-600 shadow-sm backdrop-blur"><span className="bg-zinc-900 px-3 py-2 text-white">Bengaluru</span><span className="px-3 py-2">Community map</span></div><div className="pointer-events-none absolute bottom-4 left-3 z-10 hidden rounded-lg border border-white/80 bg-white/94 px-3 py-2 text-xs text-zinc-600 shadow-sm backdrop-blur sm:block">Tap any spot to see honest takes and wait times.</div></div>;
 });

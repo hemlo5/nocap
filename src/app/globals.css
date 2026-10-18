@@ -101,33 +101,6 @@ input {
   letter-spacing: -0.01em;
 }
 
-/* ── Review markers ── */
-.nocap-review-marker {
-  display: grid;
-  width: 24px;
-  height: 24px;
-  place-items: center;
-  border: 2.5px solid #ffffff;
-  border-radius: 999px;
-  background: #111827;
-  color: #ffffff;
-  cursor: pointer;
-  font-size: 9px;
-  font-weight: 900;
-  line-height: 1;
-  box-shadow: 0 0 0 2px #22c55e, 0 4px 14px rgb(17 24 39 / 32%);
-  transition: transform 160ms ease;
-}
-
-/* Legit review — premium dark purple with violet neon glow */
-.nocap-review-marker.is-legit {
-  background: linear-gradient(135deg, #2e1065, #4c1d95);
-  border-color: #f3e8ff;
-  color: #f5f3ff;
-  box-shadow: 0 0 0 2px #a855f7, 0 4px 14px rgb(76 29 149 / 60%), 0 0 12px rgb(168 85 247 / 35%);
-}
-
-.nocap-review-marker:hover { transform: scale(1.18); }
 
 /* ── User location blue dot ── */
 .nocap-user-dot {
