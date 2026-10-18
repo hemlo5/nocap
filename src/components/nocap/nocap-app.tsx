@@ -124,14 +124,37 @@ export function NocapApp() {
     if (!hasSupabaseBrowserConfig()) return;
     const supabase = createSupabaseBrowserClient();
     let alive = true;
+
+    // If user returned to /map with an OAuth code directly
+    if (typeof window !== "undefined") {
+      const searchParams = new URLSearchParams(window.location.search);
+      const code = searchParams.get("code");
+      if (code) {
+        supabase.auth.exchangeCodeForSession(code).then(({ data, error }) => {
+          if (!alive) return;
+          if (data?.session) {
+            setAccessToken(data.session.access_token);
+            // Clean code from URL
+            const cleanUrl = window.location.pathname;
+            window.history.replaceState({}, document.title, cleanUrl);
+          }
+        });
+      }
+    }
+
     supabase.auth.getSession().then(({ data }) => {
       if (!alive) return;
-      setAccessToken(data.session?.access_token ?? null);
+      if (data.session?.access_token) {
+        setAccessToken(data.session.access_token);
+      }
     });
+
     const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!alive) return;
       setAccessToken(session?.access_token ?? null);
       if (!session) setProfile(null);
     });
+
     return () => { alive = false; subscription.subscription.unsubscribe(); };
   }, []);
 
