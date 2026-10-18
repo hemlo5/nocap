@@ -458,20 +458,22 @@ input {
   transform: translateY(-1px);
 }
 
-/* Shimmer animation for skeleton loaders */
+/* Shimmer animation for skeleton loaders — high-contrast dark tones */
 @keyframes shimmer {
-  0% { background-position: -400px 0; }
-  100% { background-position: 400px 0; }
+  0% { background-position: -600px 0; }
+  100% { background-position: 600px 0; }
 }
 
 .skeleton-shimmer {
   background: linear-gradient(90deg,
-    rgb(244 244 245) 0%,
-    rgb(250 250 250) 40%,
-    rgb(244 244 245) 100%
+    #d4d4d8 0%,
+    #a1a1aa 28%,
+    #f4f4f5 50%,
+    #a1a1aa 72%,
+    #d4d4d8 100%
   );
-  background-size: 800px 100%;
-  animation: shimmer 1.4s ease-in-out infinite;
+  background-size: 600px 100%;
+  animation: shimmer 1.3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
 /* Staggered card entrance */

@@ -433,6 +433,14 @@ export function NocapApp() {
         </div>
       )}
 
+      {/* Mobile loading indicator */}
+      {loading && !pinMode && (
+        <div className="absolute top-28 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 rounded-full border border-zinc-300 bg-zinc-900 px-4 py-1.5 text-xs font-bold text-white shadow-xl">
+          <span className="h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
+          Loading Bengaluru places...
+        </div>
+      )}
+
       {/* Pin mode overlay banner */}
       {pinMode && (
         <div className="absolute left-3 right-3 top-3 z-20 flex items-center gap-2 rounded-xl bg-amber-500 px-4 py-3 shadow-lg">
@@ -544,7 +552,16 @@ export function NocapApp() {
               </button>
             ))}
           </div>
-          <p className="mt-3 text-[11px] font-medium text-zinc-500">{visiblePlaces.length + visibleUserPlaces.length} places · {reviews.length} local reviews</p>
+          <div className="mt-3 text-[11px] font-medium text-zinc-500">
+            {loading ? (
+              <span className="flex items-center gap-1.5 font-bold text-zinc-700">
+                <span className="h-2 w-2 rounded-full bg-zinc-800 animate-pulse" />
+                Loading places & takes...
+              </span>
+            ) : (
+              `${visiblePlaces.length + visibleUserPlaces.length} places · ${reviews.length} local reviews`
+            )}
+          </div>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto p-3">
           {loading ? <PlaceListSkeleton /> : (
@@ -1032,5 +1049,60 @@ function currentPosition(): Promise<GeolocationPosition> {
   });
 }
 
-function PlaceListSkeleton() { return <div className="space-y-2">{Array.from({ length: 8 }, (_, index) => <div key={index} className="h-14 animate-pulse rounded-md bg-zinc-100" />)}</div>; }
-function EvidenceSkeleton() { return <div className="mt-4 space-y-3">{Array.from({ length: 2 }, (_, index) => <div key={index} className="h-24 animate-pulse rounded-md bg-zinc-100" />)}</div>; }
+function PlaceListSkeleton() {
+  return (
+    <div className="space-y-2">
+      {Array.from({ length: 8 }, (_, index) => (
+        <div
+          key={index}
+          className="flex items-start gap-3 rounded-xl border border-zinc-200/90 bg-white p-3 shadow-xs"
+        >
+          {/* Avatar icon skeleton - dark zinc with high visibility shimmer */}
+          <div className="h-8 w-8 shrink-0 rounded-full bg-zinc-300 skeleton-shimmer" />
+          {/* Text lines */}
+          <div className="min-w-0 flex-1 space-y-2 pt-0.5">
+            <div className="h-3.5 w-3/4 rounded-md bg-zinc-300 skeleton-shimmer" />
+            <div className="flex items-center gap-2">
+              <div className="h-2.5 w-2/5 rounded-md bg-zinc-300 skeleton-shimmer" />
+              <div className="h-2.5 w-1/4 rounded-md bg-zinc-200 skeleton-shimmer" />
+            </div>
+          </div>
+          <div className="h-4 w-7 rounded-full bg-zinc-200 skeleton-shimmer" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function EvidenceSkeleton() {
+  return (
+    <div className="mt-4 space-y-3">
+      <div className="flex items-center gap-2 px-1 text-xs font-bold text-zinc-700">
+        <span className="inline-block h-2 w-2 rounded-full bg-zinc-800 animate-pulse" />
+        Loading verified reviews & takes...
+      </div>
+      {Array.from({ length: 3 }, (_, index) => (
+        <div
+          key={index}
+          className="rounded-xl border border-zinc-200/90 bg-white p-4 shadow-xs space-y-3"
+        >
+          {/* Reviewer header */}
+          <div className="flex items-center gap-2.5">
+            <div className="h-8 w-8 shrink-0 rounded-full bg-zinc-400 skeleton-shimmer" />
+            <div className="min-w-0 flex-1 space-y-1.5">
+              <div className="h-3.5 w-1/3 rounded-md bg-zinc-400 skeleton-shimmer" />
+              <div className="h-2.5 w-1/4 rounded-md bg-zinc-300 skeleton-shimmer" />
+            </div>
+            <div className="h-4 w-16 rounded-md bg-zinc-300 skeleton-shimmer" />
+          </div>
+          {/* Review body paragraph lines */}
+          <div className="space-y-2 pt-1">
+            <div className="h-3.5 w-full rounded-md bg-zinc-300 skeleton-shimmer" />
+            <div className="h-3.5 w-11/12 rounded-md bg-zinc-300 skeleton-shimmer" />
+            <div className="h-3.5 w-3/5 rounded-md bg-zinc-200 skeleton-shimmer" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
