@@ -70,6 +70,7 @@ export function NocapApp() {
   const [locateState, setLocateState] = useState<"idle" | "locating" | "located" | "denied">("idle");
   const [nearbyPlaces, setNearbyPlaces] = useState<NocapPlace[]>([]);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [locatingUser, setLocatingUser] = useState(false);
   // Pin-drop states
   const [pinMode, setPinMode] = useState(false);
   const [pendingPin, setPendingPin] = useState<{ lat: number; lng: number } | null>(null);
@@ -282,9 +283,29 @@ export function NocapApp() {
     }
   }
 
-  function handleLocateMe() {
-    if (!userLocation) { handleWriteNoCap(); return; }
-    mapRef.current?.flyToUser(userLocation.lat, userLocation.lng);
+  async function handleLocateMe() {
+    setLocationError(null);
+    if (userLocation) {
+      mapRef.current?.flyToUser(userLocation.lat, userLocation.lng, 16.5);
+    }
+    setLocatingUser(true);
+    try {
+      const position = await currentPosition();
+      const loc = { lat: position.coords.latitude, lng: position.coords.longitude };
+      setUserLocation(loc);
+      mapRef.current?.flyToUser(loc.lat, loc.lng, 16.5);
+    } catch (err: any) {
+      console.error("[NoCap] Location error in locate me:", err);
+      if (!userLocation) {
+        setLocationError(
+          err?.message?.includes("PERMISSION_DENIED")
+            ? "Location access was blocked. Please enable location permissions in your browser to zoom to your place."
+            : "Unable to find your location. Please check your GPS and try again."
+        );
+      }
+    } finally {
+      setLocatingUser(false);
+    }
   }
 
   function dismissLocate() {
@@ -413,8 +434,14 @@ export function NocapApp() {
       )}
 
       {/* Locate me button */}
-      <button type="button" onClick={handleLocateMe} className="absolute bottom-[8.5rem] right-3 z-20 grid h-11 w-11 place-items-center rounded-full border border-zinc-200/80 bg-white/95 backdrop-blur shadow-lg" title="Show my location">
-        <LocateFixed className="h-5 w-5 text-zinc-700" />
+      <button
+        type="button"
+        onClick={handleLocateMe}
+        disabled={locatingUser}
+        className="absolute bottom-[8.5rem] right-3 z-20 grid h-11 w-11 place-items-center rounded-full border border-zinc-200/80 bg-white/95 backdrop-blur shadow-lg active:scale-95 transition-all"
+        title="Zoom to my location"
+      >
+        <LocateFixed className={cn("h-5 w-5 text-zinc-700", locatingUser && "animate-spin text-blue-600")} />
       </button>
 
       {/* Write a NoCap FAB */}
@@ -569,8 +596,14 @@ export function NocapApp() {
           </div>
         )}
 
-        <button type="button" onClick={handleLocateMe} className="nocap-locate-btn" title="Show my location">
-          <LocateFixed />
+        <button
+          type="button"
+          onClick={handleLocateMe}
+          disabled={locatingUser}
+          className="nocap-locate-btn"
+          title="Zoom to my location"
+        >
+          <LocateFixed className={cn(locatingUser && "animate-spin text-blue-600")} />
         </button>
 
         {!pinMode && (

@@ -7,7 +7,7 @@ import type { NocapReview } from "@/lib/nocap/community";
 import type { NocapUserPlace } from "@/lib/nocap/community";
 
 export type NocapMapHandle = {
-  flyToUser: (lat: number, lng: number) => void;
+  flyToUser: (lat: number, lng: number, zoom?: number) => void;
   showRadiusCircle: (lat: number, lng: number, radiusKm: number) => void;
   hideRadiusCircle: () => void;
   enterPinMode: () => void;
@@ -89,8 +89,8 @@ export const NocapMap = forwardRef<NocapMapHandle, NocapMapProps>(function Nocap
 
   // Expose methods to parent
   useImperativeHandle(ref, () => ({
-    flyToUser(lat: number, lng: number) {
-      mapRef.current?.flyTo({ center: [lng, lat], zoom: 14.5, duration: 900, essential: true });
+    flyToUser(lat: number, lng: number, zoom = 16.5) {
+      mapRef.current?.flyTo({ center: [lng, lat], zoom, duration: 900, essential: true });
     },
     showRadiusCircle(lat: number, lng: number, radiusKm: number) {
       const map = mapRef.current;
@@ -130,7 +130,18 @@ export const NocapMap = forwardRef<NocapMapHandle, NocapMapProps>(function Nocap
       if (!containerRef.current || mapRef.current) return;
       const maplibregl: MapLibreModule = await import("maplibre-gl");
       if (cancelled || !containerRef.current) return;
-      const map = new maplibregl.Map({ container: containerRef.current, style: mapStyle(), center: [77.6046, 12.9716], zoom: 10.45, minZoom: 9.5, maxZoom: 18, maxBounds: [[77.34, 12.72], [77.9, 13.2]], pixelRatio: Math.min(window.devicePixelRatio || 1, 1.5), attributionControl: false, dragRotate: false, touchPitch: false });
+      const map = new maplibregl.Map({
+        container: containerRef.current,
+        style: mapStyle(),
+        center: [77.6046, 12.9716],
+        zoom: 10.45,
+        minZoom: 3,
+        maxZoom: 19,
+        pixelRatio: Math.min(window.devicePixelRatio || 1, 1.5),
+        attributionControl: false,
+        dragRotate: false,
+        touchPitch: false,
+      });
       mapRef.current = map;
       map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
       map.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-right");
