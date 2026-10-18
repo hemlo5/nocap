@@ -25,7 +25,7 @@ export function HemloNav() {
       <div suppressHydrationWarning className="mx-auto flex h-14 max-w-screen-2xl items-center gap-2 sm:gap-4 px-3 sm:px-6">
         {/* Brand */}
         <Link
-          href="/"
+          href="/map"
           className="group flex shrink-0 items-center transition-opacity hover:opacity-90 mr-1"
         >
           <img
