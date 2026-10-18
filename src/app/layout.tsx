@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { HemloNav } from "@/components/nav/hemlo-nav";
+import { GoogleAnalytics } from "@/components/analytics/google-analytics";
 import "./globals.css";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
@@ -129,6 +130,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body suppressHydrationWarning className="h-full min-h-screen flex flex-col bg-[#F6F5F2] text-[#18181B]">
+        <GoogleAnalytics />
         <HemloNav />
         {children}
       </body>

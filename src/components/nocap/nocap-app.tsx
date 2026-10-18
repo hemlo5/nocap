@@ -9,6 +9,7 @@ import type { NocapProfile, NocapReview, NocapUserPlace } from "@/lib/nocap/comm
 import { createSupabaseBrowserClient, hasSupabaseBrowserConfig } from "@/lib/supabase/client";
 import { NocapMap, type NocapMapHandle } from "./nocap-map";
 import { cn } from "@/lib/utils/cn";
+import { trackEvent } from "@/lib/analytics/gtag";
 
 type PlaceDetail = { place: NocapPlace; reviews: NocapReview[]; status: "ready"; supabaseConfigured: boolean };
 
@@ -203,6 +204,7 @@ export function NocapApp() {
 
   async function signIn() {
     if (!hasSupabaseBrowserConfig()) return;
+    trackEvent("sign_in_start", { method: "google" });
     await createSupabaseBrowserClient().auth.signInWithOAuth({ provider: "google", options: { redirectTo: `${window.location.origin}/auth/callback?next=/map` } });
   }
 
@@ -241,6 +243,11 @@ export function NocapApp() {
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error ?? "Could not publish review.");
+    trackEvent("publish_review", {
+      place_id: pid ?? upid,
+      rating: input.rating,
+      is_legit_requested: Boolean(input.makeLegit),
+    });
     setReviews((current) => [data.review, ...current.filter((review) => review.id !== data.review.id)]);
 
     // If user wants Legit badge, kick off Dodo checkout
@@ -261,6 +268,7 @@ export function NocapApp() {
 
   // ── "Write a NoCap" button handler ──────────────────────────────────────
   async function handleWriteNoCap() {
+    trackEvent("write_nocap_click");
     setLocationError(null);
     setLocateState("locating");
     try {
@@ -284,6 +292,7 @@ export function NocapApp() {
   }
 
   async function handleLocateMe() {
+    trackEvent("locate_user_click");
     setLocationError(null);
     if (userLocation) {
       mapRef.current?.flyToUser(userLocation.lat, userLocation.lng, 16.5);
