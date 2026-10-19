@@ -13,8 +13,9 @@ export async function GET(_request: Request, context: RouteContext<"/api/nocap/p
 
   const { data } = await createAdminClient()
     .from("nocap_reviews")
-    .select("id, place_id, body, rating, latitude, longitude, created_at, updated_at, nocap_profiles!inner(id, display_name, avatar_url, bio)")
+    .select("id, place_id, body, rating, latitude, longitude, is_legit, payment_id, created_at, updated_at, nocap_profiles!inner(id, display_name, avatar_url, bio)")
     .eq("place_id", id)
+    .order("is_legit", { ascending: false })
     .order("created_at", { ascending: false });
   return Response.json({ place, reviews: [...(data ?? []).map((review) => toReview(review)), ...archivedReviews], status: "ready", supabaseConfigured: true });
 }

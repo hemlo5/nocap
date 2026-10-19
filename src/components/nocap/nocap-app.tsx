@@ -86,6 +86,35 @@ export function NocapApp() {
     const params = new URLSearchParams(window.location.search);
     if (params.get("legit") === "success") {
       setLegitSuccess(true);
+      const paymentId = params.get("payment_id");
+      const sessionId = params.get("session_id");
+      const placeParam = params.get("place");
+
+      if (placeParam) {
+        if (placeParam.startsWith("user:")) {
+          setSelectedUserPlaceId(placeParam.slice(5));
+          setSelectedPlaceId(null);
+        } else {
+          setSelectedPlaceId(placeParam);
+          setSelectedUserPlaceId(null);
+        }
+      }
+
+      if (paymentId || sessionId) {
+        fetch("/api/nocap/payments/verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ paymentId, sessionId }),
+        })
+          .then((res) => res.json())
+          .then((data) => {
+            if (data.review) {
+              setReviews((current) => [data.review, ...current.filter((r) => r.id !== data.review.id)]);
+            }
+          })
+          .catch((e) => console.error("[NoCap] Verify payment error:", e));
+      }
+
       window.history.replaceState({}, "", window.location.pathname);
     }
   }, []);
@@ -262,6 +291,41 @@ export function NocapApp() {
     const pid = input.placeId ?? selectedPlace?.id;
     const upid = input.userPlaceId ?? selectedUserPlace?.id;
     if (!pid && !upid) throw new Error("No place selected.");
+
+    // If user wants Legit badge, initiate Dodo checkout directly.
+    // The review is NOT written to the database or displayed until payment succeeds!
+    if (input.makeLegit) {
+      const checkoutRes = await fetch("/api/nocap/payments/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({
+          placeId: pid,
+          userPlaceId: upid,
+          body: input.body,
+          rating: input.rating,
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          accuracyMeters: position.coords.accuracy,
+          origin: window.location.origin,
+        }),
+      });
+      const checkoutData = await checkoutRes.json();
+      if (!checkoutRes.ok) {
+        throw new Error(checkoutData.error ?? "Could not initiate Legit checkout.");
+      }
+      if (checkoutData.checkoutUrl) {
+        trackEvent("publish_review", {
+          place_id: pid ?? upid,
+          rating: input.rating,
+          is_legit_requested: true,
+        });
+        window.location.href = checkoutData.checkoutUrl;
+        return;
+      }
+      throw new Error("No checkout URL returned from payment provider.");
+    }
+
+    // Standard free review
     const response = await fetch("/api/nocap/reviews", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
@@ -280,24 +344,9 @@ export function NocapApp() {
     trackEvent("publish_review", {
       place_id: pid ?? upid,
       rating: input.rating,
-      is_legit_requested: Boolean(input.makeLegit),
+      is_legit_requested: false,
     });
     setReviews((current) => [data.review, ...current.filter((review) => review.id !== data.review.id)]);
-
-    // If user wants Legit badge, kick off Dodo checkout
-    if (input.makeLegit && data.review?.id) {
-      const checkoutRes = await fetch("/api/nocap/payments/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({ reviewId: data.review.id, origin: window.location.origin }),
-      });
-      const checkoutData = await checkoutRes.json();
-      if (checkoutData.checkoutUrl) {
-        window.location.href = checkoutData.checkoutUrl;
-        return;
-      }
-      throw new Error(checkoutData.error ?? "Could not create Legit checkout.");
-    }
   }
 
   // ── "Write a NoCap" button handler ──────────────────────────────────────
@@ -815,12 +864,14 @@ function ReviewComposer({ configured, signedIn, onSignIn, onPublish }: {
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     setState("locating");
-    setMessage(makeLegit ? "Getting location & setting up checkout\u2026" : "Checking your current location\u2026");
+    setMessage(makeLegit ? "Getting location & opening payment checkout\u2026" : "Checking your current location\u2026");
     try {
       await onPublish({ body, rating, makeLegit });
-      setBody("");
-      setState("idle");
-      setMessage(makeLegit ? "" : "Published at your current location.");
+      if (!makeLegit) {
+        setBody("");
+        setState("idle");
+        setMessage("Published at your current location.");
+      }
     } catch (error) {
       setState("error");
       setMessage(error instanceof Error ? error.message : "Could not publish review.");
