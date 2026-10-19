@@ -471,12 +471,12 @@ export function NocapApp() {
       navSlot,
     )}
 
-    {/* Legit success banner in dark purple theme */}
+    {/* Legit success banner in black with white shine */}
     {legitSuccess && (
-      <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-2.5 rounded-full bg-gradient-to-r from-[#1b082e] via-[#290d47] to-[#140424] border border-purple-500/50 px-5 py-2.5 text-xs font-bold text-purple-100 shadow-xl shadow-purple-950/50">
-        <Sparkles className="h-4 w-4 text-amber-300" />
+      <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-2.5 rounded-full bg-gradient-to-r from-black via-zinc-900 to-black border border-white/30 px-5 py-2.5 text-xs font-bold text-white shadow-2xl shadow-black/80 shadow-[inset_0_1px_1px_rgba(255,255,255,0.35)]">
+        <Sparkles className="h-4 w-4 text-white drop-shadow-[0_0_6px_rgba(255,255,255,0.8)]" />
         <span>Your Legit review is live at the top!</span>
-        <button type="button" onClick={() => setLegitSuccess(false)} className="ml-1 text-purple-300 hover:text-white">
+        <button type="button" onClick={() => setLegitSuccess(false)} className="ml-1 text-zinc-400 hover:text-white">
           <X className="h-3.5 w-3.5" />
         </button>
       </div>
@@ -922,26 +922,32 @@ function ReviewComposer({ configured, signedIn, onSignIn, onPublish }: {
       className="mt-2.5 min-h-20 w-full resize-y rounded-lg border border-zinc-200 bg-white p-2.5 text-sm text-zinc-900 outline-none focus:border-zinc-500"
     />
 
-    {/* Premium Dark Purple Legit Option */}
-    <label className="mt-3 relative flex cursor-pointer items-start gap-3 overflow-hidden rounded-xl border border-purple-500/40 bg-gradient-to-br from-[#1a082e] via-[#280d46] to-[#130423] p-3 shadow-lg shadow-purple-950/20 transition-all hover:border-purple-400/60 group">
+    {/* Black with white shine Legit Option */}
+    <label className="mt-3 relative flex cursor-pointer items-start gap-3 overflow-hidden rounded-xl border border-zinc-800 bg-gradient-to-br from-zinc-950 via-zinc-900 to-black p-3.5 shadow-xl transition-all duration-300 hover:border-zinc-600 group">
+      {/* Top subtle white shine highlight border */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/40 to-transparent" />
+      {/* Diagonal gloss reflection sheen */}
+      <div className="pointer-events-none absolute -inset-full top-0 block -rotate-45 bg-gradient-to-r from-transparent via-white/[0.07] to-transparent opacity-70 transition-opacity duration-500 group-hover:opacity-100" />
+
       <input
         type="checkbox"
         checked={makeLegit}
         onChange={(e) => setMakeLegit(e.target.checked)}
-        className="mt-0.5 h-4 w-4 rounded accent-purple-500 focus:ring-purple-500 cursor-pointer"
+        className="mt-0.5 h-4 w-4 rounded accent-zinc-100 cursor-pointer"
       />
-      <div className="min-w-0 flex-1">
+      <div className="relative min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
           <span className="flex items-center gap-1.5 text-xs font-black text-white tracking-wide">
-            <span className="text-amber-300">★</span>
+            <span className="text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.8)]">★</span>
             <span>Make it Legit</span>
           </span>
-          <span className="rounded-full bg-purple-500/30 border border-purple-400/40 px-2 py-0.5 text-[10px] font-black tracking-wider text-purple-200 shadow-xs">
+          <span className="relative overflow-hidden rounded-full bg-white/10 border border-white/20 px-2 py-0.5 text-[10px] font-black tracking-wider text-white shadow-xs">
+            <span className="pointer-events-none absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
             ₹39
           </span>
         </div>
-        <p className="mt-0.5 text-[11px] leading-relaxed text-purple-200/80">
-          Pin your review right to the top with an exclusive luxury purple badge.
+        <p className="mt-0.5 text-[11px] leading-relaxed text-zinc-300">
+          Pin your review right to the top with an exclusive Legit badge.
         </p>
       </div>
     </label>
@@ -951,14 +957,20 @@ function ReviewComposer({ configured, signedIn, onSignIn, onPublish }: {
       <button
         disabled={state === "locating" || body.trim().length < 8}
         className={cn(
-          "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-3.5 text-xs font-bold transition-all disabled:opacity-50",
+          "relative overflow-hidden inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-4 text-xs font-bold text-white transition-all duration-200 disabled:opacity-50 group",
           makeLegit
-            ? "bg-gradient-to-r from-purple-700 via-violet-700 to-indigo-700 text-white shadow-md shadow-purple-900/30 hover:brightness-110"
-            : "bg-zinc-950 text-white hover:bg-zinc-800"
+            ? "bg-black border border-white/30 shadow-[inset_0_1px_1px_rgba(255,255,255,0.45),0_4px_14px_rgba(0,0,0,0.6)] hover:border-white/60 hover:bg-zinc-900 active:scale-[0.98]"
+            : "bg-zinc-950 border border-transparent hover:bg-zinc-800"
         )}
       >
-        <Send className="h-3.5 w-3.5" />
-        {makeLegit ? "Publish + Pay ₹39" : "Publish"}
+        {makeLegit && (
+          <>
+            <span className="pointer-events-none absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/70 to-transparent" />
+            <span className="pointer-events-none absolute -inset-full top-0 block -rotate-45 bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-60 group-hover:opacity-100 transition-opacity" />
+          </>
+        )}
+        <Send className="relative z-10 h-3.5 w-3.5" />
+        <span className="relative z-10">Publish</span>
       </button>
     </div>
   </form>;
@@ -970,14 +982,14 @@ function ReviewCard({ review }: { review: NocapReview }) {
       className={cn(
         "rounded-xl border p-3.5 transition-colors",
         review.isLegit
-          ? "border-purple-300/80 bg-gradient-to-br from-purple-50/70 via-white to-violet-50/50 shadow-xs"
+          ? "border-zinc-300 bg-gradient-to-br from-zinc-50 via-white to-zinc-100 shadow-xs"
           : "border-zinc-200 bg-white"
       )}
     >
       <div className="flex items-center gap-2">
         {review.isLegit && (
-          <span className="flex items-center gap-1 rounded-full bg-gradient-to-r from-violet-950 via-purple-900 to-indigo-950 px-2.5 py-0.5 text-[10px] font-black tracking-wide text-purple-100 border border-purple-500/40 shadow-xs">
-            <span className="text-amber-300">★</span> Legit
+          <span className="relative overflow-hidden flex items-center gap-1 rounded-full bg-black px-2.5 py-0.5 text-[10px] font-black tracking-wide text-white border border-white/25 shadow-[inset_0_1px_0_rgba(255,255,255,0.35)]">
+            <span className="text-white drop-shadow-[0_0_6px_rgba(255,255,255,0.8)]">★</span> Legit
           </span>
         )}
         <span className="grid h-7 w-7 shrink-0 place-items-center overflow-hidden rounded-full bg-zinc-950 text-[10px] font-bold text-white">
