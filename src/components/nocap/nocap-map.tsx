@@ -90,32 +90,55 @@ export const NocapMap = forwardRef<NocapMapHandle, NocapMapProps>(function Nocap
 
   // Expose methods to parent
   useImperativeHandle(ref, () => ({
-    flyToUser(lat: number, lng: number, zoom = 16.5) {
+    flyToUser(lat: number, lng: number, zoom = 16) {
       const map = mapRef.current;
       if (!map) return;
-      // Clamp coordinates to Bengaluru bounds if maxBounds is active so MapLibre doesn't reject flyTo
-      const clampedLng = Math.max(77.345, Math.min(77.895, lng));
-      const clampedLat = Math.max(12.725, Math.min(13.195, lat));
-      map.flyTo({ center: [clampedLng, clampedLat], zoom, duration: 900, essential: true });
+      const insideBLR = lat >= 12.72 && lat <= 13.2 && lng >= 77.34 && lng <= 77.9;
+      if (!insideBLR) {
+        // If user is outside Bengaluru bounds, lift maxBounds so map camera can freely zoom to user's real location
+        map.setMaxBounds(undefined);
+      } else {
+        map.setMaxBounds([
+          [77.34, 12.72],
+          [77.9, 13.2],
+        ]);
+      }
+      map.flyTo({ center: [lng, lat], zoom, duration: 1000, essential: true });
     },
     showRadiusCircle(lat: number, lng: number, radiusKm: number) {
       const map = mapRef.current;
-      if (!map || !mapReady) return;
+      if (!map) return;
       const data = radiusGeoJSON(lat, lng, radiusKm);
-      if (!map.getSource(radiusSourceId)) {
-        map.addSource(radiusSourceId, { type: "geojson", data });
-        map.addLayer({ id: radiusLayerId, type: "fill", source: radiusSourceId, paint: { "fill-color": "#3b82f6", "fill-opacity": 0.08 } }, haloLayerId);
-        map.addLayer({ id: radiusBorderLayerId, type: "line", source: radiusSourceId, paint: { "line-color": "#3b82f6", "line-width": 2, "line-opacity": 0.4, "line-dasharray": [3, 3] } }, haloLayerId);
-      } else {
-        (map.getSource(radiusSourceId) as GeoJSONSource).setData(data);
-      }
+      try {
+        if (!map.getSource(radiusSourceId)) {
+          if (!map.isStyleLoaded()) {
+            map.once("styledata", () => {
+              try {
+                if (!map.getSource(radiusSourceId)) {
+                  map.addSource(radiusSourceId, { type: "geojson", data });
+                  map.addLayer({ id: radiusLayerId, type: "fill", source: radiusSourceId, paint: { "fill-color": "#3b82f6", "fill-opacity": 0.08 } }, haloLayerId);
+                  map.addLayer({ id: radiusBorderLayerId, type: "line", source: radiusSourceId, paint: { "line-color": "#3b82f6", "line-width": 2, "line-opacity": 0.4, "line-dasharray": [3, 3] } }, haloLayerId);
+                }
+              } catch (_) {}
+            });
+            return;
+          }
+          map.addSource(radiusSourceId, { type: "geojson", data });
+          map.addLayer({ id: radiusLayerId, type: "fill", source: radiusSourceId, paint: { "fill-color": "#3b82f6", "fill-opacity": 0.08 } }, haloLayerId);
+          map.addLayer({ id: radiusBorderLayerId, type: "line", source: radiusSourceId, paint: { "line-color": "#3b82f6", "line-width": 2, "line-opacity": 0.4, "line-dasharray": [3, 3] } }, haloLayerId);
+        } else {
+          (map.getSource(radiusSourceId) as GeoJSONSource).setData(data);
+        }
+      } catch (_) {}
     },
     hideRadiusCircle() {
       const map = mapRef.current;
       if (!map) return;
-      if (map.getLayer(radiusLayerId)) map.removeLayer(radiusLayerId);
-      if (map.getLayer(radiusBorderLayerId)) map.removeLayer(radiusBorderLayerId);
-      if (map.getSource(radiusSourceId)) map.removeSource(radiusSourceId);
+      try {
+        if (map.getLayer(radiusLayerId)) map.removeLayer(radiusLayerId);
+        if (map.getLayer(radiusBorderLayerId)) map.removeLayer(radiusBorderLayerId);
+        if (map.getSource(radiusSourceId)) map.removeSource(radiusSourceId);
+      } catch (_) {}
     },
     enterPinMode() {
       pinModeRef.current = true;
@@ -255,13 +278,22 @@ export const NocapMap = forwardRef<NocapMapHandle, NocapMapProps>(function Nocap
     if (!map || !mapReady) return;
     let cancelled = false;
     async function renderUserDot() {
-      if (!userLocation) { userMarkerRef.current?.remove(); userMarkerRef.current = null; return; }
+      if (!userLocation) {
+        userMarkerRef.current?.remove();
+        userMarkerRef.current = null;
+        return;
+      }
+      if (userMarkerRef.current) {
+        userMarkerRef.current.setLngLat([userLocation.lng, userLocation.lat]);
+        return;
+      }
       const maplibregl: MapLibreModule = await import("maplibre-gl");
       if (cancelled) return;
-      userMarkerRef.current?.remove();
       const dot = document.createElement("div");
       dot.className = "nocap-user-dot";
-      userMarkerRef.current = new maplibregl.Marker({ element: dot, anchor: "center" }).setLngLat([userLocation.lng, userLocation.lat]).addTo(map!);
+      userMarkerRef.current = new maplibregl.Marker({ element: dot, anchor: "center" })
+        .setLngLat([userLocation.lng, userLocation.lat])
+        .addTo(map!);
     }
     renderUserDot();
     return () => { cancelled = true; };

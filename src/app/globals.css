@@ -111,6 +111,8 @@ input {
   border: 3px solid #ffffff;
   box-shadow: 0 0 0 6px rgb(59 130 246 / 25%), 0 4px 14px rgb(59 130 246 / 30%);
   animation: nocap-pulse 2s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 50;
 }
 
 @keyframes nocap-pulse {

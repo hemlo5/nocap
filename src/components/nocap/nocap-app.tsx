@@ -380,7 +380,7 @@ export function NocapApp() {
 
     // Instant response if already located
     if (userLocation) {
-      mapRef.current?.flyToUser(userLocation.lat, userLocation.lng, 16.5);
+      mapRef.current?.flyToUser(userLocation.lat, userLocation.lng, 16);
       mapRef.current?.showRadiusCircle(userLocation.lat, userLocation.lng, 1);
       setLocateState("located");
     }
@@ -390,7 +390,7 @@ export function NocapApp() {
       const position = await currentPosition();
       const loc = { lat: position.coords.latitude, lng: position.coords.longitude };
       setUserLocation(loc);
-      mapRef.current?.flyToUser(loc.lat, loc.lng, 16.5);
+      mapRef.current?.flyToUser(loc.lat, loc.lng, 16);
       mapRef.current?.showRadiusCircle(loc.lat, loc.lng, 1);
       setLocateState("located");
 
@@ -496,166 +496,10 @@ export function NocapApp() {
       </div>
     )}
 
-    {/* ── MOBILE LAYOUT (below lg) ── */}
-    <div className="relative h-full lg:hidden">
-      {/* Full-screen map */}
-      <NocapMap
-        ref={mapRef}
-        places={visiblePlaces}
-        reviews={reviews}
-        userPlaces={userPlaces}
-        selectedPlaceId={selectedPlaceId ?? selectedUserPlaceId}
-        onSelectPlace={(id) => { setSelectedPlaceId(id); setSelectedUserPlaceId(null); dismissLocate(); exitPinMode(); }}
-        onSelectUserPlace={(id) => { setSelectedUserPlaceId(id); setSelectedPlaceId(null); dismissLocate(); exitPinMode(); }}
-        userLocation={userLocation}
-        pendingPin={pendingPin}
-        onPinDrop={handlePinDrop}
-      />
-
-      {/* Floating search bar at top */}
-      {!pinMode && (
-        <div className="absolute left-3 right-3 top-3 z-20">
-          <div className="flex items-center gap-2 rounded-xl bg-white/95 backdrop-blur border border-zinc-200/80 shadow-lg px-3 h-12">
-            <img src="/nocap-icon.png" alt="NoCap" className="h-7 w-7 shrink-0 rounded-lg object-contain shadow-xs" />
-            <Search className="h-4 w-4 shrink-0 text-zinc-400" />
-            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search places" className="min-w-0 flex-1 bg-transparent text-sm text-zinc-900 outline-none placeholder:text-zinc-400" />
-            <AccountButton configured={supabaseConfigured} profile={profile} onSignIn={signIn} onOpenProfile={() => setProfileOpen(true)} />
-          </div>
-          <div className="mt-2 flex gap-1.5 overflow-x-auto pb-1" style={{ WebkitOverflowScrolling: "touch", scrollbarWidth: "none" }}>
-            {filters.map((filter) => (
-              <button key={filter.id} type="button" onClick={() => setCategory(filter.id)} className={cn("shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-colors shadow-sm", category === filter.id ? "border-zinc-950 bg-zinc-950 text-white" : "border-zinc-200/80 bg-white/90 backdrop-blur text-zinc-600")}>
-                {filter.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Mobile loading indicator */}
-      {loading && !pinMode && (
-        <div className="absolute top-28 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 rounded-full border border-zinc-300 bg-zinc-900 px-4 py-1.5 text-xs font-bold text-white shadow-xl">
-          <span className="h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
-          Loading Bengaluru places...
-        </div>
-      )}
-
-      {/* Pin mode overlay banner */}
-      {pinMode && (
-        <div className="absolute left-3 right-3 top-3 z-20 flex items-center gap-2 rounded-xl bg-amber-500 px-4 py-3 shadow-lg">
-          <Pin className="h-4 w-4 text-white" />
-          <span className="flex-1 text-sm font-bold text-white">Tap anywhere on the map to pin a place</span>
-          <button type="button" onClick={exitPinMode} className="grid h-7 w-7 place-items-center rounded-full bg-white/20 text-white hover:bg-white/30"><X className="h-4 w-4" /></button>
-        </div>
-      )}
-
-      {/* Pin a place button */}
-      <button
-        type="button"
-        onClick={() => {
-          if (pinMode) exitPinMode();
-          else enterPinMode();
-        }}
-        className={cn(
-          "absolute bottom-[11.8rem] right-3 z-20 grid h-11 w-11 place-items-center rounded-full border shadow-lg active:scale-95 transition-all",
-          pinMode
-            ? "border-amber-500 bg-amber-500 text-white ring-2 ring-amber-300"
-            : "border-zinc-200/80 bg-white/95 backdrop-blur text-zinc-700 hover:text-zinc-900"
-        )}
-        title={pinMode ? "Exit pin mode" : "Pin a new place on map"}
-      >
-        <Pin className="h-5 w-5" />
-      </button>
-
-      {/* Locate me button */}
-      <button
-        type="button"
-        onClick={handleLocateMe}
-        disabled={locatingUser}
-        className="absolute bottom-[8.5rem] right-3 z-20 grid h-11 w-11 place-items-center rounded-full border border-zinc-200/80 bg-white/95 backdrop-blur shadow-lg active:scale-95 transition-all"
-        title="Zoom to my location"
-      >
-        <LocateFixed className={cn("h-5 w-5 text-zinc-700", locatingUser && "animate-spin text-blue-600")} />
-      </button>
-
-      {/* Write a NoCap FAB */}
-      {!pinMode && (
-        <button type="button" onClick={handleWriteNoCap} className={cn("absolute bottom-16 right-3 z-20 flex h-12 items-center gap-2 rounded-full bg-zinc-950 pl-4 pr-5 text-sm font-bold text-white shadow-lg transition-all", locateState === "locating" && "animate-pulse")}>
-          <Pencil className="h-4 w-4" />
-          {locateState === "locating" ? "Locating\u2026" : locateState === "located" ? "Pick nearby" : locateState === "denied" ? "Retry" : "Write a NoCap"}
-        </button>
-      )}
-
-      {/* Location error overlay */}
-      {locationError && (
-        <div className="absolute bottom-36 left-3 right-16 z-20 max-w-sm rounded-xl border border-red-200 bg-red-50 p-4 shadow-lg">
-          <p className="text-sm font-bold text-red-900">Location access needed</p>
-          <p className="mt-1 text-xs leading-5 text-red-700">{locationError}</p>
-          <button type="button" onClick={() => { setLocationError(null); setLocateState("idle"); }} className="mt-3 text-xs font-semibold text-red-500 hover:text-red-900">Dismiss</button>
-        </div>
-      )}
-
-      {/* Nearby places overlay when located */}
-      {locateState === "located" && (
-        <div className="absolute bottom-36 left-3 right-16 z-20 max-w-sm rounded-xl border border-zinc-200 bg-white p-3 shadow-lg">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold text-zinc-900">{nearbyPlaces.length} place{nearbyPlaces.length !== 1 ? "s" : ""} within 1 km</span>
-            <button type="button" onClick={dismissLocate} className="text-[10px] font-semibold text-zinc-500 hover:text-zinc-900">Close</button>
-          </div>
-          {nearbyPlaces.length > 0 && (
-            <div className="max-h-40 space-y-1 overflow-y-auto mb-2">
-              {nearbyPlaces.map((p) => {
-                const dist = userLocation ? Math.round(haversineM(userLocation.lat, userLocation.lng, p.latitude, p.longitude)) : 0;
-                return <button key={p.id} type="button" onClick={() => { setSelectedPlaceId(p.id); setSelectedUserPlaceId(null); dismissLocate(); }} className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-xs hover:bg-zinc-100">
-                  <span className={cn("grid h-6 w-6 shrink-0 place-items-center rounded-full text-[9px] font-black text-white", p.category === "eat" ? "bg-red-500" : p.category === "street" ? "bg-blue-500" : p.category === "park" ? "bg-green-600" : "bg-purple-600")}>{p.category[0].toUpperCase()}</span>
-                  <span className="min-w-0 flex-1 truncate font-semibold">{p.name}</span>
-                  <span className="shrink-0 text-zinc-400">{dist}m</span>
-                </button>;
-              })}
-            </div>
-          )}
-          <button type="button" onClick={enterPinMode} className="flex w-full items-center gap-2 rounded-md border border-dashed border-amber-400 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700 hover:bg-amber-100">
-            <Pin className="h-3.5 w-3.5" /> Pin a new place on the map
-          </button>
-        </div>
-      )}
-
-      {/* BOTTOM SHEET */}
-      {hasSelection && (
-        <>
-          <div onClick={() => { setSelectedPlaceId(null); setSelectedUserPlaceId(null); }} className="absolute inset-0 z-30 bg-black/20" />
-          <div className="absolute bottom-0 left-0 right-0 z-40 max-h-[70dvh] overflow-y-auto rounded-t-2xl bg-white shadow-2xl nocap-sheet">
-            <div className="sticky top-0 z-10 flex justify-center bg-white pt-3 pb-2 rounded-t-2xl">
-              <div className="h-1 w-10 rounded-full bg-zinc-300" />
-            </div>
-            <button type="button" onClick={() => { setSelectedPlaceId(null); setSelectedUserPlaceId(null); }} className="absolute top-3 right-3 z-10 grid h-8 w-8 place-items-center rounded-full bg-zinc-100 text-zinc-500 hover:bg-zinc-200">
-              <X className="h-4 w-4" />
-            </button>
-            {selectedPlace && (
-              <PlacePanel
-                place={selectedPlace}
-                detail={detail?.place.id === selectedPlace.id ? detail : null}
-                {...commonPanelProps}
-              />
-            )}
-            {selectedUserPlace && (
-              <UserPlacePanel
-                place={selectedUserPlace}
-                detail={userPlaceDetail?.place.id === selectedUserPlace.id ? userPlaceDetail : null}
-                {...commonPanelProps}
-              />
-            )}
-          </div>
-        </>
-      )}
-
-      {/* Profile editor on mobile */}
-      {profileOpen && profile && <ProfileEditor profile={profile} onClose={() => setProfileOpen(false)} onSave={saveProfile} onSignOut={signOut} />}
-    </div>
-
-    {/* ── DESKTOP LAYOUT (lg and above) ── */}
-    <div className="hidden h-full lg:grid lg:grid-cols-[330px_minmax(0,1fr)_380px]">
-      {/* Left sidebar */}
-      <aside className="z-20 flex min-h-0 flex-col border-b border-zinc-200 bg-white lg:border-b-0 lg:border-r">
+    {/* ── UNIFIED RESPONSIVE LAYOUT (Single Map, Zero Ref Clashing) ── */}
+    <div className="relative h-full w-full lg:grid lg:grid-cols-[330px_minmax(0,1fr)_380px]">
+      {/* ── Left sidebar (Desktop only) ── */}
+      <aside className="hidden lg:flex z-20 min-h-0 flex-col border-b border-zinc-200 bg-white lg:border-b-0 lg:border-r">
         <div className="border-b border-zinc-200 px-5 py-5">
           <label className="flex h-10 items-center gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-3 focus-within:border-zinc-400 focus-within:bg-white">
             <Search className="h-4 w-4 text-zinc-400" />
@@ -715,8 +559,8 @@ export function NocapApp() {
         </div>
       </aside>
 
-      {/* Center: Map */}
-      <section className="relative min-h-0">
+      {/* ── Center: THE MAP (Single Map Instance) ── */}
+      <section className="relative h-full w-full min-h-0">
         <NocapMap
           ref={mapRef}
           places={visiblePlaces}
@@ -730,48 +574,125 @@ export function NocapApp() {
           onPinDrop={handlePinDrop}
         />
 
-        {/* Pin mode banner */}
+        {/* ── MOBILE: Floating search bar at top ── */}
+        {!pinMode && (
+          <div className="lg:hidden absolute left-3 right-3 top-3 z-20">
+            <div className="flex items-center gap-2 rounded-xl bg-white/95 backdrop-blur border border-zinc-200/80 shadow-lg px-3 h-12">
+              <img src="/nocap-icon.png" alt="NoCap" className="h-7 w-7 shrink-0 rounded-lg object-contain shadow-xs" />
+              <Search className="h-4 w-4 shrink-0 text-zinc-400" />
+              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search places" className="min-w-0 flex-1 bg-transparent text-sm text-zinc-900 outline-none placeholder:text-zinc-400" />
+              <AccountButton configured={supabaseConfigured} profile={profile} onSignIn={signIn} onOpenProfile={() => setProfileOpen(true)} />
+            </div>
+            <div className="mt-2 flex gap-1.5 overflow-x-auto pb-1" style={{ WebkitOverflowScrolling: "touch", scrollbarWidth: "none" }}>
+              {filters.map((filter) => (
+                <button key={filter.id} type="button" onClick={() => setCategory(filter.id)} className={cn("shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-colors shadow-sm", category === filter.id ? "border-zinc-950 bg-zinc-950 text-white" : "border-zinc-200/80 bg-white/90 backdrop-blur text-zinc-600")}>
+                  {filter.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── MOBILE: Loading indicator ── */}
+        {loading && !pinMode && (
+          <div className="lg:hidden absolute top-28 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 rounded-full border border-zinc-300 bg-zinc-900 px-4 py-1.5 text-xs font-bold text-white shadow-xl">
+            <span className="h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
+            Loading Bengaluru places...
+          </div>
+        )}
+
+        {/* ── PIN MODE BANNER: Mobile ── */}
         {pinMode && (
-          <div className="absolute left-1/2 top-4 z-20 -translate-x-1/2 flex items-center gap-2 rounded-full bg-amber-500 px-4 py-2 shadow-lg">
+          <div className="lg:hidden absolute left-3 right-3 top-3 z-20 flex items-center gap-2 rounded-xl bg-amber-500 px-4 py-3 shadow-lg">
+            <Pin className="h-4 w-4 text-white" />
+            <span className="flex-1 text-sm font-bold text-white">Tap anywhere on the map to pin a place</span>
+            <button type="button" onClick={exitPinMode} className="grid h-7 w-7 place-items-center rounded-full bg-white/20 text-white hover:bg-white/30"><X className="h-4 w-4" /></button>
+          </div>
+        )}
+
+        {/* ── PIN MODE BANNER: Desktop ── */}
+        {pinMode && (
+          <div className="hidden lg:flex absolute left-1/2 top-4 z-20 -translate-x-1/2 items-center gap-2 rounded-full bg-amber-500 px-4 py-2 shadow-lg">
             <Pin className="h-4 w-4 text-white" />
             <span className="text-sm font-bold text-white">Click anywhere on the map to pin a place</span>
             <button type="button" onClick={exitPinMode} className="ml-1 grid h-6 w-6 place-items-center rounded-full bg-white/20 text-white hover:bg-white/30"><X className="h-3.5 w-3.5" /></button>
           </div>
         )}
 
+        {/* ── MOBILE: Pin a place button ── */}
+        <button
+          type="button"
+          onClick={() => {
+            if (pinMode) exitPinMode();
+            else enterPinMode();
+          }}
+          className={cn(
+            "lg:hidden absolute bottom-[11.8rem] right-3 z-20 grid h-11 w-11 place-items-center rounded-full border shadow-lg active:scale-95 transition-all",
+            pinMode
+              ? "border-amber-500 bg-amber-500 text-white ring-2 ring-amber-300"
+              : "border-zinc-200/80 bg-white/95 backdrop-blur text-zinc-700 hover:text-zinc-900"
+          )}
+          title={pinMode ? "Exit pin mode" : "Pin a new place on map"}
+        >
+          <Pin className="h-5 w-5" />
+        </button>
+
+        {/* ── MOBILE: Locate me button ── */}
         <button
           type="button"
           onClick={handleLocateMe}
           disabled={locatingUser}
-          className="nocap-locate-btn"
+          className="lg:hidden absolute bottom-[8.5rem] right-3 z-20 grid h-11 w-11 place-items-center rounded-full border border-zinc-200/80 bg-white/95 backdrop-blur shadow-lg active:scale-95 transition-all"
           title="Zoom to my location"
         >
-          <LocateFixed className={cn(locatingUser && "animate-spin text-blue-600")} />
+          <LocateFixed className={cn("h-5 w-5 text-zinc-700", locatingUser && "animate-spin text-blue-600")} />
         </button>
 
+        {/* ── DESKTOP: Locate me button ── */}
+        <button
+          type="button"
+          onClick={handleLocateMe}
+          disabled={locatingUser}
+          className="hidden lg:grid nocap-locate-btn"
+          title="Zoom to my location"
+        >
+          <LocateFixed className={cn("h-4 w-4 text-zinc-700", locatingUser && "animate-spin text-blue-600")} />
+        </button>
+
+        {/* ── MOBILE: Write a NoCap FAB ── */}
         {!pinMode && (
-          <button type="button" onClick={handleWriteNoCap} className={cn("nocap-fab", locateState === "locating" && "nocap-fab--locating")}>
-            <Pencil />
-            {locateState === "locating" ? "Locating\u2026" : locateState === "located" ? "Pick a place nearby" : locateState === "denied" ? "Retry location" : "Write a NoCap"}
+          <button type="button" onClick={handleWriteNoCap} className={cn("lg:hidden absolute bottom-16 right-3 z-20 flex h-12 items-center gap-2 rounded-full bg-zinc-950 pl-4 pr-5 text-sm font-bold text-white shadow-lg transition-all", locateState === "locating" && "animate-pulse")}>
+            <Pencil className="h-4 w-4" />
+            {locateState === "locating" ? "Locating…" : locateState === "located" ? "Pick nearby" : locateState === "denied" ? "Retry" : "Write a NoCap"}
           </button>
         )}
 
+        {/* ── DESKTOP: Write a NoCap FAB ── */}
+        {!pinMode && (
+          <button type="button" onClick={handleWriteNoCap} className={cn("hidden lg:flex nocap-fab", locateState === "locating" && "nocap-fab--locating")}>
+            <Pencil />
+            {locateState === "locating" ? "Locating…" : locateState === "located" ? "Pick a place nearby" : locateState === "denied" ? "Retry location" : "Write a NoCap"}
+          </button>
+        )}
+
+        {/* ── Location error overlay (Unified) ── */}
         {locationError && (
-          <div className="absolute bottom-20 left-3 right-16 z-20 max-w-sm rounded-xl border border-red-200 bg-red-50 p-4 shadow-lg sm:left-auto sm:right-20">
+          <div className="absolute bottom-36 lg:bottom-20 left-3 right-16 z-20 max-w-sm rounded-xl border border-red-200 bg-red-50 p-4 shadow-lg sm:left-auto sm:right-20">
             <p className="text-sm font-bold text-red-900">Location access needed</p>
             <p className="mt-1 text-xs leading-5 text-red-700">{locationError}</p>
             <button type="button" onClick={() => { setLocationError(null); setLocateState("idle"); }} className="mt-3 text-xs font-semibold text-red-500 hover:text-red-900">Dismiss</button>
           </div>
         )}
 
+        {/* ── Nearby places overlay when located (Unified) ── */}
         {locateState === "located" && (
-          <div className="absolute bottom-20 left-3 right-16 z-20 max-w-sm rounded-xl border border-zinc-200 bg-white p-3 shadow-lg sm:left-auto sm:right-20">
+          <div className="absolute bottom-36 lg:bottom-20 left-3 right-16 z-20 max-w-sm rounded-xl border border-zinc-200 bg-white p-3 shadow-lg sm:left-auto sm:right-20">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-bold text-zinc-900">{nearbyPlaces.length} place{nearbyPlaces.length !== 1 ? "s" : ""} within 1 km</span>
               <button type="button" onClick={dismissLocate} className="text-[10px] font-semibold text-zinc-500 hover:text-zinc-900">Close</button>
             </div>
             {nearbyPlaces.length > 0 && (
-              <div className="mb-2 max-h-48 space-y-1 overflow-y-auto">
+              <div className="max-h-40 lg:max-h-48 space-y-1 overflow-y-auto mb-2">
                 {nearbyPlaces.map((p) => {
                   const dist = userLocation ? Math.round(haversineM(userLocation.lat, userLocation.lng, p.latitude, p.longitude)) : 0;
                   return <button key={p.id} type="button" onClick={() => { setSelectedPlaceId(p.id); setSelectedUserPlaceId(null); dismissLocate(); }} className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-xs hover:bg-zinc-100">
@@ -782,15 +703,56 @@ export function NocapApp() {
                 })}
               </div>
             )}
+            {nearbyPlaces.length === 0 && (
+              <div className="mb-2 rounded bg-zinc-50 p-2.5 text-xs text-zinc-600">
+                You're zoomed to your location. No existing places within 1km yet.
+              </div>
+            )}
             <button type="button" onClick={enterPinMode} className="flex w-full items-center gap-2 rounded-md border border-dashed border-amber-400 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700 hover:bg-amber-100">
               <Pin className="h-3.5 w-3.5" /> Pin a new place on the map
             </button>
           </div>
         )}
+
+        {/* ── MOBILE BOTTOM SHEET (slides up when place is selected) ── */}
+        {hasSelection && (
+          <div className="lg:hidden">
+            <div onClick={() => { setSelectedPlaceId(null); setSelectedUserPlaceId(null); }} className="absolute inset-0 z-30 bg-black/20" />
+            <div className="absolute bottom-0 left-0 right-0 z-40 max-h-[70dvh] overflow-y-auto rounded-t-2xl bg-white shadow-2xl nocap-sheet">
+              <div className="sticky top-0 z-10 flex justify-center bg-white pt-3 pb-2 rounded-t-2xl">
+                <div className="h-1 w-10 rounded-full bg-zinc-300" />
+              </div>
+              <button type="button" onClick={() => { setSelectedPlaceId(null); setSelectedUserPlaceId(null); }} className="absolute top-3 right-3 z-10 grid h-8 w-8 place-items-center rounded-full bg-zinc-100 text-zinc-500 hover:bg-zinc-200">
+                <X className="h-4 w-4" />
+              </button>
+              {selectedPlace && (
+                <PlacePanel
+                  place={selectedPlace}
+                  detail={detail?.place.id === selectedPlace.id ? detail : null}
+                  {...commonPanelProps}
+                />
+              )}
+              {selectedUserPlace && (
+                <UserPlacePanel
+                  place={selectedUserPlace}
+                  detail={userPlaceDetail?.place.id === selectedUserPlace.id ? userPlaceDetail : null}
+                  {...commonPanelProps}
+                />
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── Profile editor on mobile ── */}
+        {profileOpen && profile && (
+          <div className="lg:hidden">
+            <ProfileEditor profile={profile} onClose={() => setProfileOpen(false)} onSave={saveProfile} onSignOut={signOut} />
+          </div>
+        )}
       </section>
 
-      {/* Right: Detail panel */}
-      <aside className="relative z-20 min-h-0 border-t border-zinc-200 bg-white lg:border-l lg:border-t-0">
+      {/* ── Right: Detail panel (Desktop only) ── */}
+      <aside className="hidden lg:block relative z-20 min-h-0 border-t border-zinc-200 bg-white lg:border-l lg:border-t-0">
         {selectedPlace && (
           <PlacePanel place={selectedPlace} detail={detail?.place.id === selectedPlace.id ? detail : null} {...commonPanelProps} />
         )}
