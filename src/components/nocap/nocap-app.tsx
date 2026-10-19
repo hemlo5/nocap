@@ -601,25 +601,16 @@ export function NocapApp() {
           </div>
         )}
 
-        {/* ── PIN MODE BANNER: Mobile ── */}
+        {/* ── PIN MODE BANNER (Responsive: centered on desktop, banner on mobile) ── */}
         {pinMode && (
-          <div className="lg:hidden absolute left-3 right-3 top-3 z-20 flex items-center gap-2 rounded-xl bg-amber-500 px-4 py-3 shadow-lg">
+          <div className="absolute left-3 right-3 lg:left-1/2 lg:right-auto lg:-translate-x-1/2 top-3 lg:top-4 z-20 flex items-center gap-2 rounded-xl lg:rounded-full bg-amber-500 px-4 py-3 lg:py-2 shadow-lg">
             <Pin className="h-4 w-4 text-white" />
             <span className="flex-1 text-sm font-bold text-white">Tap anywhere on the map to pin a place</span>
             <button type="button" onClick={exitPinMode} className="grid h-7 w-7 place-items-center rounded-full bg-white/20 text-white hover:bg-white/30"><X className="h-4 w-4" /></button>
           </div>
         )}
 
-        {/* ── PIN MODE BANNER: Desktop ── */}
-        {pinMode && (
-          <div className="hidden lg:flex absolute left-1/2 top-4 z-20 -translate-x-1/2 items-center gap-2 rounded-full bg-amber-500 px-4 py-2 shadow-lg">
-            <Pin className="h-4 w-4 text-white" />
-            <span className="text-sm font-bold text-white">Click anywhere on the map to pin a place</span>
-            <button type="button" onClick={exitPinMode} className="ml-1 grid h-6 w-6 place-items-center rounded-full bg-white/20 text-white hover:bg-white/30"><X className="h-3.5 w-3.5" /></button>
-          </div>
-        )}
-
-        {/* ── MOBILE: Pin a place button ── */}
+        {/* ── PIN A PLACE BUTTON (Single responsive button) ── */}
         <button
           type="button"
           onClick={() => {
@@ -627,51 +618,39 @@ export function NocapApp() {
             else enterPinMode();
           }}
           className={cn(
-            "lg:hidden absolute bottom-[11.8rem] right-3 z-20 grid h-11 w-11 place-items-center rounded-full border shadow-lg active:scale-95 transition-all",
+            "absolute bottom-[11.8rem] lg:bottom-32 right-3 lg:right-6 z-20 grid h-11 w-11 lg:h-10 lg:w-10 place-items-center rounded-full lg:rounded-xl border shadow-lg active:scale-95 transition-all",
             pinMode
               ? "border-amber-500 bg-amber-500 text-white ring-2 ring-amber-300"
               : "border-zinc-200/80 bg-white/95 backdrop-blur text-zinc-700 hover:text-zinc-900"
           )}
           title={pinMode ? "Exit pin mode" : "Pin a new place on map"}
         >
-          <Pin className="h-5 w-5" />
+          <Pin className="h-5 w-5 lg:h-4 lg:w-4" />
         </button>
 
-        {/* ── MOBILE: Locate me button ── */}
+        {/* ── LOCATE ME BUTTON (Single responsive button) ── */}
         <button
           type="button"
           onClick={handleLocateMe}
           disabled={locatingUser}
-          className="lg:hidden absolute bottom-[8.5rem] right-3 z-20 grid h-11 w-11 place-items-center rounded-full border border-zinc-200/80 bg-white/95 backdrop-blur shadow-lg active:scale-95 transition-all"
+          className="absolute bottom-[8.5rem] lg:bottom-20 right-3 lg:right-6 z-20 grid h-11 w-11 lg:h-10 lg:w-10 place-items-center rounded-full lg:rounded-xl border border-zinc-200/80 bg-white/95 backdrop-blur shadow-lg active:scale-95 transition-all"
           title="Zoom to my location"
         >
-          <LocateFixed className={cn("h-5 w-5 text-zinc-700", locatingUser && "animate-spin text-blue-600")} />
+          <LocateFixed className={cn("h-5 w-5 lg:h-4 lg:w-4 text-zinc-700", locatingUser && "animate-spin text-blue-600")} />
         </button>
 
-        {/* ── DESKTOP: Locate me button ── */}
-        <button
-          type="button"
-          onClick={handleLocateMe}
-          disabled={locatingUser}
-          className="hidden lg:grid nocap-locate-btn"
-          title="Zoom to my location"
-        >
-          <LocateFixed className={cn("h-4 w-4 text-zinc-700", locatingUser && "animate-spin text-blue-600")} />
-        </button>
-
-        {/* ── MOBILE: Write a NoCap FAB ── */}
+        {/* ── WRITE A NOCAP FAB (Single responsive button) ── */}
         {!pinMode && (
-          <button type="button" onClick={handleWriteNoCap} className={cn("lg:hidden absolute bottom-16 right-3 z-20 flex h-12 items-center gap-2 rounded-full bg-zinc-950 pl-4 pr-5 text-sm font-bold text-white shadow-lg transition-all", locateState === "locating" && "animate-pulse")}>
+          <button
+            type="button"
+            onClick={handleWriteNoCap}
+            className={cn(
+              "absolute bottom-16 lg:bottom-6 right-3 lg:right-6 z-20 flex h-12 lg:h-11 items-center gap-2 rounded-full bg-zinc-950 pl-4 pr-5 text-sm font-bold text-white shadow-lg transition-all hover:bg-zinc-900 active:scale-95",
+              locateState === "locating" && "animate-pulse"
+            )}
+          >
             <Pencil className="h-4 w-4" />
             {locateState === "locating" ? "Locating…" : locateState === "located" ? "Pick nearby" : locateState === "denied" ? "Retry" : "Write a NoCap"}
-          </button>
-        )}
-
-        {/* ── DESKTOP: Write a NoCap FAB ── */}
-        {!pinMode && (
-          <button type="button" onClick={handleWriteNoCap} className={cn("hidden lg:flex nocap-fab", locateState === "locating" && "nocap-fab--locating")}>
-            <Pencil />
-            {locateState === "locating" ? "Locating…" : locateState === "located" ? "Pick a place nearby" : locateState === "denied" ? "Retry location" : "Write a NoCap"}
           </button>
         )}
 
