@@ -377,24 +377,34 @@ export function NocapApp() {
   async function handleLocateMe() {
     trackEvent("locate_user_click");
     setLocationError(null);
+
+    // Instant response if already located
     if (userLocation) {
       mapRef.current?.flyToUser(userLocation.lat, userLocation.lng, 16.5);
+      mapRef.current?.showRadiusCircle(userLocation.lat, userLocation.lng, 1);
+      setLocateState("located");
     }
+
     setLocatingUser(true);
     try {
       const position = await currentPosition();
       const loc = { lat: position.coords.latitude, lng: position.coords.longitude };
       setUserLocation(loc);
       mapRef.current?.flyToUser(loc.lat, loc.lng, 16.5);
+      mapRef.current?.showRadiusCircle(loc.lat, loc.lng, 1);
+      setLocateState("located");
+
+      const nearby = places
+        .filter((p) => haversineM(loc.lat, loc.lng, p.latitude, p.longitude) <= 1000)
+        .sort((a, b) => haversineM(loc.lat, loc.lng, a.latitude, a.longitude) - haversineM(loc.lat, loc.lng, b.latitude, b.longitude));
+      setNearbyPlaces(nearby);
     } catch (err: any) {
       console.error("[NoCap] Location error in locate me:", err);
-      if (!userLocation) {
-        setLocationError(
-          err?.message?.includes("PERMISSION_DENIED")
-            ? "Location access was blocked. Please enable location permissions in your browser to zoom to your place."
-            : "Unable to find your location. Please check your GPS and try again."
-        );
-      }
+      setLocationError(
+        err?.message?.includes("PERMISSION_DENIED")
+          ? "Location access is blocked. Tap the lock/info icon in your address bar, allow location access, and try again."
+          : "Unable to find your location. Please check your device location/GPS settings and try again."
+      );
     } finally {
       setLocatingUser(false);
     }
@@ -420,7 +430,11 @@ export function NocapApp() {
   }
 
   function handlePinDrop(lat: number, lng: number) {
-    if (userLocation && haversineM(userLocation.lat, userLocation.lng, lat, lng) > 1000) return;
+    // Check Bengaluru limits
+    if (lat < 12.72 || lat > 13.2 || lng < 77.34 || lng > 77.9) {
+      setLocationError("Please pin within Bengaluru city limits.");
+      return;
+    }
     setPendingPin({ lat, lng });
     setPinFormOpen(true);
   }
@@ -494,6 +508,7 @@ export function NocapApp() {
         onSelectPlace={(id) => { setSelectedPlaceId(id); setSelectedUserPlaceId(null); dismissLocate(); exitPinMode(); }}
         onSelectUserPlace={(id) => { setSelectedUserPlaceId(id); setSelectedPlaceId(null); dismissLocate(); exitPinMode(); }}
         userLocation={userLocation}
+        pendingPin={pendingPin}
         onPinDrop={handlePinDrop}
       />
 
@@ -528,10 +543,28 @@ export function NocapApp() {
       {pinMode && (
         <div className="absolute left-3 right-3 top-3 z-20 flex items-center gap-2 rounded-xl bg-amber-500 px-4 py-3 shadow-lg">
           <Pin className="h-4 w-4 text-white" />
-          <span className="flex-1 text-sm font-bold text-white">Tap anywhere within the blue circle to pin a place</span>
+          <span className="flex-1 text-sm font-bold text-white">Tap anywhere on the map to pin a place</span>
           <button type="button" onClick={exitPinMode} className="grid h-7 w-7 place-items-center rounded-full bg-white/20 text-white hover:bg-white/30"><X className="h-4 w-4" /></button>
         </div>
       )}
+
+      {/* Pin a place button */}
+      <button
+        type="button"
+        onClick={() => {
+          if (pinMode) exitPinMode();
+          else enterPinMode();
+        }}
+        className={cn(
+          "absolute bottom-[11.8rem] right-3 z-20 grid h-11 w-11 place-items-center rounded-full border shadow-lg active:scale-95 transition-all",
+          pinMode
+            ? "border-amber-500 bg-amber-500 text-white ring-2 ring-amber-300"
+            : "border-zinc-200/80 bg-white/95 backdrop-blur text-zinc-700 hover:text-zinc-900"
+        )}
+        title={pinMode ? "Exit pin mode" : "Pin a new place on map"}
+      >
+        <Pin className="h-5 w-5" />
+      </button>
 
       {/* Locate me button */}
       <button
@@ -693,6 +726,7 @@ export function NocapApp() {
           onSelectPlace={(id) => { setSelectedPlaceId(id); setSelectedUserPlaceId(null); dismissLocate(); exitPinMode(); }}
           onSelectUserPlace={(id) => { setSelectedUserPlaceId(id); setSelectedPlaceId(null); dismissLocate(); exitPinMode(); }}
           userLocation={userLocation}
+          pendingPin={pendingPin}
           onPinDrop={handlePinDrop}
         />
 
@@ -700,7 +734,7 @@ export function NocapApp() {
         {pinMode && (
           <div className="absolute left-1/2 top-4 z-20 -translate-x-1/2 flex items-center gap-2 rounded-full bg-amber-500 px-4 py-2 shadow-lg">
             <Pin className="h-4 w-4 text-white" />
-            <span className="text-sm font-bold text-white">Click within the blue circle to pin a place</span>
+            <span className="text-sm font-bold text-white">Click anywhere on the map to pin a place</span>
             <button type="button" onClick={exitPinMode} className="ml-1 grid h-6 w-6 place-items-center rounded-full bg-white/20 text-white hover:bg-white/30"><X className="h-3.5 w-3.5" /></button>
           </div>
         )}
@@ -786,6 +820,7 @@ export function NocapApp() {
         accessToken={accessToken}
         onCancel={exitPinMode}
         onSubmit={submitPin}
+        onSignIn={signIn}
       />
     )}
   </main>;
@@ -1045,11 +1080,12 @@ function ProfileEditor({ profile, onClose, onSave, onSignOut }: { profile: Nocap
   </div>;
 }
 
-function PinPlaceForm({ location, accessToken, onCancel, onSubmit }: {
+function PinPlaceForm({ location, accessToken, onCancel, onSubmit, onSignIn }: {
   location: { lat: number; lng: number };
   accessToken: string | null;
   onCancel: () => void;
   onSubmit: (input: { name: string; category: NocapPlaceCategory; customCategory?: string; address: string }) => Promise<void>;
+  onSignIn?: () => void;
 }) {
   const [name, setName] = useState("");
   const [category, setCategory] = useState<string>("eat");
@@ -1057,6 +1093,39 @@ function PinPlaceForm({ location, accessToken, onCancel, onSubmit }: {
   const [address, setAddress] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+
+  if (!accessToken) {
+    return (
+      <div className="fixed inset-0 z-[60] flex items-end justify-center lg:items-center">
+        <div onClick={onCancel} className="absolute inset-0 bg-black/40" />
+        <div className="relative z-10 w-full max-w-md rounded-t-2xl bg-white p-6 shadow-2xl lg:rounded-2xl">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-black">Pin a new place</h2>
+            <button type="button" onClick={onCancel} className="grid h-7 w-7 place-items-center rounded-full bg-zinc-100 text-zinc-500 hover:bg-zinc-200">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <p className="mt-1 text-xs text-zinc-500">
+            Coordinates: {location.lat.toFixed(5)}, {location.lng.toFixed(5)}
+          </p>
+          <div className="mt-5 rounded-xl border border-zinc-200 bg-zinc-50 p-5 text-center">
+            <p className="text-sm font-bold text-zinc-900">Sign in with Google to pin this spot</p>
+            <p className="mt-1 text-xs text-zinc-500">Sign in so other locals can discover this place and see who pinned it.</p>
+            {onSignIn && (
+              <button
+                type="button"
+                onClick={onSignIn}
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-zinc-950 py-3 text-xs font-bold text-white shadow-md hover:bg-zinc-800"
+              >
+                <LogIn className="h-4 w-4" />
+                Sign in with Google
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -1128,21 +1197,50 @@ function PinPlaceForm({ location, accessToken, onCancel, onSubmit }: {
 
 function currentPosition(): Promise<GeolocationPosition> {
   return new Promise((resolve, reject) => {
-    if (!navigator.geolocation) { reject(new Error("Geolocation API not available in this browser.")); return; }
-    navigator.geolocation.getCurrentPosition(resolve, (err) => {
-      console.warn("[NoCap] High-accuracy attempt failed:", err.code, err.message);
-      if (err.code === 1) {
-        reject(new Error("PERMISSION_DENIED: Location access is blocked. Click the lock icon in the address bar, set Location to Allow, and reload."));
-      } else {
-        console.log("[NoCap] Retrying with enableHighAccuracy=false...");
-        navigator.geolocation.getCurrentPosition(resolve, (err2) => {
-          console.error("[NoCap] Fallback also failed:", err2.code, err2.message);
-          if (err2.code === 1) reject(new Error("PERMISSION_DENIED: Location access is blocked."));
-          else if (err2.code === 2) reject(new Error("POSITION_UNAVAILABLE: Your device could not determine its location."));
-          else reject(new Error("TIMEOUT: Location request timed out. Try again."));
-        }, { enableHighAccuracy: false, timeout: 10_000, maximumAge: 60_000 });
-      }
-    }, { enableHighAccuracy: true, timeout: 10_000, maximumAge: 0 });
+    if (typeof window === "undefined" || !navigator.geolocation) {
+      reject(new Error("Geolocation is not supported by your browser."));
+      return;
+    }
+
+    let settled = false;
+
+    // Fast attempt: allow cached location up to 5 minutes old with network/wifi fallback
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        if (!settled) {
+          settled = true;
+          resolve(pos);
+        }
+      },
+      (fastErr) => {
+        console.warn("[NoCap] Fast cached geolocation failed:", fastErr.code, fastErr.message);
+        if (fastErr.code === 1) {
+          settled = true;
+          reject(new Error("PERMISSION_DENIED: Location permission was blocked."));
+          return;
+        }
+
+        // Retry with high accuracy
+        navigator.geolocation.getCurrentPosition(
+          (freshPos) => {
+            if (!settled) {
+              settled = true;
+              resolve(freshPos);
+            }
+          },
+          (freshErr) => {
+            if (!settled) {
+              settled = true;
+              if (freshErr.code === 1) reject(new Error("PERMISSION_DENIED: Location permission was blocked."));
+              else if (freshErr.code === 2) reject(new Error("POSITION_UNAVAILABLE: Your device could not determine its location. Please turn on device GPS."));
+              else reject(new Error("TIMEOUT: Location request timed out. Please check GPS and try again."));
+            }
+          },
+          { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 }
+        );
+      },
+      { enableHighAccuracy: false, timeout: 5_000, maximumAge: 300_000 }
+    );
   });
 }
 

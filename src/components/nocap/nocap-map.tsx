@@ -22,6 +22,7 @@ type NocapMapProps = {
   onSelectPlace: (id: string) => void;
   onSelectUserPlace: (id: string) => void;
   userLocation: { lat: number; lng: number } | null;
+  pendingPin?: { lat: number; lng: number } | null;
   onPinDrop?: (lat: number, lng: number) => void;
 };
 
@@ -66,7 +67,7 @@ function radiusGeoJSON(lat: number, lng: number, radiusKm: number) {
 }
 
 export const NocapMap = forwardRef<NocapMapHandle, NocapMapProps>(function NocapMap(
-  { places, reviews, userPlaces, selectedPlaceId, onSelectPlace, onSelectUserPlace, userLocation, onPinDrop },
+  { places, reviews, userPlaces, selectedPlaceId, onSelectPlace, onSelectUserPlace, userLocation, pendingPin, onPinDrop },
   ref
 ) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -74,6 +75,7 @@ export const NocapMap = forwardRef<NocapMapHandle, NocapMapProps>(function Nocap
   const placeMarkersRef = useRef<Marker[]>([]);
   const userPlaceMarkersRef = useRef<Marker[]>([]);
   const userMarkerRef = useRef<Marker | null>(null);
+  const pendingPinMarkerRef = useRef<Marker | null>(null);
   const onSelectPlaceRef = useRef(onSelectPlace);
   const onSelectUserPlaceRef = useRef(onSelectUserPlace);
   const onPinDropRef = useRef(onPinDrop);
@@ -89,7 +91,12 @@ export const NocapMap = forwardRef<NocapMapHandle, NocapMapProps>(function Nocap
   // Expose methods to parent
   useImperativeHandle(ref, () => ({
     flyToUser(lat: number, lng: number, zoom = 16.5) {
-      mapRef.current?.flyTo({ center: [lng, lat], zoom, duration: 900, essential: true });
+      const map = mapRef.current;
+      if (!map) return;
+      // Clamp coordinates to Bengaluru bounds if maxBounds is active so MapLibre doesn't reject flyTo
+      const clampedLng = Math.max(77.345, Math.min(77.895, lng));
+      const clampedLat = Math.max(12.725, Math.min(13.195, lat));
+      map.flyTo({ center: [clampedLng, clampedLat], zoom, duration: 900, essential: true });
     },
     showRadiusCircle(lat: number, lng: number, radiusKm: number) {
       const map = mapRef.current;
@@ -150,14 +157,17 @@ export const NocapMap = forwardRef<NocapMapHandle, NocapMapProps>(function Nocap
       map.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-right");
       map.on("load", () => { if (!cancelled) { ensurePlaceLayers(map); map.resize(); setMapReady(true); } });
       map.on("zoom", () => { setZoomedIn(map.getZoom() >= 13.5); });
+      let clickedFeature = false;
       map.on("click", haloLayerId, (event) => {
         if (pinModeRef.current) return; // let the general click handle it
+        clickedFeature = true;
+        setTimeout(() => { clickedFeature = false; }, 200);
         const id = event.features?.[0]?.properties?.id;
         if (typeof id === "string") onSelectPlaceRef.current(id);
       });
-      // General map click for pin drop mode
+      // General map click for dropping a pin / creating a new dot
       map.on("click", (event) => {
-        if (!pinModeRef.current) return;
+        if (clickedFeature) return;
         const { lng, lat } = event.lngLat;
         onPinDropRef.current?.(lat, lng);
       });
@@ -256,6 +266,38 @@ export const NocapMap = forwardRef<NocapMapHandle, NocapMapProps>(function Nocap
     renderUserDot();
     return () => { cancelled = true; };
   }, [mapReady, userLocation]);
+
+  // Pending pin marker (pulsing amber pin)
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+    let cancelled = false;
+    async function renderPendingPin() {
+      if (!pendingPin) {
+        pendingPinMarkerRef.current?.remove();
+        pendingPinMarkerRef.current = null;
+        return;
+      }
+      const maplibregl: MapLibreModule = await import("maplibre-gl");
+      if (cancelled) return;
+      pendingPinMarkerRef.current?.remove();
+      const el = document.createElement("div");
+      el.className = "nocap-pending-pin-marker";
+      el.innerHTML = `
+        <div style="position:relative;display:flex;align-items:center;justify-content:center;transform:translateY(-14px);cursor:pointer;">
+          <div style="position:absolute;width:40px;height:40px;border-radius:999px;background:rgba(245,158,11,0.35);animation:nocap-pulse 1.5s ease-in-out infinite;"></div>
+          <div style="width:30px;height:30px;border-radius:999px;background:#f59e0b;border:3px solid #ffffff;box-shadow:0 6px 16px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;color:white;font-weight:900;font-size:14px;">
+            📍
+          </div>
+        </div>
+      `;
+      pendingPinMarkerRef.current = new maplibregl.Marker({ element: el, anchor: "bottom" })
+        .setLngLat([pendingPin.lng, pendingPin.lat])
+        .addTo(map!);
+    }
+    renderPendingPin();
+    return () => { cancelled = true; };
+  }, [mapReady, pendingPin]);
 
   // Fly to selected place
   useEffect(() => { const place = places.find((item) => item.id === selectedPlaceId) || userPlaces.find((item) => item.id === selectedPlaceId); if (place && mapRef.current) mapRef.current.flyTo({ center: [place.longitude, place.latitude], zoom: 14.5, duration: 650, essential: true }); }, [places, userPlaces, selectedPlaceId]);
