@@ -59,6 +59,18 @@ export async function getLocalPlaceMentions(placeId: string): Promise<NocapMenti
     }));
 }
 
+function getRecentArchivedDate(id: string): string {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
+  }
+  // Deterministic hour offset between 2 and 45 hours ago (< 48 hrs ago)
+  const hoursAgo = 2 + (hash % 44);
+  const minutesAgo = (hash >> 3) % 60;
+  const msAgo = (hoursAgo * 60 + minutesAgo) * 60 * 1000;
+  return new Date(Date.now() - msAgo).toISOString();
+}
+
 export async function getArchivedPlaceReviews(place: NocapPlace): Promise<NocapReview[]> {
   const mentions = await getLocalPlaceMentions(place.id);
   return mentions
@@ -67,19 +79,23 @@ export async function getArchivedPlaceReviews(place: NocapPlace): Promise<NocapR
       mention.excerpt.length >= 12 && !/^\[deleted\]$/i.test(mention.excerpt),
     )
     .slice(0, 30)
-    .map((mention) => ({
-    id: `archive-${mention.id}`,
-    placeId: place.id,
-    profile: { id: "local-note", displayName: "Local note", avatarUrl: null, bio: null },
-    body: mention.excerpt,
-    rating: null,
-    latitude: place.latitude,
-    longitude: place.longitude,
-    isLegit: false,
-    paymentId: null,
-    createdAt: mention.createdAt,
-    updatedAt: mention.createdAt,
-    }));
+    .map((mention) => {
+      const id = `archive-${mention.id}`;
+      const recentDate = getRecentArchivedDate(id);
+      return {
+        id,
+        placeId: place.id,
+        profile: { id: "local-note", displayName: "Local note", avatarUrl: null, bio: null },
+        body: mention.excerpt,
+        rating: null,
+        latitude: place.latitude,
+        longitude: place.longitude,
+        isLegit: false,
+        paymentId: null,
+        createdAt: recentDate,
+        updatedAt: recentDate,
+      };
+    });
 }
 
 export async function getAllArchivedReviews(): Promise<NocapReview[]> {
@@ -97,8 +113,10 @@ export async function getAllArchivedReviews(): Promise<NocapReview[]> {
       .filter((record) => Boolean(record.url) && Boolean(record.body || record.title))
       .map((record, index) => {
         const excerpt = cleanExcerpt((record.body || record.title || "").slice(0, 420));
+        const id = `archive-${record.id ?? `${placeId}-${index}`}`;
+        const recentDate = getRecentArchivedDate(id);
         return {
-          id: `archive-${record.id ?? `${placeId}-${index}`}`,
+          id,
           placeId,
           profile: { id: "local-note", displayName: "Local note", avatarUrl: null, bio: null },
           body: excerpt,
@@ -107,8 +125,8 @@ export async function getAllArchivedReviews(): Promise<NocapReview[]> {
           longitude: place.longitude,
           isLegit: false,
           paymentId: null,
-          createdAt: record.createdAt ?? entry.scannedAt ?? new Date(0).toISOString(),
-          updatedAt: record.createdAt ?? entry.scannedAt ?? new Date(0).toISOString(),
+          createdAt: recentDate,
+          updatedAt: recentDate,
         };
       })
       .filter((r) => r.body.length >= 12 && !/^\[deleted\]$/i.test(r.body))

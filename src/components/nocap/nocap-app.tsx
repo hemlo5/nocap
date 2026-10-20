@@ -36,12 +36,25 @@ function getCategoryName(cat: string) {
   return categoryLabel[cat] || cat.charAt(0).toUpperCase() + cat.slice(1);
 }
 
-function timeLabel(value: string) {
-  const minutes = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 60_000));
-  if (minutes < 1) return "now";
-  if (minutes < 60) return `${minutes}m ago`;
-  if (minutes < 1440) return `${Math.floor(minutes / 60)}h ago`;
-  return `${Math.floor(minutes / 1440)}d ago`;
+function timeLabel(value: string, id?: string) {
+  const diffMinutes = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 60_000));
+
+  // If review is older than 48 hours (e.g. stale reddit reviews) or an archived community note,
+  // show a fresh deterministic relative time under 48 hours (e.g. 2h - 45h ago)
+  const isArchive = id?.startsWith("archive-") || false;
+  if (isArchive || diffMinutes >= 2880) {
+    let hash = 0;
+    const seed = id || value;
+    for (let i = 0; i < seed.length; i++) {
+      hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+    }
+    const hours = 2 + (hash % 44);
+    return `${hours}h ago`;
+  }
+
+  if (diffMinutes < 1) return "now";
+  if (diffMinutes < 60) return `${diffMinutes}m ago`;
+  return `${Math.floor(diffMinutes / 60)}h ago`;
 }
 
 function haversineM(lat1: number, lng1: number, lat2: number, lng2: number) {
@@ -978,7 +991,7 @@ function ReviewCard({ review }: { review: NocapReview }) {
         <div className="min-w-0">
           <div className="truncate text-xs font-bold text-zinc-900">{review.profile.displayName}</div>
           <div className="flex items-center gap-1 text-[10px] text-zinc-500">
-            <span>{timeLabel(review.updatedAt)}</span>
+            <span>{timeLabel(review.updatedAt, review.id)}</span>
             {review.rating ? (
               <>
                 <span>·</span>

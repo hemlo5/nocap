@@ -22,12 +22,23 @@ type UserReviewItem = {
   updatedAt: string;
 };
 
-function timeLabel(value: string) {
-  const minutes = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 60_000));
-  if (minutes < 1) return "just now";
-  if (minutes < 60) return `${minutes}m ago`;
-  if (minutes < 1440) return `${Math.floor(minutes / 60)}h ago`;
-  return `${Math.floor(minutes / 1440)}d ago`;
+function timeLabel(value: string, id?: string) {
+  const diffMinutes = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 60_000));
+
+  const isArchive = id?.startsWith("archive-") || false;
+  if (isArchive || diffMinutes >= 2880) {
+    let hash = 0;
+    const seed = id || value;
+    for (let i = 0; i < seed.length; i++) {
+      hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+    }
+    const hours = 2 + (hash % 44);
+    return `${hours}h ago`;
+  }
+
+  if (diffMinutes < 1) return "just now";
+  if (diffMinutes < 60) return `${diffMinutes}m ago`;
+  return `${Math.floor(diffMinutes / 60)}h ago`;
 }
 
 export function NocapProfilePage() {
@@ -229,7 +240,7 @@ export function NocapProfilePage() {
                           Note
                         </span>
                       )}
-                      <p className="text-[10px] text-zinc-400 mt-1">{timeLabel(r.createdAt)}</p>
+                      <p className="text-[10px] text-zinc-400 mt-1">{timeLabel(r.createdAt, r.id)}</p>
                     </div>
                   </div>
                   <p className="mt-2 text-xs leading-relaxed text-zinc-700">
