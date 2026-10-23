@@ -114,11 +114,11 @@ export default function GuidelinesPage() {
               </p>
             </div>
             <a
-              href="mailto:contact@nocapblr.com?subject=Moderation%20Report"
+              href="mailto:nocapblr@gmail.com?subject=Moderation%20Report"
               className="inline-flex items-center gap-2 rounded-xl bg-white border border-zinc-200 px-4 py-2.5 text-xs font-bold text-zinc-900 shadow-2xs hover:bg-zinc-50 transition-colors"
             >
               <Mail className="h-4 w-4 text-zinc-700" />
-              <span>contact@nocapblr.com</span>
+              <span>nocapblr@gmail.com</span>
             </a>
           </div>
         </div>

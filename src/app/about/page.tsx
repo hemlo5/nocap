@@ -125,11 +125,11 @@ export default function AboutPage() {
               <p className="text-xs text-zinc-600 mt-1">We read every message and take moderation reports seriously.</p>
             </div>
             <a
-              href="mailto:contact@nocapblr.com"
+              href="mailto:nocapblr@gmail.com"
               className="inline-flex items-center gap-2 rounded-xl bg-white border border-zinc-200 px-4 py-2.5 text-xs font-bold text-zinc-900 shadow-2xs hover:bg-zinc-50 transition-colors"
             >
               <HeartHandshake className="h-4 w-4 text-zinc-700" />
-              <span>contact@nocapblr.com</span>
+              <span>nocapblr@gmail.com</span>
             </a>
           </div>
         </div>

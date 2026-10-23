@@ -107,8 +107,8 @@ export default function TermsPage() {
           {/* Contact Note */}
           <div className="mt-8 text-center text-xs text-zinc-500">
             Questions regarding these Terms? Email us at{" "}
-            <a href="mailto:contact@nocapblr.com" className="font-semibold text-zinc-800 underline">
-              contact@nocapblr.com
+            <a href="mailto:nocapblr@gmail.com" className="font-semibold text-zinc-800 underline">
+              nocapblr@gmail.com
             </a>
           </div>
         </div>

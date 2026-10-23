@@ -80,7 +80,7 @@ export function HemloNav() {
         {/* Right Most Navigation & Account Slot */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           <Link
-            href="/what-nocap"
+            href="/what-is-nocap"
             aria-current={isWhatNocap ? "page" : undefined}
             className={cn(
               "group relative flex items-center gap-1.5 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-semibold transition-all duration-150",
@@ -88,10 +88,10 @@ export function HemloNav() {
                 ? "bg-[#18181B] text-white shadow-2xs"
                 : "text-zinc-600 hover:bg-zinc-100/70 hover:text-zinc-900",
             )}
-            title="What NoCap"
+            title="What is NoCap"
           >
             <HelpCircle className="h-3.5 w-3.5 shrink-0 opacity-75 group-hover:opacity-100 text-amber-500" aria-hidden />
-            <span>What NoCap</span>
+            <span>What is NoCap</span>
           </Link>
 
           <Link

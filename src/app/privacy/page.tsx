@@ -156,7 +156,7 @@ export default function PrivacyPolicyPage() {
               If you have any questions, feedback, or data requests regarding this Privacy Policy, please reach out to us:
             </p>
             <div className="mt-4 rounded-xl bg-zinc-50 border border-zinc-200/70 p-4 text-xs font-mono text-zinc-700">
-              Email: <span className="font-semibold text-zinc-950">support@nocapblr.com</span>
+              Email: <span className="font-semibold text-zinc-950">nocapblr@gmail.com</span>
               <br />
               Website: <span className="font-semibold text-zinc-950">https://nocapblr.com</span>
             </div>

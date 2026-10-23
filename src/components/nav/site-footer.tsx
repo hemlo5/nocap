@@ -82,10 +82,10 @@ export function SiteFooter() {
             <ul className="mt-4 space-y-2.5">
               <li>
                 <Link
-                  href="/what-nocap"
+                  href="/what-is-nocap"
                   className="text-xs text-zinc-600 hover:text-zinc-950 font-medium transition-colors"
                 >
-                  What NoCap
+                  What is NoCap?
                 </Link>
               </li>
               <li>
@@ -122,10 +122,10 @@ export function SiteFooter() {
               </li>
               <li>
                 <a
-                  href="mailto:contact@nocapblr.com"
+                  href="mailto:nocapblr@gmail.com"
                   className="text-xs text-zinc-600 hover:text-zinc-950 font-medium transition-colors"
                 >
-                  contact@nocapblr.com
+                  nocapblr@gmail.com
                 </a>
               </li>
             </ul>

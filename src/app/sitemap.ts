@@ -20,7 +20,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.9,
     },
     {
-      url: `${baseUrl}/what-nocap`,
+      url: `${baseUrl}/what-is-nocap`,
       lastModified: now,
       changeFrequency: "monthly",
       priority: 0.8,
