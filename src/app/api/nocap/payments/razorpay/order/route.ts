@@ -121,7 +121,7 @@ export async function POST(request: Request) {
 
   // Create Razorpay Order
   const authHeader = `Basic ${Buffer.from(`${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`).toString("base64")}`;
-  const amountPaise = 3900; // ₹39.00 (production)
+  const amountPaise = 1900; // ₹19.00 Crazy Tea review
 
   const rzpRes = await fetch("https://api.razorpay.com/v1/orders", {
     method: "POST",

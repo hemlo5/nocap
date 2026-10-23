@@ -388,7 +388,7 @@ export function NocapApp() {
           amount: orderData.amount,
           currency: orderData.currency || "INR",
           name: "NoCapBLR",
-          description: `★ Legit Review Badge for ${orderData.placeName || "Spot"}`,
+          description: `☕ Crazy Tea Take for ${orderData.placeName || "Spot"}`,
           image: "/nocap-icon.png",
           order_id: orderData.orderId,
           prefill: {
@@ -396,7 +396,7 @@ export function NocapApp() {
             email: orderData.user?.email || "",
           },
           theme: {
-            color: "#09090b",
+            color: "#ea580c",
           },
           modal: {
             ondismiss: () => {
@@ -671,12 +671,12 @@ export function NocapApp() {
       navSlot,
     )}
 
-    {/* Legit success banner in black with white shine */}
+    {/* Crazy Tea success banner in orange */}
     {legitSuccess && (
-      <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-2.5 rounded-full bg-gradient-to-r from-black via-zinc-900 to-black border border-white/30 px-5 py-2.5 text-xs font-bold text-white shadow-2xl shadow-black/80 shadow-[inset_0_1px_1px_rgba(255,255,255,0.35)]">
+      <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-2.5 rounded-full bg-gradient-to-r from-orange-600 via-amber-600 to-orange-600 border border-orange-300/50 px-5 py-2.5 text-xs font-bold text-white shadow-2xl shadow-orange-600/40 shadow-[inset_0_1px_1px_rgba(255,255,255,0.45)]">
         <Sparkles className="h-4 w-4 text-white drop-shadow-[0_0_6px_rgba(255,255,255,0.8)]" />
-        <span>Your Legit review is live at the top!</span>
-        <button type="button" onClick={() => setLegitSuccess(false)} className="ml-1 text-zinc-400 hover:text-white">
+        <span>☕ Your Crazy Tea take is live at the top!</span>
+        <button type="button" onClick={() => setLegitSuccess(false)} className="ml-1 text-orange-200 hover:text-white">
           <X className="h-3.5 w-3.5" />
         </button>
       </div>
@@ -1064,7 +1064,7 @@ function ReviewComposer({ configured, signedIn, onSignIn, onPublish }: {
       await onPublish({ body, rating, makeLegit });
       setBody("");
       setState("idle");
-      setMessage(makeLegit ? "★ Legit review published!" : "Review published successfully.");
+      setMessage(makeLegit ? "☕ Crazy Tea review published!" : "Review published successfully.");
       if (makeLegit) {
         setMakeLegit(false);
       }
@@ -1124,32 +1124,32 @@ function ReviewComposer({ configured, signedIn, onSignIn, onPublish }: {
       className="mt-2.5 min-h-20 w-full resize-y rounded-lg border border-zinc-200 bg-white p-2.5 text-sm text-zinc-900 outline-none focus:border-zinc-500"
     />
 
-    {/* Black with white shine Legit Option */}
-    <label className="mt-3 relative flex cursor-pointer items-start gap-3 overflow-hidden rounded-xl border border-zinc-800 bg-gradient-to-br from-zinc-950 via-zinc-900 to-black p-3.5 shadow-xl transition-all duration-300 hover:border-zinc-600 group">
+    {/* Orange Crazy Tea Option */}
+    <label className="mt-3 relative flex cursor-pointer items-start gap-3 overflow-hidden rounded-xl border border-orange-500/80 bg-gradient-to-br from-orange-500 via-amber-500 to-orange-600 p-3.5 shadow-lg shadow-orange-500/20 transition-all duration-300 hover:shadow-orange-500/30 hover:border-orange-400 group">
       {/* Top subtle white shine highlight border */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/40 to-transparent" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/60 to-transparent" />
       {/* Diagonal gloss reflection sheen */}
-      <div className="pointer-events-none absolute -inset-full top-0 block -rotate-45 bg-gradient-to-r from-transparent via-white/[0.07] to-transparent opacity-70 transition-opacity duration-500 group-hover:opacity-100" />
+      <div className="pointer-events-none absolute -inset-full top-0 block -rotate-45 bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-60 transition-opacity duration-500 group-hover:opacity-100" />
 
       <input
         type="checkbox"
         checked={makeLegit}
         onChange={(e) => setMakeLegit(e.target.checked)}
-        className="mt-0.5 h-4 w-4 rounded accent-zinc-100 cursor-pointer"
+        className="mt-0.5 h-4 w-4 rounded accent-orange-950 cursor-pointer"
       />
       <div className="relative min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
           <span className="flex items-center gap-1.5 text-xs font-black text-white tracking-wide">
-            <span className="text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.8)]">★</span>
-            <span>Make it Legit</span>
+            <span className="text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.8)]">☕</span>
+            <span>Spill Crazy Tea</span>
           </span>
-          <span className="relative overflow-hidden rounded-full bg-white/10 border border-white/20 px-2 py-0.5 text-[10px] font-black tracking-wider text-white shadow-xs">
+          <span className="relative overflow-hidden rounded-full bg-black/25 border border-white/30 px-2.5 py-0.5 text-[10px] font-black tracking-wider text-white shadow-xs">
             <span className="pointer-events-none absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-            ₹39
+            ₹19
           </span>
         </div>
-        <p className="mt-0.5 text-[11px] leading-relaxed text-zinc-300">
-          Pin your review right to the top with an exclusive Legit badge.
+        <p className="mt-0.5 text-[11px] leading-relaxed text-orange-50 font-medium">
+          Spill the real unfiltered tea. Pin your review right to the top with an exclusive Crazy Tea badge.
         </p>
       </div>
     </label>
@@ -1161,7 +1161,7 @@ function ReviewComposer({ configured, signedIn, onSignIn, onPublish }: {
         className={cn(
           "relative overflow-hidden inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-4 text-xs font-bold text-white transition-all duration-200 disabled:opacity-50 group",
           makeLegit
-            ? "bg-black border border-white/30 shadow-[inset_0_1px_1px_rgba(255,255,255,0.45),0_4px_14px_rgba(0,0,0,0.6)] hover:border-white/60 hover:bg-zinc-900 active:scale-[0.98]"
+            ? "bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 border border-orange-300/40 shadow-[inset_0_1px_1px_rgba(255,255,255,0.45),0_4px_14px_rgba(249,115,22,0.4)] hover:brightness-105 active:scale-[0.98]"
             : "bg-zinc-950 border border-transparent hover:bg-zinc-800"
         )}
       >
@@ -1172,7 +1172,7 @@ function ReviewComposer({ configured, signedIn, onSignIn, onPublish }: {
           </>
         )}
         <Send className="relative z-10 h-3.5 w-3.5" />
-        <span className="relative z-10">Publish</span>
+        <span className="relative z-10">{makeLegit ? "Spill Tea (₹19)" : "Publish"}</span>
       </button>
     </div>
   </form>;
@@ -1184,14 +1184,14 @@ function ReviewCard({ review }: { review: NocapReview }) {
       className={cn(
         "rounded-xl border p-3.5 transition-colors",
         review.isLegit
-          ? "border-zinc-300 bg-gradient-to-br from-zinc-50 via-white to-zinc-100 shadow-xs"
+          ? "border-orange-300/90 bg-gradient-to-br from-orange-50/60 via-amber-50/30 to-white shadow-xs"
           : "border-zinc-200 bg-white"
       )}
     >
       <div className="flex items-center gap-2">
         {review.isLegit && (
-          <span className="relative overflow-hidden flex items-center gap-1 rounded-full bg-black px-2.5 py-0.5 text-[10px] font-black tracking-wide text-white border border-white/25 shadow-[inset_0_1px_0_rgba(255,255,255,0.35)]">
-            <span className="text-white drop-shadow-[0_0_6px_rgba(255,255,255,0.8)]">★</span> Legit
+          <span className="relative overflow-hidden flex items-center gap-1 rounded-full bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 px-2.5 py-0.5 text-[10px] font-black tracking-wide text-white border border-white/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_2px_6px_rgba(249,115,22,0.3)]">
+            <span className="text-white drop-shadow-[0_0_6px_rgba(255,255,255,0.8)]">☕</span> Crazy Tea
           </span>
         )}
         <span className="grid h-7 w-7 shrink-0 place-items-center overflow-hidden rounded-full bg-zinc-950 text-[10px] font-bold text-white">
