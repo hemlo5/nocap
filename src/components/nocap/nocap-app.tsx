@@ -3,17 +3,37 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import { ChevronDown, CircleUserRound, LocateFixed, LogIn, LogOut, MapPin, Pencil, Pin, Search, Send, Star, X, Sparkles } from "lucide-react";
+import { ChevronDown, CircleUserRound, HelpCircle, LocateFixed, LogIn, LogOut, MapPin, Pencil, Pin, Search, Send, Star, X, Sparkles } from "lucide-react";
 import type { NocapPlace, NocapPlaceCategory } from "@/lib/nocap/places";
 import type { NocapProfile, NocapReview, NocapUserPlace } from "@/lib/nocap/community";
 import { createSupabaseBrowserClient, hasSupabaseBrowserConfig } from "@/lib/supabase/client";
 import { NocapMap, type NocapMapHandle } from "./nocap-map";
+import { NocapGuideModal } from "./nocap-guide-modal";
 import { cn } from "@/lib/utils/cn";
 import { trackEvent } from "@/lib/analytics/gtag";
 
 type PlaceDetail = { place: NocapPlace; reviews: NocapReview[]; status: "ready"; supabaseConfigured: boolean };
 
 type UserPlaceDetail = { place: NocapUserPlace; reviews: NocapReview[]; supabaseConfigured: boolean };
+
+function loadRazorpayScript(): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (typeof window === "undefined") {
+      resolve(false);
+      return;
+    }
+    if ((window as unknown as { Razorpay?: unknown }).Razorpay) {
+      resolve(true);
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+}
 
 const filters: Array<{ id: "all" | NocapPlaceCategory; label: string }> = [
   { id: "all", label: "All" },
@@ -93,14 +113,30 @@ export function NocapApp() {
   const [selectedUserPlaceId, setSelectedUserPlaceId] = useState<string | null>(null);
   // Legit payment return
   const [legitSuccess, setLegitSuccess] = useState(false);
+  // First-time user onboarding guide
+  const [guideOpen, setGuideOpen] = useState(false);
 
-  // Check URL query parameters (e.g. ?place=... or ?legit=success)
+  // Auto-show guide for first-time visitors
+  useEffect(() => {
+    try {
+      const seen = localStorage.getItem("nocap_guide_seen");
+      if (!seen) {
+        setGuideOpen(true);
+      }
+    } catch {}
+  }, []);
+
+  // Check URL query parameters (e.g. ?place=... or ?legit=success or ?razorpay_payment_id=...)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get("legit") === "success") {
+    const rzpPaymentId = params.get("razorpay_payment_id");
+    const rzpOrderId = params.get("razorpay_order_id");
+    const rzpSignature = params.get("razorpay_signature");
+    const paymentId = params.get("payment_id") || rzpPaymentId;
+    const sessionId = params.get("session_id");
+
+    if (params.get("legit") === "success" || rzpPaymentId) {
       setLegitSuccess(true);
-      const paymentId = params.get("payment_id");
-      const sessionId = params.get("session_id");
       const placeParam = params.get("place");
 
       if (placeParam) {
@@ -113,11 +149,15 @@ export function NocapApp() {
         }
       }
 
-      if (paymentId || sessionId) {
-        fetch("/api/nocap/payments/verify", {
+      if (rzpPaymentId && rzpOrderId && rzpSignature) {
+        fetch("/api/nocap/payments/razorpay/verify", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ paymentId, sessionId }),
+          body: JSON.stringify({
+            razorpay_order_id: rzpOrderId,
+            razorpay_payment_id: rzpPaymentId,
+            razorpay_signature: rzpSignature,
+          }),
         })
           .then((res) => res.json())
           .then((data) => {
@@ -125,7 +165,7 @@ export function NocapApp() {
               setReviews((current) => [data.review, ...current.filter((r) => r.id !== data.review.id)]);
             }
           })
-          .catch((e) => console.error("[NoCap] Verify payment error:", e));
+          .catch((e) => console.error("[NoCap] Verify Razorpay payment error:", e));
       }
 
       window.history.replaceState({}, "", window.location.pathname);
@@ -300,15 +340,25 @@ export function NocapApp() {
 
   async function publishReview(input: { body: string; rating: number | null; placeId?: string; userPlaceId?: string; makeLegit?: boolean }) {
     if (!accessToken) throw new Error("Sign in with Google before publishing.");
-    const position = await currentPosition();
+    let lat: number | undefined = userLocation?.lat;
+    let lng: number | undefined = userLocation?.lng;
+    let accuracy: number | undefined = 15;
+    try {
+      const position = await currentPosition();
+      lat = position.coords.latitude;
+      lng = position.coords.longitude;
+      accuracy = position.coords.accuracy;
+    } catch {
+      // Writing reviews is open from anywhere in Bengaluru
+    }
     const pid = input.placeId ?? selectedPlace?.id;
     const upid = input.userPlaceId ?? selectedUserPlace?.id;
     if (!pid && !upid) throw new Error("No place selected.");
 
-    // If user wants Legit badge, initiate Dodo checkout directly.
-    // The review is NOT written to the database or displayed until payment succeeds!
+    // If user wants Legit badge, initiate Razorpay payment checkout directly.
+    // The review is NOT written to the database or displayed until payment succeeds and verifies!
     if (input.makeLegit) {
-      const checkoutRes = await fetch("/api/nocap/payments/checkout", {
+      const orderRes = await fetch("/api/nocap/payments/razorpay/order", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
         body: JSON.stringify({
@@ -316,26 +366,99 @@ export function NocapApp() {
           userPlaceId: upid,
           body: input.body,
           rating: input.rating,
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-          accuracyMeters: position.coords.accuracy,
-          origin: window.location.origin,
+          latitude: lat,
+          longitude: lng,
+          accuracyMeters: accuracy,
         }),
       });
-      const checkoutData = await checkoutRes.json();
-      if (!checkoutRes.ok) {
-        throw new Error(checkoutData.error ?? "Could not initiate Legit checkout.");
+      const orderData = await orderRes.json();
+      if (!orderRes.ok) {
+        throw new Error(orderData.error ?? "Could not initiate Legit checkout.");
       }
-      if (checkoutData.checkoutUrl) {
-        trackEvent("publish_review", {
-          place_id: pid ?? upid,
-          rating: input.rating,
-          is_legit_requested: true,
+
+      const scriptLoaded = await loadRazorpayScript();
+      if (!scriptLoaded) {
+        throw new Error("Could not load Razorpay payment gateway. Please check your internet connection.");
+      }
+
+      return new Promise<void>((resolve, reject) => {
+        const RazorpayClass = (window as unknown as { Razorpay: any }).Razorpay;
+        const rzp = new RazorpayClass({
+          key: orderData.keyId,
+          amount: orderData.amount,
+          currency: orderData.currency || "INR",
+          name: "NoCapBLR",
+          description: `★ Legit Review Badge for ${orderData.placeName || "Spot"}`,
+          image: "/nocap-icon.png",
+          order_id: orderData.orderId,
+          prefill: {
+            name: orderData.user?.name || profile?.displayName || "",
+            email: orderData.user?.email || "",
+          },
+          theme: {
+            color: "#09090b",
+          },
+          modal: {
+            ondismiss: () => {
+              reject(new Error("Payment cancelled."));
+            },
+          },
+          handler: async (response: {
+            razorpay_payment_id: string;
+            razorpay_order_id: string;
+            razorpay_signature: string;
+          }) => {
+            try {
+              const verifyRes = await fetch("/api/nocap/payments/razorpay/verify", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${accessToken}`,
+                },
+                body: JSON.stringify({
+                  razorpay_order_id: response.razorpay_order_id,
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_signature: response.razorpay_signature,
+                  body: input.body,
+                  notes: {
+                    place_id: pid ?? (upid ? `user:${upid}` : undefined),
+                    body: input.body,
+                    rating: input.rating !== null ? String(input.rating) : "",
+                  },
+                }),
+              });
+
+              const verifyData = await verifyRes.json();
+              if (!verifyRes.ok || !verifyData.review) {
+                throw new Error(verifyData.error ?? "Payment verification failed.");
+              }
+
+              trackEvent("publish_review", {
+                place_id: pid ?? upid,
+                rating: input.rating,
+                is_legit_requested: true,
+              });
+
+              setReviews((current) => [
+                verifyData.review,
+                ...current.filter((r) => r.id !== verifyData.review.id),
+              ]);
+              setLegitSuccess(true);
+              resolve();
+            } catch (err) {
+              console.error("[Razorpay] Verification error:", err);
+              reject(err instanceof Error ? err : new Error("Payment verification failed."));
+            }
+          },
         });
-        window.location.href = checkoutData.checkoutUrl;
-        return;
-      }
-      throw new Error("No checkout URL returned from payment provider.");
+
+        rzp.on("payment.failed", (response: any) => {
+          console.error("[Razorpay] Payment failed:", response.error);
+          reject(new Error(response.error?.description || "Payment failed. Please try again."));
+        });
+
+        rzp.open();
+      });
     }
 
     // Standard free review
@@ -347,9 +470,9 @@ export function NocapApp() {
         userPlaceId: upid,
         body: input.body,
         rating: input.rating,
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-        accuracyMeters: position.coords.accuracy,
+        latitude: lat,
+        longitude: lng,
+        accuracyMeters: accuracy,
       }),
     });
     const data = await response.json();
@@ -429,25 +552,67 @@ export function NocapApp() {
     mapRef.current?.hideRadiusCircle();
   }
 
-  function enterPinMode() {
+  async function enterPinMode() {
     setPinMode(true);
     mapRef.current?.enterPinMode();
     dismissLocate();
+    setLocationError(null);
+
+    // Retrieve user location and show 1km boundary circle
+    let loc = userLocation;
+    if (!loc) {
+      try {
+        const pos = await currentPosition();
+        loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        setUserLocation(loc);
+      } catch (err) {
+        console.warn("[NoCap] Could not get location for pin mode:", err);
+      }
+    }
+    if (loc) {
+      mapRef.current?.flyToUser(loc.lat, loc.lng, 15);
+      mapRef.current?.showRadiusCircle(loc.lat, loc.lng, 1);
+    }
   }
 
   function exitPinMode() {
     setPinMode(false);
     mapRef.current?.exitPinMode();
+    mapRef.current?.hideRadiusCircle();
     setPendingPin(null);
     setPinFormOpen(false);
+    setLocationError(null);
   }
 
-  function handlePinDrop(lat: number, lng: number) {
+  async function handlePinDrop(lat: number, lng: number) {
+    setLocationError(null);
     // Check Bengaluru limits
     if (lat < 12.72 || lat > 13.2 || lng < 77.34 || lng > 77.9) {
       setLocationError("Please pin within Bengaluru city limits.");
       return;
     }
+
+    // Require location to enforce 1km radius limit for creating pins
+    let loc = userLocation;
+    if (!loc) {
+      try {
+        const pos = await currentPosition();
+        loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        setUserLocation(loc);
+        mapRef.current?.showRadiusCircle(loc.lat, loc.lng, 1);
+      } catch {
+        setLocationError("Location permission is required to pin a place. You can only pin places within 1km of where you are.");
+        return;
+      }
+    }
+
+    // Enforce 1km limit
+    const distM = haversineM(loc.lat, loc.lng, lat, lng);
+    if (distM > 1000) {
+      setLocationError(`You can only pin places within 1km of your current location. This pin is ${(distM / 1000).toFixed(1)}km away.`);
+      return;
+    }
+
     setPendingPin({ lat, lng });
     setPinFormOpen(true);
   }
@@ -455,6 +620,12 @@ export function NocapApp() {
   async function submitPin(input: { name: string; category: NocapPlaceCategory; customCategory?: string; address: string }) {
     if (!accessToken) throw new Error("Sign in first.");
     if (!pendingPin) throw new Error("No pin location.");
+    let loc = userLocation;
+    if (!loc) {
+      const pos = await currentPosition();
+      loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      setUserLocation(loc);
+    }
     const response = await fetch("/api/nocap/user-places", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
@@ -465,6 +636,8 @@ export function NocapApp() {
         address: input.address,
         latitude: pendingPin.lat,
         longitude: pendingPin.lng,
+        userLatitude: loc.lat,
+        userLongitude: loc.lng,
       }),
     });
     const data = await response.json();
@@ -525,15 +698,24 @@ export function NocapApp() {
               </button>
             ))}
           </div>
-          <div className="mt-3 text-[11px] font-medium text-zinc-500">
+          <div className="mt-3 flex items-center justify-between text-[11px] font-medium text-zinc-500">
             {loading ? (
               <span className="flex items-center gap-1.5 font-bold text-zinc-700">
                 <span className="h-2 w-2 rounded-full bg-zinc-800 animate-pulse" />
                 Loading places & takes...
               </span>
             ) : (
-              `${visiblePlaces.length + visibleUserPlaces.length} places · ${reviews.length} local reviews`
+              <span>{visiblePlaces.length + visibleUserPlaces.length} places · {reviews.length} local reviews</span>
             )}
+            <button
+              type="button"
+              onClick={() => setGuideOpen(true)}
+              className="flex items-center gap-1 rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-bold text-zinc-700 hover:bg-zinc-200 hover:text-zinc-950 transition-colors"
+              title="How to use NoCapBLR"
+            >
+              <HelpCircle className="h-3 w-3 text-zinc-500" />
+              <span>Guide</span>
+            </button>
           </div>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto p-3">
@@ -594,6 +776,14 @@ export function NocapApp() {
               <img src="/nocap-icon.png" alt="NoCap" className="h-7 w-7 shrink-0 rounded-lg object-contain shadow-xs" />
               <Search className="h-4 w-4 shrink-0 text-zinc-400" />
               <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search places" className="min-w-0 flex-1 bg-transparent text-sm text-zinc-900 outline-none placeholder:text-zinc-400" />
+              <button
+                type="button"
+                onClick={() => setGuideOpen(true)}
+                className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-zinc-100 text-zinc-600 hover:bg-zinc-200 hover:text-zinc-950 transition-colors"
+                title="How to use NoCapBLR (Guide)"
+              >
+                <HelpCircle className="h-4 w-4" />
+              </button>
               <AccountButton configured={supabaseConfigured} profile={profile} onSignIn={signIn} onOpenProfile={() => setProfileOpen(true)} />
             </div>
             <div className="mt-2 flex gap-1.5 overflow-x-auto pb-1" style={{ WebkitOverflowScrolling: "touch", scrollbarWidth: "none" }}>
@@ -618,10 +808,20 @@ export function NocapApp() {
         {pinMode && (
           <div className="absolute left-3 right-3 lg:left-1/2 lg:right-auto lg:-translate-x-1/2 top-3 lg:top-4 z-20 flex items-center gap-2 rounded-xl lg:rounded-full bg-amber-500 px-4 py-3 lg:py-2 shadow-lg">
             <Pin className="h-4 w-4 text-white" />
-            <span className="flex-1 text-sm font-bold text-white">Tap anywhere on the map to pin a place</span>
+            <span className="flex-1 text-sm font-bold text-white">Tap within 1km of your location to pin a place</span>
             <button type="button" onClick={exitPinMode} className="grid h-7 w-7 place-items-center rounded-full bg-white/20 text-white hover:bg-white/30"><X className="h-4 w-4" /></button>
           </div>
         )}
+
+        {/* ── GUIDE / HOW TO USE BUTTON (Single responsive button) ── */}
+        <button
+          type="button"
+          onClick={() => setGuideOpen(true)}
+          className="absolute bottom-[15.1rem] lg:bottom-44 right-3 lg:right-6 z-20 grid h-11 w-11 lg:h-10 lg:w-10 place-items-center rounded-full lg:rounded-xl border border-zinc-200/80 bg-white/95 backdrop-blur shadow-lg active:scale-95 transition-all text-zinc-700 hover:text-zinc-950"
+          title="How to use NoCapBLR (Guide)"
+        >
+          <HelpCircle className="h-5 w-5 lg:h-4 lg:w-4 text-zinc-700" />
+        </button>
 
         {/* ── PIN A PLACE BUTTON (Single responsive button) ── */}
         <button
@@ -777,6 +977,12 @@ export function NocapApp() {
         onSignIn={signIn}
       />
     )}
+
+    {/* First-time User Onboarding Guide Modal */}
+    <NocapGuideModal
+      isOpen={guideOpen}
+      onClose={() => setGuideOpen(false)}
+    />
   </main>;
 }
 
@@ -810,7 +1016,7 @@ function PlacePanel({ place, detail, signedIn, configured, onSignIn, onPublish }
     </div>
     <div className="min-h-0 flex-1 overflow-y-auto p-4">
       <ReviewComposer configured={configured} signedIn={signedIn} onSignIn={onSignIn} onPublish={(input) => onPublish({ ...input, placeId: place.id })} />
-      {detail === null ? <EvidenceSkeleton /> : reviews.length ? <div className="mt-4 space-y-3">{reviews.map((review) => <ReviewCard key={review.id} review={review} />)}</div> : <div className="mt-4 rounded-md border border-dashed border-zinc-300 bg-zinc-50 p-5"><CircleUserRound className="h-5 w-5 text-zinc-400" /><h2 className="mt-3 text-sm font-bold">No local reviews here yet.</h2><p className="mt-1 text-xs leading-5 text-zinc-500">You can only post while you are at this place. That keeps the map grounded in firsthand experiences.</p></div>}
+      {detail === null ? <EvidenceSkeleton /> : reviews.length ? <div className="mt-4 space-y-3">{reviews.map((review) => <ReviewCard key={review.id} review={review} />)}</div> : <div className="mt-4 rounded-md border border-dashed border-zinc-300 bg-zinc-50 p-5"><CircleUserRound className="h-5 w-5 text-zinc-400" /><h2 className="mt-3 text-sm font-bold">No local reviews here yet.</h2><p className="mt-1 text-xs leading-5 text-zinc-500">Be the first to drop an honest NoCap review here.</p></div>}
     </div>
   </div>;
 }
@@ -853,17 +1059,24 @@ function ReviewComposer({ configured, signedIn, onSignIn, onPublish }: {
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     setState("locating");
-    setMessage(makeLegit ? "Getting location & opening payment checkout\u2026" : "Checking your current location\u2026");
+    setMessage(makeLegit ? "Opening Razorpay checkout…" : "Publishing your review…");
     try {
       await onPublish({ body, rating, makeLegit });
-      if (!makeLegit) {
-        setBody("");
-        setState("idle");
-        setMessage("Published at your current location.");
+      setBody("");
+      setState("idle");
+      setMessage(makeLegit ? "★ Legit review published!" : "Review published successfully.");
+      if (makeLegit) {
+        setMakeLegit(false);
       }
     } catch (error) {
-      setState("error");
-      setMessage(error instanceof Error ? error.message : "Could not publish review.");
+      const errMsg = error instanceof Error ? error.message : "Could not publish review.";
+      if (errMsg === "Payment cancelled.") {
+        setState("idle");
+        setMessage("Payment cancelled.");
+      } else {
+        setState("error");
+        setMessage(errMsg);
+      }
     }
   }
 
@@ -872,8 +1085,8 @@ function ReviewComposer({ configured, signedIn, onSignIn, onPublish }: {
 
   return <form onSubmit={submit} className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-3.5">
     <div className="flex items-center justify-between">
-      <span className="text-xs font-bold text-zinc-800">Share from here</span>
-      <span className="flex items-center gap-1 text-[10px] font-semibold text-zinc-500"><LocateFixed className="h-3 w-3" />Current location required</span>
+      <span className="text-xs font-bold text-zinc-800">Share your take</span>
+      <span className="flex items-center gap-1 text-[10px] font-semibold text-zinc-500"><Sparkles className="h-3 w-3 text-amber-500" />Real local experience</span>
     </div>
 
     {/* Optional Star Rating Selector */}

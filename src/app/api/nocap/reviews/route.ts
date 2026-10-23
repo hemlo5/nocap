@@ -15,12 +15,6 @@ export async function POST(request: Request) {
   if (validation instanceof Response) return validation;
   const { placeId, placeLat, placeLng, body, rating, latitude, longitude, accuracyMeters } = validation;
 
-  const distanceMeters = distanceBetween(latitude, longitude, placeLat, placeLng);
-  const allowedDistanceMeters = Math.max(400, accuracyMeters * 2);
-  if (distanceMeters > allowedDistanceMeters) {
-    return Response.json({ error: `You need to be at this place to review it. Move within ${Math.round(allowedDistanceMeters)} m and try again.` }, { status: 403 });
-  }
-
   const admin = createAdminClient();
   await ensureProfile(admin, user);
   let upsertResult = await admin.from("nocap_reviews")
@@ -61,22 +55,37 @@ async function validateInput(input: ReviewInput | null) {
     return Response.json({ error: `Write between ${minimumReviewLength} and ${maximumReviewLength} characters.` }, { status: 400 });
   if (rating !== null && (!Number.isInteger(rating) || rating < 1 || rating > 5))
     return Response.json({ error: "Choose a rating from 1 to 5, or leave it blank." }, { status: 400 });
-  if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || !Number.isFinite(accuracyMeters) || accuracyMeters <= 0 || accuracyMeters > maxAccuracyMeters)
-    return Response.json({ error: "Use a fresh, accurate device location to publish." }, { status: 400 });
 
   // Check both hardcoded places and user-pinned places
-  const hardcodedPlace = typeof input?.placeId === "string" ? findNocapPlace(input.placeId) : null;
-  if (hardcodedPlace) return { placeId: hardcodedPlace.id, placeLat: hardcodedPlace.latitude, placeLng: hardcodedPlace.longitude, body, rating, latitude, longitude, accuracyMeters };
+  let placeLat = 12.9716;
+  let placeLng = 77.5946;
+  let targetPlaceId: string | null = null;
 
-  // Check user place
-  const userPlaceId = typeof input?.userPlaceId === "string" ? input.userPlaceId : null;
-  if (userPlaceId) {
-    const admin = createAdminClient();
-    const { data: userPlace } = await admin.from("nocap_user_places").select("id, latitude, longitude").eq("id", userPlaceId).single();
-    if (userPlace) return { placeId: `user:${userPlace.id}`, placeLat: Number(userPlace.latitude), placeLng: Number(userPlace.longitude), body, rating, latitude, longitude, accuracyMeters };
+  const hardcodedPlace = typeof input?.placeId === "string" ? findNocapPlace(input.placeId) : null;
+  if (hardcodedPlace) {
+    targetPlaceId = hardcodedPlace.id;
+    placeLat = hardcodedPlace.latitude;
+    placeLng = hardcodedPlace.longitude;
+  } else {
+    const userPlaceId = typeof input?.userPlaceId === "string" ? input.userPlaceId : null;
+    if (userPlaceId) {
+      const admin = createAdminClient();
+      const { data: userPlace } = await admin.from("nocap_user_places").select("id, latitude, longitude").eq("id", userPlaceId).single();
+      if (userPlace) {
+        targetPlaceId = `user:${userPlace.id}`;
+        placeLat = Number(userPlace.latitude);
+        placeLng = Number(userPlace.longitude);
+      }
+    }
   }
 
-  return Response.json({ error: "Choose a place from the map." }, { status: 400 });
+  if (!targetPlaceId) return Response.json({ error: "Choose a place from the map." }, { status: 400 });
+
+  const finalLat = Number.isFinite(latitude) ? latitude : placeLat;
+  const finalLng = Number.isFinite(longitude) ? longitude : placeLng;
+  const finalAccuracy = Number.isFinite(accuracyMeters) && accuracyMeters > 0 ? accuracyMeters : 15;
+
+  return { placeId: targetPlaceId, placeLat, placeLng, body, rating, latitude: finalLat, longitude: finalLng, accuracyMeters: finalAccuracy };
 }
 
 async function ensureProfile(admin: ReturnType<typeof createAdminClient>, user: { id: string; user_metadata: Record<string, unknown> }) {

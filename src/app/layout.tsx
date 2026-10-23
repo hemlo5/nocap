@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import { Geist, Geist_Mono } from "next/font/google";
 import { HemloNav } from "@/components/nav/hemlo-nav";
 import { GoogleAnalytics } from "@/components/analytics/google-analytics";
@@ -131,6 +132,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body suppressHydrationWarning className="h-full min-h-screen flex flex-col bg-[#F6F5F2] text-[#18181B]">
         <GoogleAnalytics />
+        <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
         <HemloNav />
         {children}
       </body>

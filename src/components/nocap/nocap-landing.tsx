@@ -19,7 +19,6 @@ export function NocapLanding({ onEnter }: NocapLandingProps) {
   }, []);
 
   function handleEnter() {
-    localStorage.setItem("nocap_visited", "true");
     onEnter();
   }
 

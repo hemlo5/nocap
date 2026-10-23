@@ -47,4 +47,5 @@ nearhire-*-check.png
 next-env.d.ts
 
 /src/generated/prisma/
+brag-output/
 

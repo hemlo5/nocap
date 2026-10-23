@@ -61,7 +61,7 @@ export default function PrivacyPolicyPage() {
                   <strong className="text-zinc-900">Location Data:</strong> When you pin a new place or post a review, we request your device&apos;s current geographic coordinates (latitude and longitude) through standard browser Geolocation APIs.
                 </li>
                 <li>
-                  <strong className="text-zinc-900">Transaction &amp; Badge Data:</strong> If you upgrade a review to a &ldquo;Legit&rdquo; status, payments are processed directly by our merchant partner, Dodo Payments. We receive confirmation metadata (such as review ID and payment ID); we do not store raw credit card numbers.
+                  <strong className="text-zinc-900">Transaction &amp; Badge Data:</strong> If you upgrade a review to a &ldquo;Legit&rdquo; status, payments are processed directly by our merchant partner, Razorpay. We receive confirmation metadata (such as review ID and payment ID); we do not store raw credit card numbers.
                 </li>
               </ul>
             </div>
@@ -124,7 +124,7 @@ export default function PrivacyPolicyPage() {
               <ul className="list-disc pl-5 space-y-2">
                 <li><strong className="text-zinc-900">Google OAuth:</strong> To provide secure single sign-on without managing raw passwords.</li>
                 <li><strong className="text-zinc-900">Supabase:</strong> For database and user session persistence.</li>
-                <li><strong className="text-zinc-900">Dodo Payments:</strong> For secure checkout processing of Legit review badges.</li>
+                <li><strong className="text-zinc-900">Razorpay:</strong> For secure checkout processing of Legit review badges.</li>
                 <li><strong className="text-zinc-900">MapLibre &amp; CARTO:</strong> For rendering interactive vector basemaps.</li>
               </ul>
             </div>

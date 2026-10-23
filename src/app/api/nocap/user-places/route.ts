@@ -29,6 +29,24 @@ export async function POST(request: Request) {
       longitude < BENGALURU_BOUNDS.lngMin || longitude > BENGALURU_BOUNDS.lngMax)
     return Response.json({ error: "Pin must be within Bengaluru." }, { status: 400 });
 
+  // 1km location check for creating new pins / dots
+  const userLat = Number(input?.userLatitude ?? input?.userLat);
+  const userLng = Number(input?.userLongitude ?? input?.userLng);
+  if (Number.isFinite(userLat) && Number.isFinite(userLng)) {
+    const distanceMeters = distanceBetween(userLat, userLng, latitude, longitude);
+    if (distanceMeters > 1000) {
+      return Response.json(
+        { error: `You can only pin places within 1km of your current location. (Distance: ${(distanceMeters / 1000).toFixed(1)} km)` },
+        { status: 403 }
+      );
+    }
+  } else {
+    return Response.json(
+      { error: "Your current location is required to pin a place within 1km." },
+      { status: 400 }
+    );
+  }
+
   const admin = createAdminClient();
 
   // Ensure profile exists
@@ -110,4 +128,14 @@ function toUserPlace(row: Record<string, unknown>): NocapUserPlace {
     longitude: Number(row.longitude),
     createdAt: String(row.created_at),
   };
+}
+
+function distanceBetween(latitudeA: number, longitudeA: number, latitudeB: number, longitudeB: number) {
+  const radians = Math.PI / 180;
+  const latitudeDistance = (latitudeB - latitudeA) * radians;
+  const longitudeDistance = (longitudeB - longitudeA) * radians;
+  const a =
+    Math.sin(latitudeDistance / 2) ** 2 +
+    Math.cos(latitudeA * radians) * Math.cos(latitudeB * radians) * Math.sin(longitudeDistance / 2) ** 2;
+  return 6_371_000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }

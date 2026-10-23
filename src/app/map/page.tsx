@@ -5,18 +5,18 @@ import { NocapApp } from "@/components/nocap/nocap-app";
 import { NocapLanding } from "@/components/nocap/nocap-landing";
 
 export default function MapPage() {
-  // null = hydrating (don't render anything yet to avoid SSR mismatch)
-  const [visited, setVisited] = useState<boolean | null>(null);
+  const [entered, setEntered] = useState<boolean>(false);
 
   useEffect(() => {
-    setVisited(localStorage.getItem("nocap_visited") === "true");
+    // If URL has direct parameters (like ?place=... or ?legit=...), skip landing directly into that place
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("place") || params.get("legit")) {
+      setEntered(true);
+    }
   }, []);
 
-  // Hydration guard — render nothing until we've read localStorage
-  if (visited === null) return null;
-
-  if (!visited) {
-    return <NocapLanding onEnter={() => setVisited(true)} />;
+  if (!entered) {
+    return <NocapLanding onEnter={() => setEntered(true)} />;
   }
 
   return <NocapApp />;
