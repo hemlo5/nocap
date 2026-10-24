@@ -41,6 +41,10 @@ input {
   box-shadow: 0 10px 28px rgb(17 24 39 / 15%);
 }
 
+.maplibregl-ctrl-attrib {
+  display: none !important;
+}
+
 .maplibregl-ctrl button {
   height: 32px;
   width: 32px;

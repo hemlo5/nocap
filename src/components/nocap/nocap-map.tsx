@@ -177,7 +177,6 @@ export const NocapMap = forwardRef<NocapMapHandle, NocapMapProps>(function Nocap
       });
       mapRef.current = map;
       map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
-      map.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-right");
       map.on("load", () => { if (!cancelled) { ensurePlaceLayers(map); map.resize(); setMapReady(true); } });
       map.on("zoom", () => { setZoomedIn(map.getZoom() >= 13.5); });
       let clickedFeature = false;
