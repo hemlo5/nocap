@@ -1015,7 +1015,7 @@ function PlacePanel({ place, detail, signedIn, configured, onSignIn, onPublish }
       <p className="mt-3 text-xs font-medium text-zinc-600">{reviews.length ? `${reviews.length} local ${reviews.length === 1 ? "review" : "reviews"}` : "Be the first local to share a review or note."}</p>
     </div>
     <div className="min-h-0 flex-1 overflow-y-auto p-4">
-      <ReviewComposer configured={configured} signedIn={signedIn} onSignIn={onSignIn} onPublish={(input) => onPublish({ ...input, placeId: place.id })} />
+      <ReviewComposer key={place.id} configured={configured} signedIn={signedIn} onSignIn={onSignIn} onPublish={(input) => onPublish({ ...input, placeId: place.id })} />
       {detail === null ? <EvidenceSkeleton /> : reviews.length ? <div className="mt-4 space-y-3">{reviews.map((review) => <ReviewCard key={review.id} review={review} />)}</div> : <div className="mt-4 rounded-md border border-dashed border-zinc-300 bg-zinc-50 p-5"><CircleUserRound className="h-5 w-5 text-zinc-400" /><h2 className="mt-3 text-sm font-bold">No local reviews here yet.</h2><p className="mt-1 text-xs leading-5 text-zinc-500">Be the first to drop an honest NoCap review here.</p></div>}
     </div>
   </div>;
@@ -1040,7 +1040,7 @@ function UserPlacePanel({ place, detail, signedIn, configured, onSignIn, onPubli
       <p className="mt-3 text-xs font-medium text-zinc-600">{reviews.length ? `${reviews.length} local ${reviews.length === 1 ? "review" : "reviews"}` : "Be the first to review this spot."}</p>
     </div>
     <div className="min-h-0 flex-1 overflow-y-auto p-4">
-      <ReviewComposer configured={configured} signedIn={signedIn} onSignIn={onSignIn} onPublish={(input) => onPublish({ ...input, userPlaceId: place.id })} />
+      <ReviewComposer key={place.id} configured={configured} signedIn={signedIn} onSignIn={onSignIn} onPublish={(input) => onPublish({ ...input, userPlaceId: place.id })} />
       {detail === null ? <EvidenceSkeleton /> : reviews.length ? <div className="mt-4 space-y-3">{reviews.map((review) => <ReviewCard key={review.id} review={review} />)}</div> : <div className="mt-4 rounded-md border border-dashed border-zinc-300 bg-zinc-50 p-5"><CircleUserRound className="h-5 w-5 text-zinc-400" /><h2 className="mt-3 text-sm font-bold">No reviews yet.</h2><p className="mt-1 text-xs leading-5 text-zinc-500">Be the first to drop a NoCap here.</p></div>}
     </div>
   </div>;
@@ -1050,6 +1050,7 @@ function ReviewComposer({ configured, signedIn, onSignIn, onPublish }: {
   configured: boolean; signedIn: boolean; onSignIn: () => void;
   onPublish: (input: { body: string; rating: number | null; makeLegit?: boolean }) => Promise<void>;
 }) {
+  const [isExpanded, setIsExpanded] = useState(false);
   const [body, setBody] = useState("");
   const [rating, setRating] = useState<number | null>(5);
   const [makeLegit, setMakeLegit] = useState(false);
@@ -1068,6 +1069,10 @@ function ReviewComposer({ configured, signedIn, onSignIn, onPublish }: {
       if (makeLegit) {
         setMakeLegit(false);
       }
+      setTimeout(() => {
+        setIsExpanded(false);
+        setMessage("");
+      }, 1500);
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : "Could not publish review.";
       if (errMsg === "Payment cancelled.") {
@@ -1081,101 +1086,170 @@ function ReviewComposer({ configured, signedIn, onSignIn, onPublish }: {
   }
 
   if (!configured) return <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-800">Community reviews activate once Supabase is configured.</div>;
-  if (!signedIn) return <button type="button" onClick={onSignIn} className="flex w-full items-center justify-between rounded-md border border-zinc-200 bg-zinc-50 px-3 py-3 text-left text-xs font-semibold text-zinc-800 hover:bg-zinc-100"><span>Sign in with Google to write a local review</span><LogIn className="h-4 w-4" /></button>;
 
-  return <form onSubmit={submit} className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-3.5">
-    <div className="flex items-center justify-between">
-      <span className="text-xs font-bold text-zinc-800">Share your take</span>
-      <span className="flex items-center gap-1 text-[10px] font-semibold text-zinc-500"><Sparkles className="h-3 w-3 text-amber-500" />Real local experience</span>
-    </div>
-
-    {/* Optional Star Rating Selector */}
-    <div className="mt-3 flex items-center justify-between">
-      <div className="flex items-center gap-1">
-        {[1, 2, 3, 4, 5].map((value) => (
-          <button
-            key={value}
-            type="button"
-            onClick={() => setRating(rating === value ? null : value)}
-            aria-label={`${value} stars`}
-            title={rating === value ? "Click to clear rating" : `Give ${value} star${value > 1 ? "s" : ""}`}
-            className="p-0.5 transition-transform hover:scale-110 active:scale-95"
-          >
-            <Star className={cn("h-4 w-4 transition-colors", rating && value <= rating ? "fill-amber-400 text-amber-400" : "text-zinc-300")} />
-          </button>
-        ))}
-      </div>
-      <button
-        type="button"
-        onClick={() => setRating(rating ? null : 5)}
-        className="text-[10px] font-semibold text-zinc-500 hover:text-zinc-900"
-      >
-        {rating ? "Clear stars (note only)" : "+ Add star rating"}
-      </button>
-    </div>
-
-    <textarea
-      value={body}
-      onChange={(event) => setBody(event.target.value)}
-      required
-      minLength={8}
-      maxLength={1200}
-      placeholder={rating ? "What was it actually like?" : "Share a quick tip, note, or vibe about this place..."}
-      className="mt-2.5 min-h-20 w-full resize-y rounded-lg border border-zinc-200 bg-white p-2.5 text-sm text-zinc-900 outline-none focus:border-zinc-500"
-    />
-
-    {/* Orange Crazy Tea Option */}
-    <label className="mt-3 relative flex cursor-pointer items-start gap-3 overflow-hidden rounded-xl border border-orange-500/80 bg-gradient-to-br from-orange-500 via-amber-500 to-orange-600 p-3.5 shadow-lg shadow-orange-500/20 transition-all duration-300 hover:shadow-orange-500/30 hover:border-orange-400 group">
-      {/* Top subtle white shine highlight border */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/60 to-transparent" />
-      {/* Diagonal gloss reflection sheen */}
-      <div className="pointer-events-none absolute -inset-full top-0 block -rotate-45 bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-60 transition-opacity duration-500 group-hover:opacity-100" />
-
-      <input
-        type="checkbox"
-        checked={makeLegit}
-        onChange={(e) => setMakeLegit(e.target.checked)}
-        className="mt-0.5 h-4 w-4 rounded accent-orange-950 cursor-pointer"
-      />
-      <div className="relative min-w-0 flex-1">
-        <div className="flex items-center justify-between gap-2">
-          <span className="flex items-center gap-1.5 text-xs font-black text-white tracking-wide">
-            <span className="text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.8)]">☕</span>
-            <span>Spill Crazy Tea</span>
+  // ── Collapsed compact button ───────────────────────────────────────────
+  if (!isExpanded) {
+    return (
+      <div className="mb-3.5">
+        <button
+          type="button"
+          onClick={() => {
+            if (!signedIn) {
+              onSignIn();
+            } else {
+              setIsExpanded(true);
+            }
+          }}
+          className="group flex w-full items-center justify-between rounded-xl border border-zinc-200/90 bg-white p-2.5 sm:p-3 text-left shadow-2xs hover:border-zinc-300 hover:shadow-xs active:scale-[0.99] transition-all"
+        >
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <div className="grid h-8 w-8 sm:h-9 sm:w-9 shrink-0 place-items-center rounded-xl bg-orange-50 text-orange-600 border border-orange-200/60 group-hover:bg-orange-500 group-hover:text-white group-hover:border-orange-500 transition-colors">
+              <Pencil className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-xs font-bold text-zinc-900 group-hover:text-black">Share your take</span>
+                <span className="inline-flex items-center gap-1 rounded-full bg-orange-100/90 border border-orange-200/60 px-2 py-0.5 text-[10px] font-black text-orange-700">
+                  ☕ Spill Crazy Tea
+                </span>
+              </div>
+              <p className="text-[11px] text-zinc-500 truncate mt-0.5">
+                {signedIn ? "Drop a review or pin tea to the top (₹19)" : "Sign in with Google to write"}
+              </p>
+            </div>
+          </div>
+          <span className="shrink-0 rounded-lg bg-zinc-950 text-white group-hover:bg-zinc-800 px-3 py-1.5 text-xs font-bold transition-colors">
+            {signedIn ? "Write" : "Sign In"}
           </span>
-          <span className="relative overflow-hidden rounded-full bg-black/25 border border-white/30 px-2.5 py-0.5 text-[10px] font-black tracking-wider text-white shadow-xs">
-            <span className="pointer-events-none absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-            ₹19
+        </button>
+      </div>
+    );
+  }
+
+  // ── Expanded full composer form ─────────────────────────────────────────
+  return (
+    <form onSubmit={submit} className="mb-4 rounded-xl border border-zinc-200 bg-zinc-50/90 p-3.5 shadow-2xs">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold text-zinc-900">Share your take</span>
+          <span className="flex items-center gap-1 text-[10px] font-semibold text-zinc-500">
+            <Sparkles className="h-3 w-3 text-amber-500" />Real local experience
           </span>
         </div>
-        <p className="mt-0.5 text-[11px] leading-relaxed text-orange-50 font-medium">
-          Spill the real unfiltered tea. Pin your review right to the top with an exclusive Crazy Tea badge.
-        </p>
+        <button
+          type="button"
+          onClick={() => {
+            setIsExpanded(false);
+            setMessage("");
+          }}
+          className="grid h-6 w-6 place-items-center rounded-md text-zinc-400 hover:bg-zinc-200/70 hover:text-zinc-700 transition-colors"
+          title="Close review form"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
       </div>
-    </label>
 
-    <div className="mt-3 flex items-center justify-between gap-3">
-      <span className={cn("text-[11px]", state === "error" ? "text-red-600" : "text-zinc-500")}>{message}</span>
-      <button
-        disabled={state === "locating" || body.trim().length < 8}
-        className={cn(
-          "relative overflow-hidden inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-4 text-xs font-bold text-white transition-all duration-200 disabled:opacity-50 group",
-          makeLegit
-            ? "bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 border border-orange-300/40 shadow-[inset_0_1px_1px_rgba(255,255,255,0.45),0_4px_14px_rgba(249,115,22,0.4)] hover:brightness-105 active:scale-[0.98]"
-            : "bg-zinc-950 border border-transparent hover:bg-zinc-800"
-        )}
-      >
-        {makeLegit && (
-          <>
-            <span className="pointer-events-none absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/70 to-transparent" />
-            <span className="pointer-events-none absolute -inset-full top-0 block -rotate-45 bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-60 group-hover:opacity-100 transition-opacity" />
-          </>
-        )}
-        <Send className="relative z-10 h-3.5 w-3.5" />
-        <span className="relative z-10">{makeLegit ? "Spill Tea (₹19)" : "Publish"}</span>
-      </button>
-    </div>
-  </form>;
+      {/* Optional Star Rating Selector */}
+      <div className="mt-3 flex items-center justify-between">
+        <div className="flex items-center gap-1">
+          {[1, 2, 3, 4, 5].map((value) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setRating(rating === value ? null : value)}
+              aria-label={`${value} stars`}
+              title={rating === value ? "Click to clear rating" : `Give ${value} star${value > 1 ? "s" : ""}`}
+              className="p-0.5 transition-transform hover:scale-110 active:scale-95"
+            >
+              <Star className={cn("h-4 w-4 transition-colors", rating && value <= rating ? "fill-amber-400 text-amber-400" : "text-zinc-300")} />
+            </button>
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={() => setRating(rating ? null : 5)}
+          className="text-[10px] font-semibold text-zinc-500 hover:text-zinc-900"
+        >
+          {rating ? "Clear stars (note only)" : "+ Add star rating"}
+        </button>
+      </div>
+
+      <textarea
+        value={body}
+        onChange={(event) => setBody(event.target.value)}
+        required
+        minLength={8}
+        maxLength={1200}
+        autoFocus
+        placeholder={rating ? "What was it actually like?" : "Share a quick tip, note, or vibe about this place..."}
+        className="mt-2.5 min-h-20 w-full resize-y rounded-lg border border-zinc-200 bg-white p-2.5 text-sm text-zinc-900 outline-none focus:border-zinc-500"
+      />
+
+      {/* Orange Crazy Tea Option */}
+      <label className="mt-3 relative flex cursor-pointer items-start gap-3 overflow-hidden rounded-xl border border-orange-500/80 bg-gradient-to-br from-orange-500 via-amber-500 to-orange-600 p-3.5 shadow-lg shadow-orange-500/20 transition-all duration-300 hover:shadow-orange-500/30 hover:border-orange-400 group">
+        {/* Top subtle white shine highlight border */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/60 to-transparent" />
+        {/* Diagonal gloss reflection sheen */}
+        <div className="pointer-events-none absolute -inset-full top-0 block -rotate-45 bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-60 transition-opacity duration-500 group-hover:opacity-100" />
+
+        <input
+          type="checkbox"
+          checked={makeLegit}
+          onChange={(e) => setMakeLegit(e.target.checked)}
+          className="mt-0.5 h-4 w-4 rounded accent-orange-950 cursor-pointer"
+        />
+        <div className="relative min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-2">
+            <span className="flex items-center gap-1.5 text-xs font-black text-white tracking-wide">
+              <span className="text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.8)]">☕</span>
+              <span>Spill Crazy Tea</span>
+            </span>
+            <span className="relative overflow-hidden rounded-full bg-black/25 border border-white/30 px-2.5 py-0.5 text-[10px] font-black tracking-wider text-white shadow-xs">
+              <span className="pointer-events-none absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+              ₹19
+            </span>
+          </div>
+          <p className="mt-0.5 text-[11px] leading-relaxed text-orange-50 font-medium">
+            Spill the real unfiltered tea. Pin your review right to the top with an exclusive Crazy Tea badge.
+          </p>
+        </div>
+      </label>
+
+      <div className="mt-3 flex items-center justify-between gap-3">
+        <span className={cn("text-[11px]", state === "error" ? "text-red-600" : "text-zinc-500")}>{message}</span>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setIsExpanded(false);
+              setMessage("");
+            }}
+            className="inline-flex h-8 items-center rounded-lg px-2.5 text-xs font-semibold text-zinc-600 hover:bg-zinc-200/60 hover:text-zinc-900 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            disabled={state === "locating" || body.trim().length < 8}
+            className={cn(
+              "relative overflow-hidden inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-4 text-xs font-bold text-white transition-all duration-200 disabled:opacity-50 group",
+              makeLegit
+                ? "bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 border border-orange-300/40 shadow-[inset_0_1px_1px_rgba(255,255,255,0.45),0_4px_14px_rgba(249,115,22,0.4)] hover:brightness-105 active:scale-[0.98]"
+                : "bg-zinc-950 border border-transparent hover:bg-zinc-800"
+            )}
+          >
+            {makeLegit && (
+              <>
+                <span className="pointer-events-none absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/70 to-transparent" />
+                <span className="pointer-events-none absolute -inset-full top-0 block -rotate-45 bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-60 group-hover:opacity-100 transition-opacity" />
+              </>
+            )}
+            <Send className="relative z-10 h-3.5 w-3.5" />
+            <span className="relative z-10">{makeLegit ? "Spill Tea (₹19)" : "Publish"}</span>
+          </button>
+        </div>
+      </div>
+    </form>
+  );
 }
 
 function ReviewCard({ review }: { review: NocapReview }) {
