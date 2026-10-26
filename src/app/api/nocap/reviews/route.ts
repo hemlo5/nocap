@@ -89,10 +89,16 @@ async function validateInput(input: ReviewInput | null) {
 }
 
 async function ensureProfile(admin: ReturnType<typeof createAdminClient>, user: { id: string; user_metadata: Record<string, unknown> }) {
-  const candidate = user.user_metadata.full_name ?? user.user_metadata.name ?? user.user_metadata.user_name;
-  const displayName = typeof candidate === "string" && candidate.trim() ? candidate.trim().slice(0, 60) : "NoCap local";
-  const avatar = user.user_metadata.avatar_url ?? user.user_metadata.picture;
-  await admin.from("nocap_profiles").upsert({ id: user.id, display_name: displayName, avatar_url: typeof avatar === "string" ? avatar : null });
+  const { data: existing } = await admin.from("nocap_profiles").select("id, display_name").eq("id", user.id).maybeSingle();
+  if (!existing) {
+    await admin.from("nocap_profiles").upsert({ id: user.id, display_name: "Anonymous", avatar_url: null });
+  } else {
+    const candidate = user.user_metadata.full_name ?? user.user_metadata.name ?? user.user_metadata.user_name;
+    const rawGoogleName = typeof candidate === "string" && candidate.trim() ? candidate.trim().slice(0, 60) : "";
+    if (rawGoogleName && existing.display_name === rawGoogleName) {
+      await admin.from("nocap_profiles").update({ display_name: "Anonymous", avatar_url: null }).eq("id", user.id);
+    }
+  }
 }
 
 function toReview(review: Record<string, unknown>): NocapReview {
@@ -108,7 +114,7 @@ function toReview(review: Record<string, unknown>): NocapReview {
     paymentId: review.payment_id ? String(review.payment_id) : null,
     createdAt: String(review.created_at),
     updatedAt: String(review.updated_at),
-    profile: { id: profile.id, displayName: profile.display_name, avatarUrl: profile.avatar_url, bio: profile.bio },
+    profile: { id: profile.id, displayName: profile.display_name || "Anonymous", avatarUrl: profile.avatar_url, bio: profile.bio },
   };
 }
 

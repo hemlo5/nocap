@@ -44,6 +44,7 @@ function timeLabel(value: string, id?: string) {
 export function NocapProfilePage() {
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [profile, setProfile] = useState<NocapProfile | null>(null);
+  const [showAvatar, setShowAvatar] = useState(false);
   const [reviews, setReviews] = useState<UserReviewItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
@@ -66,7 +67,10 @@ export function NocapProfilePage() {
     fetch("/api/nocap/profile", { headers: { Authorization: `Bearer ${accessToken}` } })
       .then((response) => response.ok ? response.json() : null)
       .then((data) => {
-        if (data?.profile) setProfile(data.profile);
+        if (data?.profile) {
+          setProfile(data.profile);
+          setShowAvatar(Boolean(data.profile.avatarUrl));
+        }
         if (data?.reviews) setReviews(data.reviews);
       });
   }, [accessToken]);
@@ -94,11 +98,16 @@ export function NocapProfilePage() {
     const response = await fetch("/api/nocap/profile", {
       method: "PATCH",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
-      body: JSON.stringify({ displayName: form.get("displayName"), bio: form.get("bio") })
+      body: JSON.stringify({
+        displayName: form.get("displayName") || "Anonymous",
+        bio: form.get("bio"),
+        showAvatar
+      })
     });
     const data = await response.json();
     if (!response.ok) { setMessage(data.error ?? "Could not save your profile."); return; }
     setProfile(data.profile);
+    setShowAvatar(Boolean(data.profile.avatarUrl));
     setMessage("Profile updated.");
   }
 
@@ -106,6 +115,8 @@ export function NocapProfilePage() {
   if (loading) return <ProfileShell><div className="h-64 animate-pulse rounded-lg bg-zinc-100" /></ProfileShell>;
   if (!accessToken) return <ProfileShell><section className="max-w-lg rounded-lg border border-zinc-200 bg-white p-7 shadow-sm"><CircleUserRound className="h-8 w-8 text-zinc-400" /><h1 className="mt-5 text-2xl font-black tracking-tight">Build your local identity</h1><p className="mt-2 text-sm leading-6 text-zinc-600">Your name appears with reviews and notes you write from places you visit. No phone number is needed.</p><button type="button" onClick={signIn} className="mt-6 inline-flex h-10 items-center gap-2 rounded-md bg-zinc-950 px-4 text-sm font-bold text-white"><LogIn className="h-4 w-4" />Continue with Google</button></section></ProfileShell>;
   if (!profile) return <ProfileShell><div className="h-64 animate-pulse rounded-lg bg-zinc-100" /></ProfileShell>;
+
+  const currentAvatar = showAvatar ? (profile.googleAvatarUrl || profile.avatarUrl) : null;
 
   return (
     <ProfileShell>
@@ -115,16 +126,16 @@ export function NocapProfilePage() {
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-3">
               <span className="grid h-14 w-14 place-items-center overflow-hidden rounded-full bg-zinc-950 text-lg font-black text-white">
-                {profile.avatarUrl ? (
-                  <span aria-hidden className="h-full w-full bg-cover bg-center" style={{ backgroundImage: `url(${profile.avatarUrl})` }} />
+                {currentAvatar ? (
+                  <span aria-hidden className="h-full w-full bg-cover bg-center" style={{ backgroundImage: `url(${currentAvatar})` }} />
                 ) : (
-                  profile.displayName.slice(0, 1).toUpperCase()
+                  <CircleUserRound className="h-8 w-8 text-zinc-300" />
                 )}
               </span>
               <div>
-                <h1 className="text-xl font-black tracking-tight">{profile.displayName}</h1>
+                <h1 className="text-xl font-black tracking-tight">{profile.displayName || "Anonymous"}</h1>
                 <p className="mt-0.5 flex items-center gap-1 text-xs text-zinc-500">
-                  <MapPin className="h-3.5 w-3.5" />NoCap local
+                  <MapPin className="h-3.5 w-3.5" />NoCap local · {currentAvatar ? "Photo visible" : "Anonymous photo"}
                 </p>
               </div>
             </div>
@@ -136,14 +147,47 @@ export function NocapProfilePage() {
           <form onSubmit={save} className="mt-6 grid gap-4">
             <label className="text-xs font-bold text-zinc-700">
               Name
+              <span className="ml-1.5 font-normal text-zinc-400">(defaults to Anonymous on reviews unless changed)</span>
               <input
                 name="displayName"
                 defaultValue={profile.displayName}
-                required
+                placeholder="Anonymous"
                 maxLength={60}
                 className="mt-1.5 h-10 w-full rounded-md border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-500"
               />
             </label>
+
+            {/* Profile picture toggle */}
+            <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <div className="text-xs font-bold text-zinc-900">Show Google profile picture</div>
+                  <p className="mt-0.5 text-xs text-zinc-500">
+                    {showAvatar
+                      ? "Your Google photo is visible on your reviews and profile."
+                      : "Your photo is hidden by default. Reviews show a default anonymous icon."}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={showAvatar}
+                  onClick={() => setShowAvatar(!showAvatar)}
+                  className={cn(
+                    "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none",
+                    showAvatar ? "bg-zinc-950" : "bg-zinc-300"
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out",
+                      showAvatar ? "translate-x-5" : "translate-x-0"
+                    )}
+                  />
+                </button>
+              </div>
+            </div>
+
             <label className="text-xs font-bold text-zinc-700">
               About you
               <textarea

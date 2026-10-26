@@ -78,17 +78,29 @@ export async function GET(request: Request) {
 export async function PATCH(request: Request) {
   const user = await getUserOrResponse(request);
   if (user instanceof Response) return user;
-  const input = await request.json().catch(() => null) as { displayName?: unknown; bio?: unknown } | null;
-  const displayName = typeof input?.displayName === "string" ? input.displayName.trim() : "";
+  const input = await request.json().catch(() => null) as { displayName?: unknown; bio?: unknown; showAvatar?: unknown } | null;
+  const rawDisplayName = typeof input?.displayName === "string" ? input.displayName.trim() : "";
+  const displayName = rawDisplayName.length > 0 ? rawDisplayName.slice(0, 60) : "Anonymous";
   const bio = typeof input?.bio === "string" ? input.bio.trim() : "";
-  if (displayName.length < 1 || displayName.length > 60 || bio.length > 240) {
-    return Response.json({ error: "Use a name up to 60 characters and a bio up to 240 characters." }, { status: 400 });
+  if (bio.length > 240) {
+    return Response.json({ error: "Use a bio up to 240 characters." }, { status: 400 });
   }
-  const { data, error } = await createAdminClient().from("nocap_profiles")
-    .upsert({ id: user.id, display_name: displayName, bio: bio || null, avatar_url: avatarFromUser(user), updated_at: new Date().toISOString() })
+
+  const admin = createAdminClient();
+  const { data: existing } = await admin.from("nocap_profiles").select("id, display_name, avatar_url, bio").eq("id", user.id).maybeSingle();
+
+  let avatarUrl: string | null = null;
+  if (input && typeof input.showAvatar === "boolean") {
+    avatarUrl = input.showAvatar ? avatarFromUser(user) : null;
+  } else if (existing?.avatar_url) {
+    avatarUrl = existing.avatar_url;
+  }
+
+  const { data, error } = await admin.from("nocap_profiles")
+    .upsert({ id: user.id, display_name: displayName, bio: bio || null, avatar_url: avatarUrl, updated_at: new Date().toISOString() })
     .select("id, display_name, avatar_url, bio").single();
   if (error || !data) return Response.json({ error: "Could not save your profile." }, { status: 500 });
-  return Response.json({ profile: toProfile(data) });
+  return Response.json({ profile: toProfile(data, user) });
 }
 
 async function getUserOrResponse(request: Request) {
@@ -100,12 +112,24 @@ async function getUserOrResponse(request: Request) {
 async function ensureProfile(user: { id: string; user_metadata: Record<string, unknown> }) {
   const admin = createAdminClient();
   const { data: existing } = await admin.from("nocap_profiles").select("id, display_name, avatar_url, bio").eq("id", user.id).maybeSingle();
-  if (existing) return toProfile(existing);
-  const displayName = nameFromUser(user);
+  if (existing) {
+    const rawGoogleName = nameFromUser(user);
+    if (existing.display_name === rawGoogleName) {
+      const { data: updated } = await admin.from("nocap_profiles")
+        .update({ display_name: "Anonymous", avatar_url: null, updated_at: new Date().toISOString() })
+        .eq("id", user.id)
+        .select("id, display_name, avatar_url, bio")
+        .single();
+      return toProfile(updated ?? existing, user);
+    }
+    return toProfile(existing, user);
+  }
+
+  const displayName = "Anonymous";
   const { data } = await admin.from("nocap_profiles")
-    .upsert({ id: user.id, display_name: displayName, avatar_url: avatarFromUser(user) })
+    .upsert({ id: user.id, display_name: displayName, avatar_url: null })
     .select("id, display_name, avatar_url, bio").single();
-  return toProfile(data ?? { id: user.id, display_name: displayName, avatar_url: avatarFromUser(user), bio: null });
+  return toProfile(data ?? { id: user.id, display_name: displayName, avatar_url: null, bio: null }, user);
 }
 
 function nameFromUser(user: { user_metadata: Record<string, unknown> }) {
@@ -118,6 +142,12 @@ function avatarFromUser(user: { user_metadata: Record<string, unknown> }) {
   return typeof candidate === "string" ? candidate : null;
 }
 
-function toProfile(profile: { id: string; display_name: string; avatar_url: string | null; bio: string | null }): NocapProfile {
-  return { id: profile.id, displayName: profile.display_name, avatarUrl: profile.avatar_url, bio: profile.bio };
+function toProfile(profile: { id: string; display_name: string; avatar_url: string | null; bio: string | null }, user?: { user_metadata: Record<string, unknown> }): NocapProfile {
+  return {
+    id: profile.id,
+    displayName: profile.display_name || "Anonymous",
+    avatarUrl: profile.avatar_url,
+    bio: profile.bio,
+    googleAvatarUrl: user ? avatarFromUser(user) : null,
+  };
 }

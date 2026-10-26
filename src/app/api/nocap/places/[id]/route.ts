@@ -27,6 +27,6 @@ function toReview(review: Record<string, unknown>): NocapReview {
     latitude: Number(review.latitude), longitude: Number(review.longitude),
     isLegit: Boolean(review.is_legit), paymentId: review.payment_id ? String(review.payment_id) : null,
     createdAt: String(review.created_at), updatedAt: String(review.updated_at),
-    profile: { id: profile.id, displayName: profile.display_name, avatarUrl: profile.avatar_url, bio: profile.bio },
+    profile: { id: profile.id, displayName: profile.display_name || "Anonymous", avatarUrl: profile.avatar_url, bio: profile.bio },
   };
 }

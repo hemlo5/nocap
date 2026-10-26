@@ -51,7 +51,7 @@ function toReview(review: Record<string, unknown>): NocapReview {
     paymentId: review.payment_id ? String(review.payment_id) : null,
     createdAt: String(review.created_at),
     updatedAt: String(review.updated_at),
-    profile: { id: profile.id, displayName: profile.display_name, avatarUrl: profile.avatar_url, bio: profile.bio },
+    profile: { id: profile.id, displayName: profile.display_name || "Anonymous", avatarUrl: profile.avatar_url, bio: profile.bio },
   };
 }
 
@@ -60,7 +60,7 @@ function toUserPlace(row: Record<string, unknown>): NocapUserPlace {
   return {
     id: String(row.id),
     profileId: String(row.profile_id),
-    profile: { id: profile.id, displayName: profile.display_name, avatarUrl: profile.avatar_url, bio: profile.bio },
+    profile: { id: profile.id, displayName: profile.display_name || "Anonymous", avatarUrl: profile.avatar_url, bio: profile.bio },
     name: String(row.name),
     category: row.category as NocapPlaceCategory,
     address: String(row.address ?? ""),

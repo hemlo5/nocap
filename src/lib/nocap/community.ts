@@ -3,6 +3,7 @@ export type NocapProfile = {
   displayName: string;
   avatarUrl: string | null;
   bio: string | null;
+  googleAvatarUrl?: string | null;
 };
 
 export type NocapReview = {

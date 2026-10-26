@@ -50,10 +50,16 @@ export async function POST(request: Request) {
   const admin = createAdminClient();
 
   // Ensure profile exists
-  const candidate = user.user_metadata.full_name ?? user.user_metadata.name ?? user.user_metadata.user_name;
-  const displayName = typeof candidate === "string" && candidate.trim() ? candidate.trim().slice(0, 60) : "NoCap local";
-  const avatar = user.user_metadata.avatar_url ?? user.user_metadata.picture;
-  await admin.from("nocap_profiles").upsert({ id: user.id, display_name: displayName, avatar_url: typeof avatar === "string" ? avatar : null });
+  const { data: existingProfile } = await admin.from("nocap_profiles").select("id, display_name").eq("id", user.id).maybeSingle();
+  if (!existingProfile) {
+    await admin.from("nocap_profiles").upsert({ id: user.id, display_name: "Anonymous", avatar_url: null });
+  } else {
+    const candidate = user.user_metadata.full_name ?? user.user_metadata.name ?? user.user_metadata.user_name;
+    const rawGoogleName = typeof candidate === "string" && candidate.trim() ? candidate.trim().slice(0, 60) : "";
+    if (rawGoogleName && existingProfile.display_name === rawGoogleName) {
+      await admin.from("nocap_profiles").update({ display_name: "Anonymous", avatar_url: null }).eq("id", user.id);
+    }
+  }
 
   let insertResult = await admin.from("nocap_user_places")
     .insert({ profile_id: user.id, name, category, address, latitude, longitude })
@@ -120,7 +126,7 @@ function toUserPlace(row: Record<string, unknown>): NocapUserPlace {
   return {
     id: String(row.id),
     profileId: String(row.profile_id),
-    profile: { id: profile.id, displayName: profile.display_name, avatarUrl: profile.avatar_url, bio: profile.bio },
+    profile: { id: profile.id, displayName: profile.display_name || "Anonymous", avatarUrl: profile.avatar_url, bio: profile.bio },
     name: String(row.name),
     category: row.category as NocapPlaceCategory,
     address: String(row.address ?? ""),

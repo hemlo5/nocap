@@ -104,18 +104,23 @@ export async function POST(request: Request) {
     // Ensure profile exists
     const { data: userAuth } = await admin.auth.admin.getUserById(metadata.user_id);
     if (userAuth?.user) {
-      const candidate =
-        userAuth.user.user_metadata?.full_name ??
-        userAuth.user.user_metadata?.name ??
-        userAuth.user.user_metadata?.user_name;
-      const displayName =
-        typeof candidate === "string" && candidate.trim() ? candidate.trim().slice(0, 60) : "NoCap local";
-      const avatar = userAuth.user.user_metadata?.avatar_url ?? userAuth.user.user_metadata?.picture;
-      await admin.from("nocap_profiles").upsert({
-        id: metadata.user_id,
-        display_name: displayName,
-        avatar_url: typeof avatar === "string" ? avatar : null,
-      });
+      const { data: existingProfile } = await admin.from("nocap_profiles").select("id, display_name").eq("id", metadata.user_id).maybeSingle();
+      if (!existingProfile) {
+        await admin.from("nocap_profiles").upsert({
+          id: metadata.user_id,
+          display_name: "Anonymous",
+          avatar_url: null,
+        });
+      } else {
+        const candidate =
+          userAuth.user.user_metadata?.full_name ??
+          userAuth.user.user_metadata?.name ??
+          userAuth.user.user_metadata?.user_name;
+        const rawGoogleName = typeof candidate === "string" && candidate.trim() ? candidate.trim().slice(0, 60) : "";
+        if (rawGoogleName && existingProfile.display_name === rawGoogleName) {
+          await admin.from("nocap_profiles").update({ display_name: "Anonymous", avatar_url: null }).eq("id", metadata.user_id);
+        }
+      }
     }
 
     let upsertResult = await admin
@@ -186,7 +191,7 @@ function toReview(review: Record<string, unknown>): NocapReview {
     paymentId: review.payment_id ? String(review.payment_id) : null,
     createdAt: String(review.created_at),
     updatedAt: String(review.updated_at),
-    profile: { id: profile.id, displayName: profile.display_name, avatarUrl: profile.avatar_url, bio: profile.bio },
+    profile: { id: profile.id, displayName: profile.display_name || "Anonymous", avatarUrl: profile.avatar_url, bio: profile.bio },
   };
 }
 

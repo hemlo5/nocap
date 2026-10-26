@@ -303,7 +303,7 @@ export function NocapApp() {
     await createSupabaseBrowserClient().auth.signOut();
   }
 
-  async function saveProfile(input: { displayName: string; bio: string }) {
+  async function saveProfile(input: { displayName: string; bio: string; showAvatar?: boolean }) {
     if (!accessToken) return;
     const response = await fetch("/api/nocap/profile", { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` }, body: JSON.stringify(input) });
     const data = await response.json();
@@ -893,7 +893,11 @@ function AccountButton({ configured, profile, onSignIn, onOpenProfile }: { confi
   if (!configured) return <Link href="/nocap/profile" className="text-[10px] font-semibold text-amber-700">Profile</Link>;
   return profile
     ? <Link href="/nocap/profile" title="Open profile" className="grid h-8 w-8 place-items-center overflow-hidden rounded-full bg-zinc-950 text-xs font-bold text-white">
-        <span aria-hidden className="h-full w-full bg-cover bg-center" style={profile.avatarUrl ? { backgroundImage: `url(${profile.avatarUrl})` } : undefined}>{!profile.avatarUrl && profile.displayName.slice(0, 1).toUpperCase()}</span>
+        {profile.avatarUrl ? (
+          <span aria-hidden className="h-full w-full bg-cover bg-center" style={{ backgroundImage: `url(${profile.avatarUrl})` }} />
+        ) : (
+          <CircleUserRound className="h-4 w-4 text-zinc-300" />
+        )}
       </Link>
     : <button type="button" onClick={onSignIn} className="inline-flex h-8 items-center gap-1.5 rounded-md bg-zinc-950 px-2.5 text-[11px] font-bold text-white"><LogIn className="h-3.5 w-3.5" />Join</button>;
 }
@@ -1173,11 +1177,11 @@ function ReviewCard({ review }: { review: NocapReview }) {
           {review.profile.avatarUrl ? (
             <span aria-hidden className="h-full w-full bg-cover bg-center" style={{ backgroundImage: `url(${review.profile.avatarUrl})` }} />
           ) : (
-            review.profile.displayName.slice(0, 1).toUpperCase()
+            <CircleUserRound className="h-4 w-4 text-zinc-300" />
           )}
         </span>
         <div className="min-w-0">
-          <div className="truncate text-xs font-bold text-zinc-900">{review.profile.displayName}</div>
+          <div className="truncate text-xs font-bold text-zinc-900">{review.profile.displayName || "Anonymous"}</div>
           <div className="flex items-center gap-1 text-[10px] text-zinc-500">
             <span>{timeLabel(review.updatedAt, review.id)}</span>
             {review.rating ? (
@@ -1199,27 +1203,129 @@ function ReviewCard({ review }: { review: NocapReview }) {
   );
 }
 
-function ProfileEditor({ profile, onClose, onSave, onSignOut }: { profile: NocapProfile; onClose: () => void; onSave: (input: { displayName: string; bio: string }) => Promise<void>; onSignOut: () => void }) {
-  const [displayName, setDisplayName] = useState(profile.displayName);
+function ProfileEditor({ profile, onClose, onSave, onSignOut }: { profile: NocapProfile; onClose: () => void; onSave: (input: { displayName: string; bio: string; showAvatar?: boolean }) => Promise<void>; onSignOut: () => void }) {
+  const [displayName, setDisplayName] = useState(profile.displayName || "Anonymous");
   const [bio, setBio] = useState(profile.bio ?? "");
+  const [showAvatar, setShowAvatar] = useState(Boolean(profile.avatarUrl));
   const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+
   async function save(event: React.FormEvent) {
     event.preventDefault();
-    try { await onSave({ displayName, bio }); } catch (reason) { setError(reason instanceof Error ? reason.message : "Could not save profile."); }
+    setSaving(true);
+    try {
+      await onSave({
+        displayName: displayName.trim() || "Anonymous",
+        bio: bio.trim(),
+        showAvatar,
+      });
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Could not save profile.");
+    } finally {
+      setSaving(false);
+    }
   }
-  return <div className="absolute inset-0 z-30 overflow-y-auto bg-white p-5">
-    <div className="flex items-center justify-between">
-      <h2 className="text-base font-black">Your profile</h2>
-      <button type="button" onClick={onClose} className="text-xs font-semibold text-zinc-500">Close</button>
+
+  const currentAvatar = showAvatar ? (profile.googleAvatarUrl || profile.avatarUrl) : null;
+
+  return (
+    <div className="absolute inset-0 z-30 overflow-y-auto bg-white p-5">
+      <div className="flex items-center justify-between">
+        <h2 className="text-base font-black">Your profile</h2>
+        <button type="button" onClick={onClose} className="text-xs font-semibold text-zinc-500 hover:text-zinc-950">Close</button>
+      </div>
+
+      <div className="mt-4 flex items-center gap-3 rounded-xl border border-zinc-200 bg-zinc-50 p-3.5">
+        <span className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-full bg-zinc-950 text-xs font-bold text-white">
+          {currentAvatar ? (
+            <span aria-hidden className="h-full w-full bg-cover bg-center" style={{ backgroundImage: `url(${currentAvatar})` }} />
+          ) : (
+            <CircleUserRound className="h-6 w-6 text-zinc-300" />
+          )}
+        </span>
+        <div className="min-w-0">
+          <div className="truncate text-sm font-bold text-zinc-900">{displayName || "Anonymous"}</div>
+          <div className="text-[11px] text-zinc-500">
+            {currentAvatar ? "Google photo enabled" : "Anonymous photo"}
+          </div>
+        </div>
+      </div>
+
+      <form onSubmit={save} className="mt-5 space-y-4">
+        <label className="block text-xs font-bold text-zinc-700">
+          Name
+          <span className="ml-1 text-[11px] font-normal text-zinc-400">(defaults to Anonymous on reviews)</span>
+          <input
+            value={displayName}
+            onChange={(event) => setDisplayName(event.target.value)}
+            placeholder="Anonymous"
+            maxLength={60}
+            className="mt-1.5 h-10 w-full rounded-md border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-500"
+          />
+        </label>
+
+        {/* Profile picture toggle */}
+        <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3.5">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-xs font-bold text-zinc-900">Show Google profile picture</div>
+              <p className="mt-0.5 text-[11px] text-zinc-500">
+                {showAvatar
+                  ? "Your Google photo is visible on your reviews."
+                  : "Hidden by default. Reviews show an anonymous icon."}
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={showAvatar}
+              onClick={() => setShowAvatar(!showAvatar)}
+              className={cn(
+                "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none",
+                showAvatar ? "bg-zinc-950" : "bg-zinc-300"
+              )}
+            >
+              <span
+                className={cn(
+                  "pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out",
+                  showAvatar ? "translate-x-5" : "translate-x-0"
+                )}
+              />
+            </button>
+          </div>
+        </div>
+
+        <label className="block text-xs font-bold text-zinc-700">
+          About you
+          <textarea
+            value={bio}
+            onChange={(event) => setBio(event.target.value)}
+            maxLength={240}
+            placeholder="A line about what you know around Bengaluru"
+            className="mt-1.5 min-h-20 w-full rounded-md border border-zinc-200 p-3 text-sm outline-none focus:border-zinc-500"
+          />
+        </label>
+
+        {error ? <p className="text-xs text-red-600">{error}</p> : null}
+
+        <button
+          disabled={saving}
+          className="flex h-10 w-full items-center justify-center gap-2 rounded-md bg-zinc-950 text-sm font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+        >
+          <Pencil className="h-3.5 w-3.5" />
+          {saving ? "Saving..." : "Save profile"}
+        </button>
+      </form>
+
+      <button
+        type="button"
+        onClick={onSignOut}
+        className="mt-5 inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-500 hover:text-zinc-900"
+      >
+        <LogOut className="h-3.5 w-3.5" />Sign out
+      </button>
     </div>
-    <form onSubmit={save} className="mt-5 space-y-4">
-      <label className="block text-xs font-bold text-zinc-700">Name<input value={displayName} onChange={(event) => setDisplayName(event.target.value)} maxLength={60} className="mt-1.5 h-10 w-full rounded-md border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-500" /></label>
-      <label className="block text-xs font-bold text-zinc-700">About you<textarea value={bio} onChange={(event) => setBio(event.target.value)} maxLength={240} className="mt-1.5 min-h-24 w-full rounded-md border border-zinc-200 p-3 text-sm outline-none focus:border-zinc-500" /></label>
-      {error ? <p className="text-xs text-red-600">{error}</p> : null}
-      <button className="flex h-10 w-full items-center justify-center gap-2 rounded-md bg-zinc-950 text-sm font-bold text-white"><Pencil className="h-3.5 w-3.5" />Save profile</button>
-    </form>
-    <button type="button" onClick={onSignOut} className="mt-5 inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-500 hover:text-zinc-900"><LogOut className="h-3.5 w-3.5" />Sign out</button>
-  </div>;
+  );
 }
 
 function PinPlaceForm({ location, accessToken, onCancel, onSubmit, onSignIn }: {
