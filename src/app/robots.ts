@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 
 export default function robots(): MetadataRoute.Robots {
-  const baseUrl = "https://www.nocapblr.com";
+  const baseUrl = "https://nocapblr.com";
 
   return {
     rules: [
@@ -14,8 +14,16 @@ export default function robots(): MetadataRoute.Robots {
           "/categories/",
           "/areas/",
           "/about",
-          "/what-is-nocap",
-          "/guidelines",
+          "/how-it-works",
+          "/why-nocapblr",
+          "/guides/",
+          "/campaigns/",
+          "/newsroom/",
+          "/founder/",
+          "/community-guidelines",
+          "/moderation-policy",
+          "/report-content",
+          "/contact",
           "/terms",
           "/privacy",
         ],

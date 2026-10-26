@@ -20,7 +20,7 @@ import {
   categoryDetails,
   findPlacesByArea,
 } from "@/lib/nocap/places";
-import { getLocalPlaceMentions } from "@/lib/nocap/local-evidence";
+import { getArchivedPlaceReviews } from "@/lib/nocap/local-evidence";
 import { SiteFooter } from "@/components/nav/site-footer";
 
 type Props = {
@@ -47,7 +47,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const categoryName = categoryDetails[place.category]?.name ?? place.category;
   const title = `${place.name} Reviews (${place.area}, Bengaluru) — Real Takes`;
   const description = `Honest, unvarnished reviews of ${place.name} in ${place.area}, Bengaluru. Find out what locals really think before you go—no paid PR or influencer fluff.`;
-  const url = `https://www.nocapblr.com/places/${place.id}`;
+  const url = `https://nocapblr.com/places/${place.id}`;
 
   return {
     title,
@@ -87,7 +87,8 @@ export default async function PlacePage({ params }: Props) {
     notFound();
   }
 
-  const mentions = await getLocalPlaceMentions(place.id);
+  const reviews = await getArchivedPlaceReviews(place);
+  const mention = { author: "", permalink: "" };
   const areaSlug = slugifyArea(place.area);
   const nearbyPlaces = findPlacesByArea(areaSlug).filter((p) => p.id !== place.id);
   const categoryInfo = categoryDetails[place.category];
@@ -105,7 +106,7 @@ export default async function PlacePage({ params }: Props) {
     "@graph": [
       {
         "@type": placeSchemaType,
-        "@id": `https://www.nocapblr.com/places/${place.id}#place`,
+        "@id": `https://nocapblr.com/places/${place.id}#place`,
         name: place.name,
         address: {
           "@type": "PostalAddress",
@@ -119,7 +120,7 @@ export default async function PlacePage({ params }: Props) {
           latitude: place.latitude,
           longitude: place.longitude,
         },
-        url: `https://www.nocapblr.com/places/${place.id}`,
+        url: `https://nocapblr.com/places/${place.id}`,
       },
       {
         "@type": "BreadcrumbList",
@@ -128,25 +129,25 @@ export default async function PlacePage({ params }: Props) {
             "@type": "ListItem",
             position: 1,
             name: "Home",
-            item: "https://www.nocapblr.com",
+            item: "https://nocapblr.com",
           },
           {
             "@type": "ListItem",
             position: 2,
             name: categoryInfo?.name ?? place.category,
-            item: `https://www.nocapblr.com/categories/${place.category}`,
+            item: `https://nocapblr.com/categories/${place.category}`,
           },
           {
             "@type": "ListItem",
             position: 3,
             name: place.area,
-            item: `https://www.nocapblr.com/areas/${areaSlug}`,
+            item: `https://nocapblr.com/areas/${areaSlug}`,
           },
           {
             "@type": "ListItem",
             position: 4,
             name: place.name,
-            item: `https://www.nocapblr.com/places/${place.id}`,
+            item: `https://nocapblr.com/places/${place.id}`,
           },
         ],
       },
@@ -254,30 +255,30 @@ export default async function PlacePage({ params }: Props) {
                 </p>
               </div>
               <span className="text-xs font-bold bg-zinc-200/70 text-zinc-800 px-2.5 py-1 rounded-full">
-                {mentions.length} {mentions.length === 1 ? "take" : "takes"}
+                {reviews.length} {reviews.length === 1 ? "note" : "notes"}
               </span>
             </div>
 
-            {mentions.length > 0 ? (
+            {reviews.length > 0 ? (
               <div className="space-y-4">
-                {mentions.map((mention) => (
+                {reviews.map((review) => (
                   <div
-                    key={mention.id}
+                    key={review.id}
                     className="rounded-2xl border border-zinc-200/80 bg-white p-5 sm:p-6 shadow-xs"
                   >
                     <div className="flex items-center justify-between text-xs text-zinc-500 mb-3">
                       <span className="inline-flex items-center gap-1.5 font-semibold text-zinc-700">
                         <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                         <span>Bengaluru Local Community</span>
-                        {mention.author && (
+                        {false && review.profile && (
                           <span className="text-zinc-400 font-normal">
                             · u/{mention.author}
                           </span>
                         )}
                       </span>
-                      {mention.permalink && (
+                      {false && review.profile && (
                         <a
-                          href={mention.permalink}
+                          href="#"
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-1 text-zinc-400 hover:text-zinc-700 transition-colors"
@@ -289,7 +290,7 @@ export default async function PlacePage({ params }: Props) {
                       )}
                     </div>
                     <p className="text-sm text-zinc-800 leading-relaxed font-normal whitespace-pre-line">
-                      &ldquo;{mention.excerpt}&rdquo;
+                      &ldquo;{review.body}&rdquo;
                     </p>
                   </div>
                 ))}

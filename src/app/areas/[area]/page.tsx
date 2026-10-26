@@ -33,7 +33,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   const title = `${currentArea.name}, Bengaluru Reviews — Real Takes & Local Spots`;
   const description = `Explore unfiltered community reviews of food, streets, parks, and cultural spaces in ${currentArea.name}, Bengaluru. Real local takes with zero paid PR.`;
-  const url = `https://www.nocapblr.com/areas/${currentArea.slug}`;
+  const url = `https://nocapblr.com/areas/${currentArea.slug}`;
 
   return {
     title,
@@ -89,7 +89,7 @@ export default async function AreaPage({ params }: Props) {
           "@type": "ListItem",
           position: index + 1,
           name: place.name,
-          url: `https://www.nocapblr.com/places/${place.id}`,
+          url: `https://nocapblr.com/places/${place.id}`,
         })),
       },
       {
@@ -99,19 +99,19 @@ export default async function AreaPage({ params }: Props) {
             "@type": "ListItem",
             position: 1,
             name: "Home",
-            item: "https://www.nocapblr.com",
+            item: "https://nocapblr.com",
           },
           {
             "@type": "ListItem",
             position: 2,
             name: "Neighborhoods",
-            item: "https://www.nocapblr.com/#neighborhoods",
+            item: "https://nocapblr.com/bengaluru",
           },
           {
             "@type": "ListItem",
             position: 3,
             name: currentArea.name,
-            item: `https://www.nocapblr.com/areas/${currentArea.slug}`,
+            item: `https://nocapblr.com/areas/${currentArea.slug}`,
           },
         ],
       },

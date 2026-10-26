@@ -10,7 +10,7 @@ export default function MapPage() {
   useEffect(() => {
     // If URL has direct parameters (like ?place=... or ?legit=...), skip landing directly into that place
     const params = new URLSearchParams(window.location.search);
-    if (params.get("place") || params.get("legit")) {
+    if (params.get("place") || params.get("legit") || params.get("enter")) {
       setEntered(true);
     }
   }, []);

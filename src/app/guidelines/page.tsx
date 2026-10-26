@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   description:
     "Our standards for authentic, honest, and useful local reviews. Learn about on-site verification, anti-PR policies, and community moderation on NoCapBLR.",
   alternates: {
-    canonical: "https://www.nocapblr.com/guidelines",
+    canonical: "https://nocapblr.com/guidelines",
   },
 };
 

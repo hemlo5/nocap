@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   description:
     "Terms of Service governing the use of NoCapBLR (nocapblr.com), user contributions, and authentic review submissions.",
   alternates: {
-    canonical: "https://www.nocapblr.com/terms",
+    canonical: "https://nocapblr.com/terms",
   },
 };
 
@@ -39,7 +39,7 @@ export default function TermsPage() {
             </div>
 
             <p className="text-sm leading-relaxed text-zinc-600">
-              These Terms of Service (&ldquo;Terms&rdquo;) govern your access to and use of <strong>NoCapBLR</strong> (&ldquo;we&rdquo;, &ldquo;us&rdquo;, or &ldquo;our&rdquo;) accessible via <strong className="text-zinc-900">https://www.nocapblr.com</strong> and associated subdomains. By using or accessing our website and services, you agree to be bound by these Terms.
+              These Terms of Service (&ldquo;Terms&rdquo;) govern your access to and use of <strong>NoCapBLR</strong> (&ldquo;we&rdquo;, &ldquo;us&rdquo;, or &ldquo;our&rdquo;) accessible via <strong className="text-zinc-900">https://nocapblr.com</strong> and associated subdomains. By using or accessing our website and services, you agree to be bound by these Terms.
             </p>
           </div>
 

@@ -41,7 +41,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   const title = `${info.name} in Bengaluru — Real Reviews, No Fluff`;
   const description = `${info.description} Browse authentic opinions on Bengaluru ${info.name.toLowerCase()} with NoCapBLR.`;
-  const url = `https://www.nocapblr.com/categories/${category}`;
+  const url = `https://nocapblr.com/categories/${category}`;
 
   return {
     title,
@@ -96,7 +96,7 @@ export default async function CategoryPage({ params }: Props) {
           "@type": "ListItem",
           position: index + 1,
           name: place.name,
-          url: `https://www.nocapblr.com/places/${place.id}`,
+          url: `https://nocapblr.com/places/${place.id}`,
         })),
       },
       {
@@ -106,19 +106,19 @@ export default async function CategoryPage({ params }: Props) {
             "@type": "ListItem",
             position: 1,
             name: "Home",
-            item: "https://www.nocapblr.com",
+            item: "https://nocapblr.com",
           },
           {
             "@type": "ListItem",
             position: 2,
             name: "Categories",
-            item: "https://www.nocapblr.com/#categories",
+            item: "https://nocapblr.com/bengaluru",
           },
           {
             "@type": "ListItem",
             position: 3,
             name: info.name,
-            item: `https://www.nocapblr.com/categories/${category}`,
+            item: `https://nocapblr.com/categories/${category}`,
           },
         ],
       },

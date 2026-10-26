@@ -19,13 +19,13 @@ export const metadata: Metadata = {
   description:
     "Why 4.4 stars mean nothing anymore. Discover what NoCap is, why traditional review apps are broken, and how our on-site verification brings honest takes to Bengaluru.",
   alternates: {
-    canonical: "https://www.nocapblr.com/what-is-nocap",
+    canonical: "https://nocapblr.com/what-is-nocap",
   },
   openGraph: {
     title: "What is NoCap — Real Reviews of Places, Without the Hype",
     description:
       "Why 4.4 stars mean nothing anymore. Influencer reels and paid PR have ruined ratings. Learn what NoCap is and why Bengaluru needs real opinions.",
-    url: "https://www.nocapblr.com/what-is-nocap",
+    url: "https://nocapblr.com/what-is-nocap",
     siteName: "NoCapBLR",
     images: [
       {
@@ -52,13 +52,13 @@ export default function WhatIsNocapPage() {
     "@graph": [
       {
         "@type": "WebPage",
-        "@id": "https://www.nocapblr.com/what-is-nocap#webpage",
-        url: "https://www.nocapblr.com/what-is-nocap",
+        "@id": "https://nocapblr.com/what-is-nocap#webpage",
+        url: "https://nocapblr.com/what-is-nocap",
         name: "What is NoCap",
         description:
           "Why 4.4 stars mean nothing anymore. How NoCapBLR solves broken online ratings with on-site GPS verified reviews.",
         publisher: {
-          "@id": "https://www.nocapblr.com/#organization",
+          "@id": "https://nocapblr.com/#organization",
         },
       },
       {
@@ -68,13 +68,13 @@ export default function WhatIsNocapPage() {
             "@type": "ListItem",
             position: 1,
             name: "Home",
-            item: "https://www.nocapblr.com",
+            item: "https://nocapblr.com",
           },
           {
             "@type": "ListItem",
             position: 2,
             name: "What is NoCap",
-            item: "https://www.nocapblr.com/what-is-nocap",
+            item: "https://nocapblr.com/what-is-nocap",
           },
         ],
       },

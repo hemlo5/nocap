@@ -4,11 +4,11 @@ import { ArrowLeft, Compass, ShieldCheck, MapPin, Zap, Flame, Award, HeartHandsh
 import { SiteFooter } from "@/components/nav/site-footer";
 
 export const metadata: Metadata = {
-  title: "About NoCapBLR — India's Next Big Review Network",
+  title: "About NoCapBLR",
   description:
     "We're fixing broken reviews. No paid PR, no sponsored stars, no influencer fluff. Real local opinions and location-verified reviews across Bengaluru.",
   alternates: {
-    canonical: "https://www.nocapblr.com/about",
+    canonical: "https://nocapblr.com/about",
   },
 };
 
