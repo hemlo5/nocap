@@ -41,8 +41,22 @@ input {
   box-shadow: 0 10px 28px rgb(17 24 39 / 15%);
 }
 
-.maplibregl-ctrl-attrib {
+.maplibregl-ctrl-attrib,
+.maplibregl-ctrl-attrib-inner,
+.maplibregl-compact,
+.maplibregl-compact-show,
+.maplibregl-ctrl-attrib-button,
+.mapboxgl-ctrl-attrib,
+.mapboxgl-ctrl-attrib-inner,
+.mapboxgl-compact,
+.leaflet-control-attribution {
   display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  overflow: hidden !important;
 }
 
 .maplibregl-ctrl button {

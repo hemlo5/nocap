@@ -85,6 +85,7 @@ export async function POST(request: Request) {
       product_cart: [{ product_id: DODO_PRODUCT_ID, quantity: 1 }],
       customer: { email, name },
       billing_address: { country: "IN" },
+      minimal_address: true,
       allowed_payment_method_types: ["upi_intent", "upi_collect"],
       metadata,
       return_url: returnUrl,

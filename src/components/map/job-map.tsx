@@ -147,9 +147,6 @@ const mapStyles: HemloMapStyle[] = [
   },
 ] satisfies HemloMapStyle[];
 
-const cartoAttribution =
-  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
-
 function createRasterStyle(style: HemloMapStyle): StyleSpecification {
   return {
     version: 8,
@@ -159,7 +156,6 @@ function createRasterStyle(style: HemloMapStyle): StyleSpecification {
         tiles: style.tileUrls,
         tileSize: 256,
         maxzoom: 19,
-        attribution: cartoAttribution,
       },
     },
     layers: [
@@ -780,10 +776,6 @@ export default function JobMap({
       mapRef.current = map;
 
       map.addControl(new maplibregl.ScaleControl({ unit: "metric" }), "bottom-left");
-      map.addControl(
-        new maplibregl.AttributionControl({ compact: true }),
-        "bottom-right",
-      );
 
       currentMarkerRef.current = new maplibregl.Marker({
         element: createCurrentLocationElement(),

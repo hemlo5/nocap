@@ -41,7 +41,7 @@ const cartoKey = process.env.NEXT_PUBLIC_CARTO_BASEMAPS_KEY;
 const tileUrl = `https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png${cartoKey ? `?key=${cartoKey}` : ""}`;
 
 function mapStyle(): StyleSpecification {
-  return { version: 8, sources: { nocapBase: { type: "raster", tiles: [tileUrl], tileSize: 256, maxzoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>' } }, layers: [{ id: "nocap-background", type: "background", paint: { "background-color": "#e9e7e2" } }, { id: "nocap-base", type: "raster", source: "nocapBase", minzoom: 0, maxzoom: 22, paint: { "raster-fade-duration": 0 } }] } as StyleSpecification;
+  return { version: 8, sources: { nocapBase: { type: "raster", tiles: [tileUrl], tileSize: 256, maxzoom: 19 } }, layers: [{ id: "nocap-background", type: "background", paint: { "background-color": "#e9e7e2" } }, { id: "nocap-base", type: "raster", source: "nocapBase", minzoom: 0, maxzoom: 22, paint: { "raster-fade-duration": 0 } }] } as StyleSpecification;
 }
 
 function placeData(places: NocapPlace[], selectedPlaceId: string | null): PlaceFeatureCollection {
