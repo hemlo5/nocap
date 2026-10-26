@@ -16,7 +16,7 @@ export function HemloNav() {
   const state = (active: boolean) => cn(linkBase, active ? "bg-zinc-950 text-white" : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-950");
 
   return (
-    <header className="sticky top-0 z-50 w-full shrink-0 border-b border-zinc-200/80 bg-white/90 text-zinc-900 backdrop-blur-md">
+    <header className="hidden lg:block sticky top-0 z-50 w-full shrink-0 border-b border-zinc-200/80 bg-white/90 text-zinc-900 backdrop-blur-md">
       <div className="mx-auto flex h-14 max-w-screen-2xl items-center gap-2 px-3 sm:gap-4 sm:px-6">
         <Link href="/" className="group mr-1 flex shrink-0 items-center transition-opacity hover:opacity-90">
           <img src="/nocap-logo.png" alt="NoCapBLR" className="h-7 w-auto object-contain transition-transform group-hover:scale-105" />
