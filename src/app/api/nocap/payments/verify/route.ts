@@ -1,78 +1,86 @@
-import crypto from "crypto";
 import { createAdminClient, isSupabaseConfigured } from "@/lib/supabase/server";
 import type { NocapReview } from "@/lib/nocap/community";
 
-const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID;
-const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET;
+const DODO_API_KEY = process.env.DODO_PAYMENTS_API_KEY;
+const DODO_BASE =
+  process.env.DODO_PAYMENTS_BASE_URL ||
+  (DODO_API_KEY?.startsWith("test_") ? "https://test.dodopayments.com" : "https://live.dodopayments.com");
 
 export async function POST(request: Request) {
-  if (!isSupabaseConfigured()) {
-    return Response.json({ error: "Supabase not configured." }, { status: 503 });
-  }
-  if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
-    return Response.json({ error: "Razorpay keys not configured on server." }, { status: 503 });
-  }
+  if (!isSupabaseConfigured()) return Response.json({ error: "Supabase not configured." }, { status: 503 });
 
   const input = (await request.json().catch(() => null)) as Record<string, unknown> | null;
-  const orderId = typeof input?.razorpay_order_id === "string" ? input.razorpay_order_id.trim() : null;
-  const paymentId = typeof input?.razorpay_payment_id === "string" ? input.razorpay_payment_id.trim() : null;
-  const signature = typeof input?.razorpay_signature === "string" ? input.razorpay_signature.trim() : null;
+  const paymentId = typeof input?.paymentId === "string" ? input.paymentId.trim() : null;
+  const sessionId = typeof input?.sessionId === "string" ? input.sessionId.trim() : null;
 
-  if (!orderId || !paymentId || !signature) {
-    return Response.json({ error: "Missing Razorpay verification parameters." }, { status: 400 });
-  }
-
-  // 1. Verify HMAC SHA-256 Signature
-  const expectedSignature = crypto
-    .createHmac("sha256", RAZORPAY_KEY_SECRET)
-    .update(`${orderId}|${paymentId}`)
-    .digest("hex");
-
-  if (expectedSignature !== signature) {
-    console.error("[Razorpay Verify] Signature mismatch", { expected: expectedSignature, received: signature });
-    return Response.json({ error: "Invalid payment signature." }, { status: 400 });
+  if (!paymentId && !sessionId) {
+    return Response.json({ error: "Missing paymentId or sessionId." }, { status: 400 });
   }
 
   const admin = createAdminClient();
 
-  // 2. Check if already recorded in Supabase (idempotency check)
-  const { data: existingReview } = await admin
-    .from("nocap_reviews")
-    .select("id, place_id, body, rating, latitude, longitude, is_legit, payment_id, created_at, updated_at, nocap_profiles!inner(id, display_name, avatar_url, bio)")
-    .eq("payment_id", paymentId)
-    .maybeSingle();
+  // 1. Check if review is already recorded in DB (e.g. from webhook)
+  if (paymentId) {
+    const { data: existingReview } = await admin
+      .from("nocap_reviews")
+      .select("id, place_id, body, rating, latitude, longitude, is_legit, payment_id, created_at, updated_at, nocap_profiles!inner(id, display_name, avatar_url, bio)")
+      .eq("payment_id", paymentId)
+      .maybeSingle();
 
-  if (existingReview) {
-    return Response.json({ success: true, review: toReview(existingReview) });
+    if (existingReview) {
+      return Response.json({ success: true, review: toReview(existingReview) });
+    }
   }
 
-  // 3. Fetch order details from Razorpay to retrieve stored metadata notes
-  const authHeader = `Basic ${Buffer.from(`${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`).toString("base64")}`;
-  let notes: Record<string, string> = {};
+  // 2. If not yet in DB, verify directly with Dodo Payments API
+  if (!DODO_API_KEY) {
+    return Response.json({ error: "Dodo API key not configured." }, { status: 503 });
+  }
+
+  let paymentData: Record<string, unknown> | null = null;
+  let metadata: Record<string, string> = {};
+  let resolvedPaymentId = paymentId ?? "";
 
   try {
-    const rzpOrderRes = await fetch(`https://api.razorpay.com/v1/orders/${orderId}`, {
-      headers: { Authorization: authHeader },
-    });
-    if (rzpOrderRes.ok) {
-      const orderJson = (await rzpOrderRes.json()) as { notes?: Record<string, string> };
-      notes = orderJson.notes ?? {};
-    } else {
-      console.error("[Razorpay Order Fetch Failed]", rzpOrderRes.status);
+    if (paymentId) {
+      const res = await fetch(`${DODO_BASE}/payments/${paymentId}`, {
+        headers: { Authorization: `Bearer ${DODO_API_KEY}` },
+      });
+      if (res.ok) {
+        paymentData = (await res.json()) as Record<string, unknown>;
+      }
+    } else if (sessionId) {
+      const res = await fetch(`${DODO_BASE}/checkouts/${sessionId}`, {
+        headers: { Authorization: `Bearer ${DODO_API_KEY}` },
+      });
+      if (res.ok) {
+        const session = (await res.json()) as Record<string, unknown>;
+        paymentData = session;
+        resolvedPaymentId = String(session.payment_id ?? sessionId);
+      }
     }
   } catch (err) {
-    console.error("[Razorpay Order Fetch Error]", err);
+    console.error("[Verify Payment] Error fetching from Dodo:", err);
   }
 
-  // Fallback to input notes if order fetch didn't return them
-  const fallbackNotes = (input?.notes as Record<string, string>) ?? {};
-  const metadata = { ...fallbackNotes, ...notes };
+  if (!paymentData) {
+    return Response.json({ error: "Could not retrieve payment details." }, { status: 404 });
+  }
 
-  // Case A: Existing review upgrade to Legit
+  const status = String(paymentData.payment_status ?? paymentData.status ?? "");
+  const isPaid = status === "succeeded" || status === "completed" || status === "paid";
+
+  if (!isPaid) {
+    return Response.json({ error: `Payment not completed (status: ${status}).` }, { status: 400 });
+  }
+
+  metadata = (paymentData.metadata as Record<string, string>) ?? {};
+
+  // Handle existing review upgrade
   if (metadata.review_id) {
     const { data: updatedReview, error } = await admin
       .from("nocap_reviews")
-      .update({ is_legit: true, payment_id: paymentId, updated_at: new Date().toISOString() })
+      .update({ is_legit: true, payment_id: resolvedPaymentId, updated_at: new Date().toISOString() })
       .eq("id", metadata.review_id)
       .select("id, place_id, body, rating, latitude, longitude, is_legit, payment_id, created_at, updated_at, nocap_profiles!inner(id, display_name, avatar_url, bio)")
       .single();
@@ -83,12 +91,11 @@ export async function POST(request: Request) {
     return Response.json({ success: true, review: toReview(updatedReview) });
   }
 
-  // Case B: New Legit review creation
+  // Handle new crazy tea review creation
   if (metadata.place_id && metadata.user_id) {
     const reviewBody =
-      (typeof input?.body === "string" && input.body.trim())
-        ? input.body.trim()
-        : (metadata.body || "");
+      metadata.body ||
+      [metadata.body_part_1, metadata.body_part_2, metadata.body_part_3].filter(Boolean).join("");
     const rating = metadata.rating ? Number(metadata.rating) : 5;
     const latitude = Number(metadata.latitude) || 12.9716;
     const longitude = Number(metadata.longitude) || 77.5946;
@@ -123,7 +130,7 @@ export async function POST(request: Request) {
           longitude,
           accuracy_meters: accuracyMeters,
           is_legit: true,
-          payment_id: paymentId,
+          payment_id: resolvedPaymentId,
           updated_at: new Date().toISOString(),
         },
         { onConflict: "profile_id,place_id" }
@@ -144,7 +151,7 @@ export async function POST(request: Request) {
             longitude,
             accuracy_meters: accuracyMeters,
             is_legit: true,
-            payment_id: paymentId,
+            payment_id: resolvedPaymentId,
             updated_at: new Date().toISOString(),
           },
           { onConflict: "profile_id,place_id" }
@@ -153,41 +160,33 @@ export async function POST(request: Request) {
         .single();
     }
 
-    const { data: newReview, error } = upsertResult;
-    if (error || !newReview) {
-      console.error("[Razorpay Verify] Insert review error:", error);
-      return Response.json({ error: "Could not save legit review." }, { status: 500 });
+    const { data: insertedReview, error } = upsertResult;
+
+    if (error || !insertedReview) {
+      console.error("[Verify Payment] Error inserting review:", error);
+      return Response.json({ error: "Could not publish Crazy Tea review." }, { status: 500 });
     }
 
-    return Response.json({ success: true, review: toReview(newReview) });
+    return Response.json({ success: true, review: toReview(insertedReview) });
   }
 
-  return Response.json({ error: "No place or review details associated with this payment." }, { status: 400 });
+  return Response.json({ error: "No review metadata found in payment." }, { status: 400 });
 }
 
 function toReview(review: Record<string, unknown>): NocapReview {
-  const profile = review.nocap_profiles as {
-    id: string;
-    display_name: string;
-    avatar_url: string | null;
-    bio: string | null;
-  };
+  const profile = review.nocap_profiles as { id: string; display_name: string; avatar_url: string | null; bio: string | null };
   return {
     id: String(review.id),
     placeId: String(review.place_id),
     body: String(review.body),
-    rating: review.rating != null ? Number(review.rating) : null,
+    rating: review.rating != null ? Number(review.rating) : 5,
     latitude: Number(review.latitude),
     longitude: Number(review.longitude),
     isLegit: Boolean(review.is_legit),
     paymentId: review.payment_id ? String(review.payment_id) : null,
     createdAt: String(review.created_at),
     updatedAt: String(review.updated_at),
-    profile: {
-      id: profile.id,
-      displayName: profile.display_name,
-      avatarUrl: profile.avatar_url,
-      bio: profile.bio,
-    },
+    profile: { id: profile.id, displayName: profile.display_name, avatarUrl: profile.avatar_url, bio: profile.bio },
   };
 }
+

@@ -16,25 +16,6 @@ type PlaceDetail = { place: NocapPlace; reviews: NocapReview[]; status: "ready";
 
 type UserPlaceDetail = { place: NocapUserPlace; reviews: NocapReview[]; supabaseConfigured: boolean };
 
-function loadRazorpayScript(): Promise<boolean> {
-  return new Promise((resolve) => {
-    if (typeof window === "undefined") {
-      resolve(false);
-      return;
-    }
-    if ((window as unknown as { Razorpay?: unknown }).Razorpay) {
-      resolve(true);
-      return;
-    }
-    const script = document.createElement("script");
-    script.src = "https://checkout.razorpay.com/v1/checkout.js";
-    script.async = true;
-    script.onload = () => resolve(true);
-    script.onerror = () => resolve(false);
-    document.body.appendChild(script);
-  });
-}
-
 const filters: Array<{ id: "all" | NocapPlaceCategory; label: string }> = [
   { id: "all", label: "All" },
   { id: "eat", label: "Eat" },
@@ -126,16 +107,13 @@ export function NocapApp() {
     } catch {}
   }, []);
 
-  // Check URL query parameters (e.g. ?place=... or ?legit=success or ?razorpay_payment_id=...)
+  // Check URL query parameters (e.g. ?place=... or ?legit=success)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const rzpPaymentId = params.get("razorpay_payment_id");
-    const rzpOrderId = params.get("razorpay_order_id");
-    const rzpSignature = params.get("razorpay_signature");
-    const paymentId = params.get("payment_id") || rzpPaymentId;
+    const paymentId = params.get("payment_id");
     const sessionId = params.get("session_id");
 
-    if (params.get("legit") === "success" || rzpPaymentId) {
+    if (params.get("legit") === "success" || paymentId || sessionId) {
       setLegitSuccess(true);
       const placeParam = params.get("place");
 
@@ -149,15 +127,11 @@ export function NocapApp() {
         }
       }
 
-      if (rzpPaymentId && rzpOrderId && rzpSignature) {
-        fetch("/api/nocap/payments/razorpay/verify", {
+      if (paymentId || sessionId) {
+        fetch("/api/nocap/payments/verify", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            razorpay_order_id: rzpOrderId,
-            razorpay_payment_id: rzpPaymentId,
-            razorpay_signature: rzpSignature,
-          }),
+          body: JSON.stringify({ paymentId, sessionId }),
         })
           .then((res) => res.json())
           .then((data) => {
@@ -165,7 +139,7 @@ export function NocapApp() {
               setReviews((current) => [data.review, ...current.filter((r) => r.id !== data.review.id)]);
             }
           })
-          .catch((e) => console.error("[NoCap] Verify Razorpay payment error:", e));
+          .catch((e) => console.error("[NoCap] Verify payment error:", e));
       }
 
       window.history.replaceState({}, "", window.location.pathname);
@@ -355,10 +329,10 @@ export function NocapApp() {
     const upid = input.userPlaceId ?? selectedUserPlace?.id;
     if (!pid && !upid) throw new Error("No place selected.");
 
-    // If user wants Legit badge, initiate Razorpay payment checkout directly.
+    // If user wants Crazy Tea badge, initiate Dodo checkout (UPI only) directly.
     // The review is NOT written to the database or displayed until payment succeeds and verifies!
     if (input.makeLegit) {
-      const orderRes = await fetch("/api/nocap/payments/razorpay/order", {
+      const checkoutRes = await fetch("/api/nocap/payments/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
         body: JSON.stringify({
@@ -369,96 +343,23 @@ export function NocapApp() {
           latitude: lat,
           longitude: lng,
           accuracyMeters: accuracy,
+          origin: window.location.origin,
         }),
       });
-      const orderData = await orderRes.json();
-      if (!orderRes.ok) {
-        throw new Error(orderData.error ?? "Could not initiate Legit checkout.");
+      const checkoutData = await checkoutRes.json();
+      if (!checkoutRes.ok) {
+        throw new Error(checkoutData.error ?? "Could not initiate Crazy Tea checkout.");
       }
-
-      const scriptLoaded = await loadRazorpayScript();
-      if (!scriptLoaded) {
-        throw new Error("Could not load Razorpay payment gateway. Please check your internet connection.");
+      if (checkoutData.checkoutUrl) {
+        trackEvent("publish_review", {
+          place_id: pid ?? upid,
+          rating: input.rating,
+          is_legit_requested: true,
+        });
+        window.location.href = checkoutData.checkoutUrl;
+        return;
       }
-
-      return new Promise<void>((resolve, reject) => {
-        const RazorpayClass = (window as unknown as { Razorpay: any }).Razorpay;
-        const rzp = new RazorpayClass({
-          key: orderData.keyId,
-          amount: orderData.amount,
-          currency: orderData.currency || "INR",
-          name: "NoCapBLR",
-          description: `☕ Crazy Tea Take for ${orderData.placeName || "Spot"}`,
-          image: "/nocap-icon.png",
-          order_id: orderData.orderId,
-          prefill: {
-            name: orderData.user?.name || profile?.displayName || "",
-            email: orderData.user?.email || "",
-          },
-          theme: {
-            color: "#ea580c",
-          },
-          modal: {
-            ondismiss: () => {
-              reject(new Error("Payment cancelled."));
-            },
-          },
-          handler: async (response: {
-            razorpay_payment_id: string;
-            razorpay_order_id: string;
-            razorpay_signature: string;
-          }) => {
-            try {
-              const verifyRes = await fetch("/api/nocap/payments/razorpay/verify", {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${accessToken}`,
-                },
-                body: JSON.stringify({
-                  razorpay_order_id: response.razorpay_order_id,
-                  razorpay_payment_id: response.razorpay_payment_id,
-                  razorpay_signature: response.razorpay_signature,
-                  body: input.body,
-                  notes: {
-                    place_id: pid ?? (upid ? `user:${upid}` : undefined),
-                    body: input.body,
-                    rating: input.rating !== null ? String(input.rating) : "",
-                  },
-                }),
-              });
-
-              const verifyData = await verifyRes.json();
-              if (!verifyRes.ok || !verifyData.review) {
-                throw new Error(verifyData.error ?? "Payment verification failed.");
-              }
-
-              trackEvent("publish_review", {
-                place_id: pid ?? upid,
-                rating: input.rating,
-                is_legit_requested: true,
-              });
-
-              setReviews((current) => [
-                verifyData.review,
-                ...current.filter((r) => r.id !== verifyData.review.id),
-              ]);
-              setLegitSuccess(true);
-              resolve();
-            } catch (err) {
-              console.error("[Razorpay] Verification error:", err);
-              reject(err instanceof Error ? err : new Error("Payment verification failed."));
-            }
-          },
-        });
-
-        rzp.on("payment.failed", (response: any) => {
-          console.error("[Razorpay] Payment failed:", response.error);
-          reject(new Error(response.error?.description || "Payment failed. Please try again."));
-        });
-
-        rzp.open();
-      });
+      throw new Error("No checkout URL returned from payment provider.");
     }
 
     // Standard free review
@@ -1060,7 +961,7 @@ function ReviewComposer({ configured, signedIn, onSignIn, onPublish }: {
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     setState("locating");
-    setMessage(makeLegit ? "Opening Razorpay checkout…" : "Publishing your review…");
+    setMessage(makeLegit ? "Opening UPI checkout…" : "Publishing your review…");
     try {
       await onPublish({ body, rating, makeLegit });
       setBody("");

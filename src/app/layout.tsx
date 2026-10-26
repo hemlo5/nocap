@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Script from "next/script";
 import { Geist, Geist_Mono } from "next/font/google";
 import { HemloNav } from "@/components/nav/hemlo-nav";
 import { GoogleAnalytics } from "@/components/analytics/google-analytics";
@@ -58,7 +57,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }} /></head>
       <body suppressHydrationWarning className="flex min-h-screen h-full flex-col bg-[#F6F5F2] text-[#18181B]">
         <GoogleAnalytics />
-        <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
         <a href="#main-content" className="sr-only fixed left-4 top-4 z-[100] rounded-md bg-zinc-950 px-4 py-2 text-sm font-semibold text-white focus:not-sr-only">Skip to content</a>
         <HemloNav />
         {children}
