@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import { ChevronDown, CircleUserRound, HelpCircle, LocateFixed, LogIn, LogOut, MapPin, Pencil, Pin, Search, Send, Star, X, Sparkles } from "lucide-react";
+import { ChevronDown, CircleUserRound, HelpCircle, Loader2, LocateFixed, LogIn, LogOut, MapPin, Navigation, Pencil, Pin, Search, Send, Star, X, Sparkles } from "lucide-react";
 import type { NocapPlace, NocapPlaceCategory } from "@/lib/nocap/places";
 import type { NocapProfile, NocapReview, NocapUserPlace } from "@/lib/nocap/community";
 import { createSupabaseBrowserClient, hasSupabaseBrowserConfig } from "@/lib/supabase/client";
@@ -90,6 +90,13 @@ export function NocapApp() {
   const [pinMode, setPinMode] = useState(false);
   const [pendingPin, setPendingPin] = useState<{ lat: number; lng: number } | null>(null);
   const [pinFormOpen, setPinFormOpen] = useState(false);
+  const [pinPrefill, setPinPrefill] = useState<{ name: string; address: string } | null>(null);
+  // Search autocomplete & map suggestions states
+  const [searchFocused, setSearchFocused] = useState(false);
+  const [mapSuggestions, setMapSuggestions] = useState<Array<{ id: string; title: string; subtitle: string; lat: number; lng: number }>>([]);
+  const [loadingMapSuggestions, setLoadingMapSuggestions] = useState(false);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+  const mobileSearchContainerRef = useRef<HTMLDivElement>(null);
   // Selected user place
   const [selectedUserPlaceId, setSelectedUserPlaceId] = useState<string | null>(null);
   // Legit payment return
@@ -280,6 +287,98 @@ export function NocapApp() {
     }
     return counts;
   }, [reviews]);
+
+  // Synchronous dot matching (matching existing NoCap places & community places)
+  const matchingDots = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (q.length < 2) return [];
+
+    const matched: Array<
+      | { type: "place"; place: NocapPlace }
+      | { type: "userPlace"; place: NocapUserPlace }
+    > = [];
+
+    // Search hardcoded places
+    for (const p of places) {
+      if (
+        p.name.toLowerCase().includes(q) ||
+        p.area.toLowerCase().includes(q) ||
+        p.address.toLowerCase().includes(q) ||
+        (p.aliases && p.aliases.some((a) => a.toLowerCase().includes(q)))
+      ) {
+        matched.push({ type: "place", place: p });
+        if (matched.length >= 4) break;
+      }
+    }
+
+    // Search community pinned places
+    for (const up of userPlaces) {
+      if (matched.length >= 6) break;
+      if (
+        up.name.toLowerCase().includes(q) ||
+        up.address.toLowerCase().includes(q) ||
+        up.category.toLowerCase().includes(q)
+      ) {
+        matched.push({ type: "userPlace", place: up });
+      }
+    }
+
+    return matched;
+  }, [places, query, userPlaces]);
+
+  // Debounced geocoding search for Bengaluru locations
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < 2) {
+      setMapSuggestions([]);
+      setLoadingMapSuggestions(false);
+      return;
+    }
+
+    setLoadingMapSuggestions(true);
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/nocap/search-locations?q=${encodeURIComponent(q)}`, {
+          signal: controller.signal,
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setMapSuggestions(Array.isArray(data?.results) ? data.results : []);
+        } else {
+          setMapSuggestions([]);
+        }
+      } catch (err: unknown) {
+        if ((err as Error)?.name !== "AbortError") {
+          setMapSuggestions([]);
+        }
+      } finally {
+        setLoadingMapSuggestions(false);
+      }
+    }, 280);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [query]);
+
+  // Click outside listener to dismiss search suggestions dropdown
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      const target = event.target as Node;
+      if (
+        searchContainerRef.current &&
+        !searchContainerRef.current.contains(target) &&
+        mobileSearchContainerRef.current &&
+        !mobileSearchContainerRef.current.contains(target)
+      ) {
+        setSearchFocused(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   async function signIn() {
     if (!hasSupabaseBrowserConfig()) return;
@@ -485,36 +584,49 @@ export function NocapApp() {
     setLocationError(null);
   }
 
+  function handleSelectDot(item: { type: "place"; place: NocapPlace } | { type: "userPlace"; place: NocapUserPlace }) {
+    setSearchFocused(false);
+    dismissLocate();
+    exitPinMode();
+    if (item.type === "place") {
+      setSelectedPlaceId(item.place.id);
+      setSelectedUserPlaceId(null);
+      mapRef.current?.flyToUser(item.place.latitude, item.place.longitude, 16);
+    } else {
+      setSelectedUserPlaceId(item.place.id);
+      setSelectedPlaceId(null);
+      mapRef.current?.flyToUser(item.place.latitude, item.place.longitude, 16);
+    }
+  }
+
+  function handleSelectMapSuggestion(suggestion: { id: string; title: string; subtitle: string; lat: number; lng: number }) {
+    setSearchFocused(false);
+    dismissLocate();
+    setSelectedPlaceId(null);
+    setSelectedUserPlaceId(null);
+
+    // Smoothly fly camera to the exact map location
+    mapRef.current?.flyToUser(suggestion.lat, suggestion.lng, 16);
+
+    // Drop pending pin right at the location & pre-fill the name and address
+    setPendingPin({ lat: suggestion.lat, lng: suggestion.lng });
+    setPinPrefill({
+      name: suggestion.title,
+      address: suggestion.subtitle,
+    });
+    setPinFormOpen(true);
+  }
+
   async function handlePinDrop(lat: number, lng: number) {
     setLocationError(null);
     // Check Bengaluru limits
-    if (lat < 12.72 || lat > 13.2 || lng < 77.34 || lng > 77.9) {
+    if (lat < 12.72 || lat > 13.3 || lng < 77.34 || lng > 77.9) {
       setLocationError("Please pin within Bengaluru city limits.");
       return;
     }
 
-    // Require location to enforce 1km radius limit for creating pins
-    let loc = userLocation;
-    if (!loc) {
-      try {
-        const pos = await currentPosition();
-        loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        setUserLocation(loc);
-        mapRef.current?.showRadiusCircle(loc.lat, loc.lng, 1);
-      } catch {
-        setLocationError("Location permission is required to pin a place. You can only pin places within 1km of where you are.");
-        return;
-      }
-    }
-
-    // Enforce 1km limit
-    const distM = haversineM(loc.lat, loc.lng, lat, lng);
-    if (distM > 1000) {
-      setLocationError(`You can only pin places within 1km of your current location. This pin is ${(distM / 1000).toFixed(1)}km away.`);
-      return;
-    }
-
     setPendingPin({ lat, lng });
+    setPinPrefill(null);
     setPinFormOpen(true);
   }
 
@@ -523,9 +635,13 @@ export function NocapApp() {
     if (!pendingPin) throw new Error("No pin location.");
     let loc = userLocation;
     if (!loc) {
-      const pos = await currentPosition();
-      loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-      setUserLocation(loc);
+      try {
+        const pos = await currentPosition();
+        loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        setUserLocation(loc);
+      } catch {
+        loc = { lat: pendingPin.lat, lng: pendingPin.lng };
+      }
     }
     const response = await fetch("/api/nocap/user-places", {
       method: "POST",
@@ -537,8 +653,8 @@ export function NocapApp() {
         address: input.address,
         latitude: pendingPin.lat,
         longitude: pendingPin.lng,
-        userLatitude: loc.lat,
-        userLongitude: loc.lng,
+        userLatitude: loc?.lat ?? pendingPin.lat,
+        userLongitude: loc?.lng ?? pendingPin.lng,
       }),
     });
     const data = await response.json();
@@ -546,6 +662,7 @@ export function NocapApp() {
     const newPlace: NocapUserPlace = data.place;
     setUserPlaces((prev) => [newPlace, ...prev]);
     exitPinMode();
+    setPinPrefill(null);
     setSelectedUserPlaceId(newPlace.id);
     setSelectedPlaceId(null);
   }
@@ -587,11 +704,46 @@ export function NocapApp() {
     <div className="relative h-full w-full lg:grid lg:grid-cols-[330px_minmax(0,1fr)_380px]">
       {/* ── Left sidebar (Desktop only) ── */}
       <aside className="hidden lg:flex z-20 min-h-0 flex-col border-b border-zinc-200 bg-white lg:border-b-0 lg:border-r">
-        <div className="border-b border-zinc-200 px-5 py-5">
-          <label className="flex h-10 items-center gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-3 focus-within:border-zinc-400 focus-within:bg-white">
-            <Search className="h-4 w-4 text-zinc-400" />
-            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search places or areas" className="min-w-0 flex-1 bg-transparent text-sm text-zinc-900 outline-none placeholder:text-zinc-400" />
+        <div ref={searchContainerRef} className="relative border-b border-zinc-200 px-5 py-5">
+          <label className="flex h-10 items-center gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-3 focus-within:border-zinc-400 focus-within:bg-white transition-colors">
+            <Search className="h-4 w-4 text-zinc-400 shrink-0" />
+            <input
+              value={query}
+              onChange={(event) => {
+                setQuery(event.target.value);
+                setSearchFocused(true);
+              }}
+              onFocus={() => setSearchFocused(true)}
+              placeholder="Search places or areas"
+              className="min-w-0 flex-1 bg-transparent text-sm text-zinc-900 outline-none placeholder:text-zinc-400"
+            />
+            {query && (
+              <button
+                type="button"
+                onClick={() => {
+                  setQuery("");
+                  setSearchFocused(false);
+                }}
+                className="grid h-5 w-5 shrink-0 place-items-center rounded-full text-zinc-400 hover:bg-zinc-200 hover:text-zinc-700 transition-colors"
+                title="Clear search"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            )}
           </label>
+
+          {/* Desktop Search Suggestions Dropdown */}
+          {searchFocused && query.trim().length >= 2 && (
+            <SearchSuggestionsDropdown
+              query={query}
+              matchingDots={matchingDots}
+              mapSuggestions={mapSuggestions}
+              loadingMap={loadingMapSuggestions}
+              reviewCounts={reviewCounts}
+              onSelectDot={handleSelectDot}
+              onSelectMapSuggestion={handleSelectMapSuggestion}
+            />
+          )}
           <div className="mt-3 flex flex-wrap gap-1.5">
             {filters.map((filter) => (
               <button key={filter.id} type="button" onClick={() => setCategory(filter.id)} className={cn("rounded-md border px-2.5 py-1.5 text-[11px] font-semibold transition-colors", category === filter.id ? "border-zinc-950 bg-zinc-950 text-white" : "border-zinc-200 bg-white text-zinc-600 hover:border-zinc-400")}>
@@ -672,11 +824,33 @@ export function NocapApp() {
 
         {/* ── MOBILE: Floating search bar at top ── */}
         {!pinMode && (
-          <div className="lg:hidden absolute left-3 right-3 top-3 z-20">
+          <div ref={mobileSearchContainerRef} className="lg:hidden absolute left-3 right-3 top-3 z-20">
             <div className="flex items-center gap-2 rounded-xl bg-white/95 backdrop-blur border border-zinc-200/80 shadow-lg px-3 h-12">
               <img src="/nocap-icon.png" alt="NoCap" className="h-7 w-7 shrink-0 rounded-lg object-contain shadow-xs" />
               <Search className="h-4 w-4 shrink-0 text-zinc-400" />
-              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search places" className="min-w-0 flex-1 bg-transparent text-sm text-zinc-900 outline-none placeholder:text-zinc-400" />
+              <input
+                value={query}
+                onChange={(event) => {
+                  setQuery(event.target.value);
+                  setSearchFocused(true);
+                }}
+                onFocus={() => setSearchFocused(true)}
+                placeholder="Search places or areas"
+                className="min-w-0 flex-1 bg-transparent text-sm text-zinc-900 outline-none placeholder:text-zinc-400"
+              />
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setQuery("");
+                    setSearchFocused(false);
+                  }}
+                  className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 transition-colors"
+                  title="Clear search"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setGuideOpen(true)}
@@ -687,6 +861,20 @@ export function NocapApp() {
               </button>
               <AccountButton configured={supabaseConfigured} profile={profile} onSignIn={signIn} onOpenProfile={() => setProfileOpen(true)} />
             </div>
+
+            {/* Mobile Search Suggestions Dropdown */}
+            {searchFocused && query.trim().length >= 2 && (
+              <SearchSuggestionsDropdown
+                query={query}
+                matchingDots={matchingDots}
+                mapSuggestions={mapSuggestions}
+                loadingMap={loadingMapSuggestions}
+                reviewCounts={reviewCounts}
+                onSelectDot={handleSelectDot}
+                onSelectMapSuggestion={handleSelectMapSuggestion}
+                isMobile
+              />
+            )}
             <div className="mt-2 flex gap-1.5 overflow-x-auto pb-1" style={{ WebkitOverflowScrolling: "touch", scrollbarWidth: "none" }}>
               {filters.map((filter) => (
                 <button key={filter.id} type="button" onClick={() => setCategory(filter.id)} className={cn("shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-colors shadow-sm", category === filter.id ? "border-zinc-950 bg-zinc-950 text-white" : "border-zinc-200/80 bg-white/90 backdrop-blur text-zinc-600")}>
@@ -873,7 +1061,12 @@ export function NocapApp() {
       <PinPlaceForm
         location={pendingPin}
         accessToken={accessToken}
-        onCancel={exitPinMode}
+        initialName={pinPrefill?.name ?? ""}
+        initialAddress={pinPrefill?.address ?? ""}
+        onCancel={() => {
+          setPinPrefill(null);
+          exitPinMode();
+        }}
         onSubmit={submitPin}
         onSignIn={signIn}
       />
@@ -1328,19 +1521,26 @@ function ProfileEditor({ profile, onClose, onSave, onSignOut }: { profile: Nocap
   );
 }
 
-function PinPlaceForm({ location, accessToken, onCancel, onSubmit, onSignIn }: {
+function PinPlaceForm({ location, accessToken, initialName = "", initialAddress = "", onCancel, onSubmit, onSignIn }: {
   location: { lat: number; lng: number };
   accessToken: string | null;
+  initialName?: string;
+  initialAddress?: string;
   onCancel: () => void;
   onSubmit: (input: { name: string; category: NocapPlaceCategory; customCategory?: string; address: string }) => Promise<void>;
   onSignIn?: () => void;
 }) {
-  const [name, setName] = useState("");
+  const [name, setName] = useState(initialName);
   const [category, setCategory] = useState<string>("eat");
   const [customCategory, setCustomCategory] = useState("");
-  const [address, setAddress] = useState("");
+  const [address, setAddress] = useState(initialAddress);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (initialName) setName(initialName);
+    if (initialAddress) setAddress(initialAddress);
+  }, [initialName, initialAddress]);
 
   if (!accessToken) {
     return (
@@ -1546,6 +1746,154 @@ function EvidenceSkeleton() {
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+function SearchSuggestionsDropdown({
+  query,
+  matchingDots,
+  mapSuggestions,
+  loadingMap,
+  reviewCounts,
+  onSelectDot,
+  onSelectMapSuggestion,
+  isMobile = false,
+}: {
+  query: string;
+  matchingDots: Array<{ type: "place"; place: NocapPlace } | { type: "userPlace"; place: NocapUserPlace }>;
+  mapSuggestions: Array<{ id: string; title: string; subtitle: string; lat: number; lng: number }>;
+  loadingMap: boolean;
+  reviewCounts: Map<string, number>;
+  onSelectDot: (item: { type: "place"; place: NocapPlace } | { type: "userPlace"; place: NocapUserPlace }) => void;
+  onSelectMapSuggestion: (suggestion: { id: string; title: string; subtitle: string; lat: number; lng: number }) => void;
+  isMobile?: boolean;
+}) {
+  return (
+    <div
+      className={cn(
+        "absolute z-50 w-full overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-2xl divide-y divide-zinc-100",
+        isMobile
+          ? "left-0 right-0 top-full mt-2 max-h-[65vh] overflow-y-auto"
+          : "left-0 right-0 top-full mt-1.5 max-h-[460px] overflow-y-auto"
+      )}
+    >
+      {/* ── Section 1: Places on NoCap (Existing dots) ── */}
+      <div>
+        <div className="flex items-center justify-between bg-zinc-50/90 px-3.5 py-2 text-[10px] font-bold uppercase tracking-wider text-zinc-600 border-b border-zinc-100">
+          <span className="flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-emerald-200" />
+            Places on NoCap
+          </span>
+          <span className="text-[10px] font-semibold text-zinc-400">
+            {matchingDots.length > 0 ? `${matchingDots.length} found` : "None"}
+          </span>
+        </div>
+
+        {matchingDots.length > 0 ? (
+          <div className="divide-y divide-zinc-50">
+            {matchingDots.map((item) => {
+              const id = item.type === "place" ? item.place.id : item.place.id;
+              const name = item.place.name;
+              const sub = item.type === "place" ? (item.place.address || item.place.area) : (item.place.address || "Bengaluru");
+              const category = item.type === "place" ? getCategoryName(item.place.category) : "Community";
+              const count = item.type === "place" ? (reviewCounts.get(item.place.id) ?? 0) : 0;
+
+              return (
+                <button
+                  key={`dot-${item.type}-${id}`}
+                  type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    onSelectDot(item);
+                  }}
+                  className="w-full flex items-center justify-between gap-3 px-3.5 py-2.5 text-left hover:bg-zinc-50 active:bg-zinc-100 transition-colors group"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="truncate text-xs font-bold text-zinc-900 group-hover:text-zinc-950">
+                        {name}
+                      </span>
+                      <span className="shrink-0 rounded px-1.5 py-0.5 text-[9px] font-semibold bg-zinc-100 text-zinc-600">
+                        {category}
+                      </span>
+                    </div>
+                    <p className="truncate text-[11px] text-zinc-500 mt-0.5">
+                      {sub}
+                    </p>
+                  </div>
+                  <div className="shrink-0 flex items-center gap-1.5">
+                    {count > 0 ? (
+                      <span className="rounded-full bg-emerald-50 border border-emerald-200/60 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                        {count} {count === 1 ? "take" : "takes"}
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-medium text-zinc-500">
+                        View dot
+                      </span>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="px-3.5 py-2.5 text-xs text-zinc-400 italic">
+            No existing dots match &ldquo;{query}&rdquo;
+          </div>
+        )}
+      </div>
+
+      {/* ── Section 2: Bengaluru Map Search ── */}
+      <div>
+        <div className="flex items-center justify-between bg-blue-50/70 px-3.5 py-2 text-[10px] font-bold uppercase tracking-wider text-blue-900 border-b border-blue-100/60">
+          <span className="flex items-center gap-1.5">
+            <Navigation className="h-3 w-3 text-blue-600" />
+            Bengaluru Map Search
+          </span>
+          <span className="text-[10px] font-medium normal-case text-blue-600">
+            Tap to pin spot
+          </span>
+        </div>
+
+        {loadingMap ? (
+          <div className="flex items-center gap-2 px-3.5 py-3 text-xs text-zinc-500">
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-600" />
+            <span>Searching locations across Bengaluru...</span>
+          </div>
+        ) : mapSuggestions.length > 0 ? (
+          <div className="divide-y divide-zinc-50">
+            {mapSuggestions.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  onSelectMapSuggestion(s);
+                }}
+                className="w-full flex items-center justify-between gap-3 px-3.5 py-2.5 text-left hover:bg-blue-50/40 active:bg-blue-50 transition-colors group"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-xs font-bold text-zinc-900 group-hover:text-blue-950">
+                    {s.title}
+                  </p>
+                  <p className="truncate text-[11px] text-zinc-500 mt-0.5">
+                    {s.subtitle || "Bengaluru, Karnataka"}
+                  </p>
+                </div>
+                <div className="shrink-0 flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-bold text-blue-700 border border-blue-200/70 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                  <Pin className="h-3 w-3" />
+                  Pin here
+                </div>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="px-3.5 py-3 text-xs text-zinc-400">
+            No locations found on map for this query. Try a nearby landmark or street name.
+          </div>
+        )}
+      </div>
     </div>
   );
 }

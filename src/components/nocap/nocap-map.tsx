@@ -93,14 +93,14 @@ export const NocapMap = forwardRef<NocapMapHandle, NocapMapProps>(function Nocap
     flyToUser(lat: number, lng: number, zoom = 16) {
       const map = mapRef.current;
       if (!map) return;
-      const insideBLR = lat >= 12.72 && lat <= 13.2 && lng >= 77.34 && lng <= 77.9;
+      const insideBLR = lat >= 12.72 && lat <= 13.3 && lng >= 77.34 && lng <= 77.9;
       if (!insideBLR) {
         // If user is outside Bengaluru bounds, lift maxBounds so map camera can freely zoom to user's real location
         map.setMaxBounds(undefined);
       } else {
         map.setMaxBounds([
           [77.34, 12.72],
-          [77.9, 13.2],
+          [77.9, 13.3],
         ]);
       }
       map.flyTo({ center: [lng, lat], zoom, duration: 1000, essential: true });
@@ -168,7 +168,7 @@ export const NocapMap = forwardRef<NocapMapHandle, NocapMapProps>(function Nocap
         maxZoom: 18,
         maxBounds: [
           [77.34, 12.72],
-          [77.9, 13.2],
+          [77.9, 13.3],
         ],
         pixelRatio: Math.min(window.devicePixelRatio || 1, 1.5),
         attributionControl: false,
