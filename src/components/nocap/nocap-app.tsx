@@ -1212,7 +1212,7 @@ function ReviewComposer({ configured, signedIn, onSignIn, onPublish }: {
                 </span>
               </div>
               <p className="text-[11px] text-zinc-500 truncate mt-0.5">
-                {signedIn ? "Drop a review or pin tea to the top (₹19)" : "Sign in with Google to write"}
+                {signedIn ? "Drop a review or pin tea to the top (₹49)" : "Sign in with Google to write"}
               </p>
             </div>
           </div>
@@ -1304,7 +1304,7 @@ function ReviewComposer({ configured, signedIn, onSignIn, onPublish }: {
             </span>
             <span className="relative overflow-hidden rounded-full bg-black/25 border border-white/30 px-2.5 py-0.5 text-[10px] font-black tracking-wider text-white shadow-xs">
               <span className="pointer-events-none absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-              ₹19
+              ₹49
             </span>
           </div>
           <p className="mt-0.5 text-[11px] leading-relaxed text-orange-50 font-medium">
@@ -1342,7 +1342,7 @@ function ReviewComposer({ configured, signedIn, onSignIn, onPublish }: {
               </>
             )}
             <Send className="relative z-10 h-3.5 w-3.5" />
-            <span className="relative z-10">{makeLegit ? "Spill Tea (₹19)" : "Publish"}</span>
+            <span className="relative z-10">{makeLegit ? "Spill Tea (₹49)" : "Publish"}</span>
           </button>
         </div>
       </div>
