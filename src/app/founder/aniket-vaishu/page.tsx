@@ -38,7 +38,17 @@ export default function FounderPage() {
           </div>
 
           <figure className="mx-auto mt-14 max-w-3xl border-t border-zinc-300 pt-8"><div className="relative min-h-[420px] overflow-hidden bg-zinc-200"><Image src="/founder/IMG-20261010-WA0039.jpg" alt="Founder-provided photograph from a campus entrepreneurship event" fill className="object-cover" sizes="(min-width: 1024px) 768px, 100vw" /></div><figcaption className="mt-3 text-xs leading-5 text-zinc-500">Founder-provided photograph from campus entrepreneurship activity.</figcaption></figure>
-          <div className="mt-14 border-t border-zinc-300 pt-8"><a href="https://www.aniket.social/" className="text-sm font-bold text-red-700 hover:underline">Visit aniket.social</a><Link href="/campaigns/bengaluru-street-campaign" className="ml-6 text-sm font-bold text-red-700 hover:underline">Read the NoCapBLR campaign story</Link></div>
+          <div className="mt-14 flex flex-wrap gap-6 border-t border-zinc-300 pt-8">
+            <a href="https://www.aniket.social/" className="text-sm font-bold text-red-700 hover:underline">
+              Visit aniket.social
+            </a>
+            <Link href="/campaigns/bengaluru-street-campaign" className="text-sm font-bold text-red-700 hover:underline">
+              Read the NoCapBLR campaign story
+            </Link>
+            <Link href="/posters" className="text-sm font-bold text-red-700 hover:underline">
+              View the street posters gallery (9)
+            </Link>
+          </div>
         </article>
       </main>
       <SiteFooter />

@@ -18,6 +18,7 @@ export default function robots(): MetadataRoute.Robots {
           "/why-nocapblr",
           "/guides/",
           "/campaigns/",
+          "/posters",
           "/newsroom/",
           "/founder/",
           "/community-guidelines",

@@ -12,7 +12,7 @@ export function HemloNav() {
   const isMap = pathname.startsWith("/map") || pathname.startsWith("/nocap");
   const isOpportunities = pathname.startsWith("/opportunities");
   const isWhatNocap = pathname.startsWith("/what-nocap") || pathname.startsWith("/why-nocap") || pathname.startsWith("/what-is-nocap") || pathname.startsWith("/how-it-works");
-  const isAbout = pathname.startsWith("/about") || pathname.startsWith("/founder") || pathname.startsWith("/campaigns");
+  const isAbout = pathname.startsWith("/about") || pathname.startsWith("/founder") || pathname.startsWith("/campaigns") || pathname.startsWith("/posters");
   const state = (active: boolean) => cn(linkBase, active ? "bg-zinc-950 text-white" : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-950");
 
   return (

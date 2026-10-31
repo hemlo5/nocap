@@ -56,12 +56,43 @@ export default function BengaluruStreetCampaignPage() {
             <figcaption className="text-xs leading-5 text-zinc-500 sm:col-span-2">Founder-provided campaign photographs and campaign material from the NoCapBLR Bengaluru launch.</figcaption>
           </figure>
 
+          {/* ── Street Posters Gallery Spotlight Callout ── */}
+          <div className="mt-10 flex flex-col items-start justify-between gap-6 rounded-2xl border border-zinc-200 bg-white p-6 shadow-xs sm:flex-row sm:items-center sm:p-8">
+            <div className="max-w-2xl">
+              <span className="rounded-full bg-red-100 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-red-800">
+                Original Artwork
+              </span>
+              <h2 className="mt-2 text-xl font-black tracking-tight text-zinc-950 sm:text-2xl">
+                The 9 Street Posters that Went Viral Across Bengaluru
+              </h2>
+              <p className="mt-1 text-sm text-zinc-600">
+                Potholes, toxic startups, PG mess food, and cafe traps—explore all 9 original guerrilla posters pasted on Bengaluru streets with full-resolution views and location notes.
+              </p>
+            </div>
+            <Link
+              href="/posters"
+              className="inline-flex shrink-0 items-center justify-center rounded-xl bg-zinc-950 px-5 py-3 text-xs font-bold text-white transition-all hover:bg-zinc-800 hover:shadow-md"
+            >
+              View Posters Gallery (9) &rarr;
+            </Link>
+          </div>
+
           <div className="mx-auto mt-14 max-w-3xl space-y-8 text-base leading-8 text-zinc-700">
             <section><h2 className="text-2xl font-bold tracking-tight text-zinc-950">The idea behind the street-level launch</h2><p className="mt-3">NoCapBLR begins with a simple friction: people often arrive at a place with a picture in their head and leave with a different story. A cafe can be excellent at noon and impossible on a Saturday evening. A pub can work beautifully for one group and be too loud for another. A park can be calm in one season and crowded in another. The product exists to make those practical details easier to discover before the trip has already been made.</p><p className="mt-4">That is why a locally visible launch mattered. The campaign did not try to reduce Bengaluru to a list of viral recommendations. It introduced a map where people can browse familiar streets, food spots, parks, and cultural spaces, then add grounded observations from their own experience. The useful unit is not hype. It is context.</p></section>
             <section><h2 className="text-2xl font-bold tracking-tight text-zinc-950">What the first-day number means</h2><p className="mt-3">The confirmed number is specific: NoCapBLR recorded 10,000 active users on October 25, 2026, its first day. That is a meaningful early signal that the launch reached people across Bengaluru and that the product&apos;s premise connected with a live local audience. It is not, by itself, a promise about long-term retention, revenue, market share, or the quality of every future contribution.</p><p className="mt-4">NoCapBLR is deliberately clear about that distinction. During this repository audit, direct analytics access was not available, so this page does not invent QR scans, conversion percentages, press coverage, or secondary campaign statistics. The milestone remains founder-confirmed and the rest of the work is visible in the product: improve the map, improve the place data, and earn repeat use through practical value.</p></section>
             <section><h2 className="text-2xl font-bold tracking-tight text-zinc-950">Attention, disagreement, and trust</h2><p className="mt-3">A candid-review product naturally invites strong opinions. That is not a controversy narrative; it is the basic reality of letting people describe different experiences of the same place. NoCapBLR&apos;s job is not to manufacture disagreement or make a spectacle of it. It is to make space for specific, respectful contributions and to act when content crosses the line into harassment, deception, or privacy harm.</p><p className="mt-4">The campaign therefore has a longer purpose than a single day of attention. It is the starting point for a Bengaluru product that can remain useful after launch-day energy fades: one that makes discovery more local, reviews more contextual, and moderation more explicit.</p></section>
           </div>
-          <div className="mt-14 border-t border-zinc-300 pt-8"><Link href="/founder/aniket-vaishu" className="text-sm font-bold text-red-700 hover:underline">Read about founder Aniket Vaishu</Link><Link href="/newsroom/nocapblr-reaches-10000-active-users-on-day-one" className="ml-6 text-sm font-bold text-red-700 hover:underline">Read the official announcement</Link></div>
+          <div className="mt-14 flex flex-wrap gap-6 border-t border-zinc-300 pt-8">
+            <Link href="/posters" className="text-sm font-bold text-red-700 hover:underline">
+              View the street posters gallery (9)
+            </Link>
+            <Link href="/founder/aniket-vaishu" className="text-sm font-bold text-red-700 hover:underline">
+              Read about founder Aniket Vaishu
+            </Link>
+            <Link href="/newsroom/nocapblr-reaches-10000-active-users-on-day-one" className="text-sm font-bold text-red-700 hover:underline">
+              Read the official announcement
+            </Link>
+          </div>
         </article>
       </main>
       <SiteFooter />
