@@ -33,6 +33,10 @@ const categoryLabel: Record<string, string> = {
   other: "Other",
 };
 
+// Feature flag: set to true to re-enable paid Crazy Tea (Dodo Payments / UPI).
+// Kept unplugged (false) to make all review sharing completely free in production.
+const ENABLE_PAID_CRAZY_TEA = process.env.NEXT_PUBLIC_ENABLE_PAID_CRAZY_TEA === "true";
+
 function getCategoryName(cat: string) {
   return categoryLabel[cat] || cat.charAt(0).toUpperCase() + cat.slice(1);
 }
@@ -430,7 +434,8 @@ export function NocapApp() {
 
     // If user wants Crazy Tea badge, initiate Dodo checkout (UPI only) directly.
     // The review is NOT written to the database or displayed until payment succeeds and verifies!
-    if (input.makeLegit) {
+    // Gated by ENABLE_PAID_CRAZY_TEA: kept unplugged to make review sharing completely free.
+    if (ENABLE_PAID_CRAZY_TEA && input.makeLegit) {
       const checkoutRes = await fetch("/api/nocap/payments/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
@@ -1158,12 +1163,12 @@ function ReviewComposer({ configured, signedIn, onSignIn, onPublish }: {
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     setState("locating");
-    setMessage(makeLegit ? "Opening UPI checkout…" : "Publishing your review…");
+    setMessage(ENABLE_PAID_CRAZY_TEA && makeLegit ? "Opening UPI checkout…" : "Publishing your review…");
     try {
-      await onPublish({ body, rating, makeLegit });
+      await onPublish({ body, rating, makeLegit: ENABLE_PAID_CRAZY_TEA && makeLegit });
       setBody("");
       setState("idle");
-      setMessage(makeLegit ? "☕ Crazy Tea review published!" : "Review published successfully.");
+      setMessage(ENABLE_PAID_CRAZY_TEA && makeLegit ? "☕ Crazy Tea review published!" : "Review published successfully.");
       if (makeLegit) {
         setMakeLegit(false);
       }
@@ -1201,18 +1206,31 @@ function ReviewComposer({ configured, signedIn, onSignIn, onPublish }: {
           className="group flex w-full items-center justify-between rounded-xl border border-zinc-200/90 bg-white p-2.5 sm:p-3 text-left shadow-2xs hover:border-zinc-300 hover:shadow-xs active:scale-[0.99] transition-all"
         >
           <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-            <div className="grid h-8 w-8 sm:h-9 sm:w-9 shrink-0 place-items-center rounded-xl bg-orange-50 text-orange-600 border border-orange-200/60 group-hover:bg-orange-500 group-hover:text-white group-hover:border-orange-500 transition-colors">
+            <div
+              className={cn(
+                "grid h-8 w-8 sm:h-9 sm:w-9 shrink-0 place-items-center rounded-xl border transition-colors",
+                ENABLE_PAID_CRAZY_TEA
+                  ? "bg-orange-50 text-orange-600 border-orange-200/60 group-hover:bg-orange-500 group-hover:text-white group-hover:border-orange-500"
+                  : "bg-zinc-100 text-zinc-700 border-zinc-200/80 group-hover:bg-zinc-900 group-hover:text-white group-hover:border-zinc-900"
+              )}
+            >
               <Pencil className="h-4 w-4" />
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="text-xs font-bold text-zinc-900 group-hover:text-black">Share your take</span>
-                <span className="inline-flex items-center gap-1 rounded-full bg-orange-100/90 border border-orange-200/60 px-2 py-0.5 text-[10px] font-black text-orange-700">
-                  ☕ Spill Crazy Tea
-                </span>
+                {ENABLE_PAID_CRAZY_TEA && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-orange-100/90 border border-orange-200/60 px-2 py-0.5 text-[10px] font-black text-orange-700">
+                    ☕ Spill Crazy Tea
+                  </span>
+                )}
               </div>
               <p className="text-[11px] text-zinc-500 truncate mt-0.5">
-                {signedIn ? "Drop a review or pin tea to the top (₹49)" : "Sign in with Google to write"}
+                {signedIn
+                  ? ENABLE_PAID_CRAZY_TEA
+                    ? "Drop a review or pin tea to the top (₹49)"
+                    : "Drop a review with your honest local take"
+                  : "Sign in with Google to write"}
               </p>
             </div>
           </div>
@@ -1283,35 +1301,37 @@ function ReviewComposer({ configured, signedIn, onSignIn, onPublish }: {
         className="mt-2.5 min-h-20 w-full resize-y rounded-lg border border-zinc-200 bg-white p-2.5 text-sm text-zinc-900 outline-none focus:border-zinc-500"
       />
 
-      {/* Orange Crazy Tea Option */}
-      <label className="mt-3 relative flex cursor-pointer items-start gap-3 overflow-hidden rounded-xl border border-orange-500/80 bg-gradient-to-br from-orange-500 via-amber-500 to-orange-600 p-3.5 shadow-lg shadow-orange-500/20 transition-all duration-300 hover:shadow-orange-500/30 hover:border-orange-400 group">
-        {/* Top subtle white shine highlight border */}
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/60 to-transparent" />
-        {/* Diagonal gloss reflection sheen */}
-        <div className="pointer-events-none absolute -inset-full top-0 block -rotate-45 bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-60 transition-opacity duration-500 group-hover:opacity-100" />
+      {/* Orange Crazy Tea Option (Pluggable: isolated from production to keep reviews free) */}
+      {ENABLE_PAID_CRAZY_TEA && (
+        <label className="mt-3 relative flex cursor-pointer items-start gap-3 overflow-hidden rounded-xl border border-orange-500/80 bg-gradient-to-br from-orange-500 via-amber-500 to-orange-600 p-3.5 shadow-lg shadow-orange-500/20 transition-all duration-300 hover:shadow-orange-500/30 hover:border-orange-400 group">
+          {/* Top subtle white shine highlight border */}
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/60 to-transparent" />
+          {/* Diagonal gloss reflection sheen */}
+          <div className="pointer-events-none absolute -inset-full top-0 block -rotate-45 bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-60 transition-opacity duration-500 group-hover:opacity-100" />
 
-        <input
-          type="checkbox"
-          checked={makeLegit}
-          onChange={(e) => setMakeLegit(e.target.checked)}
-          className="mt-0.5 h-4 w-4 rounded accent-orange-950 cursor-pointer"
-        />
-        <div className="relative min-w-0 flex-1">
-          <div className="flex items-center justify-between gap-2">
-            <span className="flex items-center gap-1.5 text-xs font-black text-white tracking-wide">
-              <span className="text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.8)]">☕</span>
-              <span>Spill Crazy Tea</span>
-            </span>
-            <span className="relative overflow-hidden rounded-full bg-black/25 border border-white/30 px-2.5 py-0.5 text-[10px] font-black tracking-wider text-white shadow-xs">
-              <span className="pointer-events-none absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-              ₹49
-            </span>
+          <input
+            type="checkbox"
+            checked={makeLegit}
+            onChange={(e) => setMakeLegit(e.target.checked)}
+            className="mt-0.5 h-4 w-4 rounded accent-orange-950 cursor-pointer"
+          />
+          <div className="relative min-w-0 flex-1">
+            <div className="flex items-center justify-between gap-2">
+              <span className="flex items-center gap-1.5 text-xs font-black text-white tracking-wide">
+                <span className="text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.8)]">☕</span>
+                <span>Spill Crazy Tea</span>
+              </span>
+              <span className="relative overflow-hidden rounded-full bg-black/25 border border-white/30 px-2.5 py-0.5 text-[10px] font-black tracking-wider text-white shadow-xs">
+                <span className="pointer-events-none absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+                ₹49
+              </span>
+            </div>
+            <p className="mt-0.5 text-[11px] leading-relaxed text-orange-50 font-medium">
+              Spill the real unfiltered tea. Pin your review right to the top with an exclusive Crazy Tea badge.
+            </p>
           </div>
-          <p className="mt-0.5 text-[11px] leading-relaxed text-orange-50 font-medium">
-            Spill the real unfiltered tea. Pin your review right to the top with an exclusive Crazy Tea badge.
-          </p>
-        </div>
-      </label>
+        </label>
+      )}
 
       <div className="mt-3 flex items-center justify-between gap-3">
         <span className={cn("text-[11px]", state === "error" ? "text-red-600" : "text-zinc-500")}>{message}</span>
@@ -1330,19 +1350,19 @@ function ReviewComposer({ configured, signedIn, onSignIn, onPublish }: {
             disabled={state === "locating" || body.trim().length < 8}
             className={cn(
               "relative overflow-hidden inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-4 text-xs font-bold text-white transition-all duration-200 disabled:opacity-50 group",
-              makeLegit
+              ENABLE_PAID_CRAZY_TEA && makeLegit
                 ? "bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 border border-orange-300/40 shadow-[inset_0_1px_1px_rgba(255,255,255,0.45),0_4px_14px_rgba(249,115,22,0.4)] hover:brightness-105 active:scale-[0.98]"
                 : "bg-zinc-950 border border-transparent hover:bg-zinc-800"
             )}
           >
-            {makeLegit && (
+            {ENABLE_PAID_CRAZY_TEA && makeLegit && (
               <>
                 <span className="pointer-events-none absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/70 to-transparent" />
                 <span className="pointer-events-none absolute -inset-full top-0 block -rotate-45 bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-60 group-hover:opacity-100 transition-opacity" />
               </>
             )}
             <Send className="relative z-10 h-3.5 w-3.5" />
-            <span className="relative z-10">{makeLegit ? "Spill Tea (₹49)" : "Publish"}</span>
+            <span className="relative z-10">{ENABLE_PAID_CRAZY_TEA && makeLegit ? "Spill Tea (₹49)" : "Publish"}</span>
           </button>
         </div>
       </div>

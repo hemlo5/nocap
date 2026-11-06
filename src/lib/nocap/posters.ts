@@ -120,3 +120,4 @@ export const POSTERS_DATA: PosterItem[] = [
       "Focused on late-night street lighting, poorly monitored alleys, and pedestrian walkability for women returning from late shifts or commutes across Bengaluru.",
   },
 ];
+
