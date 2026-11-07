@@ -19,6 +19,7 @@ export default function robots(): MetadataRoute.Robots {
           "/guides/",
           "/campaigns/",
           "/posters",
+          "/feedback",
           "/newsroom/",
           "/founder/",
           "/community-guidelines",

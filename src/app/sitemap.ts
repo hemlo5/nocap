@@ -7,6 +7,7 @@ const milestoneDate = new Date("2026-10-25T00:00:00+05:30");
 export default function sitemap(): MetadataRoute.Sitemap {
   const staticPaths = [
     ["", 1, "weekly"], ["/map", 0.9, "daily"], ["/bengaluru", 0.85, "weekly"],
+    ["/feedback", 0.8, "weekly"],
     ["/about", 0.7, "monthly"], ["/how-it-works", 0.7, "monthly"], ["/why-nocapblr", 0.7, "monthly"],
     ["/anonymous-reviews", 0.6, "monthly"], ["/community-guidelines", 0.5, "monthly"], ["/moderation-policy", 0.5, "monthly"],
     ["/report-content", 0.4, "monthly"], ["/contact", 0.4, "monthly"], ["/privacy", 0.3, "yearly"], ["/terms", 0.3, "yearly"],

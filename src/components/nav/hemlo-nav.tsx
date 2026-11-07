@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Briefcase, Compass, HelpCircle, Info, Map, Newspaper } from "lucide-react";
+import { Briefcase, Compass, HelpCircle, Info, Map, MessageSquarePlus, Newspaper } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 
 const linkBase = "group flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors";
@@ -13,6 +13,7 @@ export function HemloNav() {
   const isOpportunities = pathname.startsWith("/opportunities");
   const isWhatNocap = pathname.startsWith("/what-nocap") || pathname.startsWith("/why-nocap") || pathname.startsWith("/what-is-nocap") || pathname.startsWith("/how-it-works");
   const isAbout = pathname.startsWith("/about") || pathname.startsWith("/founder") || pathname.startsWith("/campaigns") || pathname.startsWith("/posters");
+  const isFeedback = pathname.startsWith("/feedback");
   const state = (active: boolean) => cn(linkBase, active ? "bg-zinc-950 text-white" : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-950");
 
   return (
@@ -26,6 +27,7 @@ export function HemloNav() {
           <Link href="/map" aria-current={isMap ? "page" : undefined} className={state(isMap)}><Map className="h-3.5 w-3.5" aria-hidden /><span>Map</span></Link>
           <Link href="/opportunities" aria-current={isOpportunities ? "page" : undefined} className={state(isOpportunities)}><Briefcase className="h-3.5 w-3.5" aria-hidden /><span>Opportunities</span></Link>
           <Link href="/guides" className="hidden sm:flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-950"><Compass className="h-3.5 w-3.5" aria-hidden /><span>Guides</span></Link>
+          <Link href="/feedback" aria-current={isFeedback ? "page" : undefined} className={state(isFeedback)}><MessageSquarePlus className="h-3.5 w-3.5" aria-hidden /><span>Feedback</span></Link>
         </nav>
         <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
           <Link href="/how-it-works" aria-current={isWhatNocap ? "page" : undefined} className={cn(state(isWhatNocap), "hidden md:flex")}><HelpCircle className="h-3.5 w-3.5" aria-hidden /><span>How it works</span></Link>
