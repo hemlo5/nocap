@@ -54,7 +54,10 @@ const organizationSchema = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en-IN" suppressHydrationWarning className={`${geistSans.variable} ${geistMono.variable} h-full min-h-full antialiased bg-[#F6F5F2]`}>
-      <head><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }} /></head>
+      <head>
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }} />
+        <script async src="https://news.google.com/swg/js/v1/publisher.js" />
+      </head>
       <body suppressHydrationWarning className="flex min-h-screen h-full flex-col bg-[#F6F5F2] text-[#18181B]">
         <GoogleAnalytics />
         <a href="#main-content" className="sr-only fixed left-4 top-4 z-[100] rounded-md bg-zinc-950 px-4 py-2 text-sm font-semibold text-white focus:not-sr-only">Skip to content</a>

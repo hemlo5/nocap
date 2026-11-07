@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, MapPin } from "lucide-react";
 import { SiteFooter } from "@/components/nav/site-footer";
+import { PreferredSourceBadge } from "@/components/site/preferred-source-badge";
 
 const siteUrl = "https://nocapblr.com";
 
@@ -41,6 +42,9 @@ export function PublicPage({ eyebrow, title, intro, sections, related = [] }: { 
               <div className="mt-4 grid gap-2">
                 <Link href="/map" className="inline-flex items-center justify-between border-b border-zinc-200 py-3 text-sm font-semibold text-zinc-950 hover:text-red-700"><span>Explore the Bengaluru map</span><MapPin className="h-4 w-4" /></Link>
                 {related.map((item) => <Link key={item.href} href={item.href} className="inline-flex items-center justify-between border-b border-zinc-200 py-3 text-sm font-semibold text-zinc-950 hover:text-red-700"><span>{item.label}</span><ArrowRight className="h-4 w-4" /></Link>)}
+              </div>
+              <div className="mt-6">
+                <PreferredSourceBadge variant="compact" />
               </div>
             </aside>
           </div>
