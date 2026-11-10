@@ -3,18 +3,19 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import { ChevronDown, CircleUserRound, HelpCircle, Loader2, LocateFixed, LogIn, LogOut, MapPin, Navigation, Pencil, Pin, Search, Send, Star, X, Sparkles } from "lucide-react";
+import { Camera, ChevronDown, CircleUserRound, HelpCircle, Loader2, LocateFixed, LogIn, LogOut, MapPin, Navigation, Pencil, Pin, Search, Send, Star, User, UserCheck, UserPlus, Users, X, Sparkles, ZoomIn } from "lucide-react";
 import type { NocapPlace, NocapPlaceCategory } from "@/lib/nocap/places";
-import type { NocapProfile, NocapReview, NocapUserPlace } from "@/lib/nocap/community";
+import type { NocapPersonNote, NocapProfile, NocapReview, NocapUserPlace } from "@/lib/nocap/community";
+import { uploadImageFile } from "@/lib/nocap/image-helper";
 import { createSupabaseBrowserClient, hasSupabaseBrowserConfig } from "@/lib/supabase/client";
 import { NocapMap, type NocapMapHandle } from "./nocap-map";
 import { NocapGuideModal } from "./nocap-guide-modal";
 import { cn } from "@/lib/utils/cn";
 import { trackEvent } from "@/lib/analytics/gtag";
 
-type PlaceDetail = { place: NocapPlace; reviews: NocapReview[]; status: "ready"; supabaseConfigured: boolean };
+type PlaceDetail = { place: NocapPlace; reviews: NocapReview[]; personNotes?: NocapPersonNote[]; status: "ready"; supabaseConfigured: boolean };
 
-type UserPlaceDetail = { place: NocapUserPlace; reviews: NocapReview[]; supabaseConfigured: boolean };
+type UserPlaceDetail = { place: NocapUserPlace; reviews: NocapReview[]; personNotes?: NocapPersonNote[]; supabaseConfigured: boolean };
 
 const filters: Array<{ id: "all" | NocapPlaceCategory; label: string }> = [
   { id: "all", label: "All" },
@@ -75,6 +76,7 @@ export function NocapApp() {
   const [places, setPlaces] = useState<NocapPlace[]>([]);
   const [userPlaces, setUserPlaces] = useState<NocapUserPlace[]>([]);
   const [reviews, setReviews] = useState<NocapReview[]>([]);
+  const [personNotes, setPersonNotes] = useState<NocapPersonNote[]>([]);
   const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<(typeof filters)[number]["id"]>("all");
@@ -181,6 +183,7 @@ export function NocapApp() {
       setPlaces(data.places ?? []);
       setUserPlaces(data.userPlaces ?? []);
       setReviews(data.reviews ?? []);
+      if (Array.isArray(data.personNotes)) setPersonNotes(data.personNotes);
       setSupabaseConfigured(Boolean(data.supabaseConfigured));
     }).finally(() => !cancelled && setLoading(false));
     return () => { cancelled = true; };
@@ -241,7 +244,7 @@ export function NocapApp() {
       if (!cancelled) setDetail(data);
     }).catch(() => !cancelled && setDetail(null));
     return () => { cancelled = true; };
-  }, [selectedPlaceId, reviews]);
+  }, [selectedPlaceId, reviews, personNotes]);
 
   // Fetch user-place detail
   useEffect(() => {
@@ -251,7 +254,7 @@ export function NocapApp() {
       if (!cancelled) setUserPlaceDetail(data);
     }).catch(() => !cancelled && setUserPlaceDetail(null));
     return () => { cancelled = true; };
-  }, [selectedUserPlaceId, reviews]);
+  }, [selectedUserPlaceId, reviews, personNotes]);
 
   const visiblePlaces = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -415,7 +418,7 @@ export function NocapApp() {
     setProfileOpen(false);
   }
 
-  async function publishReview(input: { body: string; rating: number | null; placeId?: string; userPlaceId?: string; makeLegit?: boolean }) {
+  async function publishReview(input: { body: string; rating: number | null; imageUrl?: string | null; placeId?: string; userPlaceId?: string; makeLegit?: boolean }) {
     if (!accessToken) throw new Error("Sign in with Google before publishing.");
     let lat: number | undefined = userLocation?.lat;
     let lng: number | undefined = userLocation?.lng;
@@ -475,6 +478,7 @@ export function NocapApp() {
         userPlaceId: upid,
         body: input.body,
         rating: input.rating,
+        imageUrl: input.imageUrl,
         latitude: lat,
         longitude: lng,
         accuracyMeters: accuracy,
@@ -488,6 +492,42 @@ export function NocapApp() {
       is_legit_requested: false,
     });
     setReviews((current) => [data.review, ...current.filter((review) => review.id !== data.review.id)]);
+  }
+
+  async function publishPersonNote(input: { personName: string; description: string; photoUrl?: string | null; placeId?: string; userPlaceId?: string }) {
+    if (!accessToken) throw new Error("Sign in with Google before publishing.");
+    const pid = input.placeId ?? selectedPlace?.id;
+    const upid = input.userPlaceId ?? selectedUserPlace?.id;
+    if (!pid && !upid) throw new Error("No place selected.");
+
+    const response = await fetch("/api/nocap/person-notes", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      },
+      body: JSON.stringify({
+        placeId: pid,
+        userPlaceId: upid,
+        personName: input.personName,
+        description: input.description,
+        photoUrl: input.photoUrl,
+      }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error ?? "Could not publish person note.");
+    trackEvent("publish_person_note", {
+      place_id: pid ?? upid,
+      person_name: input.personName,
+    });
+    const newNote = data.personNote as NocapPersonNote;
+    setPersonNotes((prev) => [newNote, ...prev.filter((p) => p.id !== newNote.id)]);
+    if (detail && detail.place.id === pid) {
+      setDetail((curr) => curr ? { ...curr, personNotes: [newNote, ...(curr.personNotes ?? []).filter((p) => p.id !== newNote.id)] } : null);
+    }
+    if (userPlaceDetail && userPlaceDetail.place.id === upid) {
+      setUserPlaceDetail((curr) => curr ? { ...curr, personNotes: [newNote, ...(curr.personNotes ?? []).filter((p) => p.id !== newNote.id)] } : null);
+    }
   }
 
   // ── "Write a NoCap" button handler ──────────────────────────────────────
@@ -677,6 +717,7 @@ export function NocapApp() {
     configured: supabaseConfigured,
     onSignIn: signIn,
     onPublish: publishReview,
+    onPublishPersonNote: publishPersonNote,
   };
 
   const hasSelection = Boolean(selectedPlace || selectedUserPlace);
@@ -1100,73 +1141,423 @@ function AccountButton({ configured, profile, onSignIn, onOpenProfile }: { confi
     : <button type="button" onClick={onSignIn} className="inline-flex h-8 items-center gap-1.5 rounded-md bg-zinc-950 px-2.5 text-[11px] font-bold text-white"><LogIn className="h-3.5 w-3.5" />Join</button>;
 }
 
-function PlacePanel({ place, detail, signedIn, configured, onSignIn, onPublish }: {
+function PlacePanel({ place, detail, signedIn, configured, onSignIn, onPublish, onPublishPersonNote }: {
   place: NocapPlace; detail: PlaceDetail | null; signedIn: boolean; configured: boolean;
-  onSignIn: () => void; onPublish: (input: { body: string; rating: number | null; placeId?: string; makeLegit?: boolean }) => Promise<void>;
+  onSignIn: () => void;
+  onPublish: (input: { body: string; rating: number | null; imageUrl?: string | null; placeId?: string; makeLegit?: boolean }) => Promise<void>;
+  onPublishPersonNote: (input: { placeId?: string; userPlaceId?: string; personName: string; description: string; photoUrl?: string | null }) => Promise<void>;
 }) {
   const reviews = detail?.reviews ?? [];
-  return <div className="flex h-full min-h-[34dvh] flex-col">
-    <div className="border-b border-zinc-200 px-5 py-5">
-      <div className="flex items-center gap-3">
-        <img src={`/api/nocap/place-image/${place.id}`} alt="" className="h-12 w-12 shrink-0 rounded-lg object-cover" />
-        <div className="min-w-0">
-          <span className="text-[11px] font-bold uppercase text-zinc-500">{getCategoryName(place.category)}</span>
-          <h1 className="mt-0.5 text-lg font-black tracking-tight leading-tight">{place.name}</h1>
+  const personNotes = detail?.personNotes ?? [];
+  const [activeTab, setActiveTab] = useState<"all" | "reviews" | "people">("all");
+  const [composerMode, setComposerMode] = useState<"review" | "person">("review");
+  const [lightbox, setLightbox] = useState<{ url: string; caption?: string } | null>(null);
+
+  const totalCount = reviews.length + personNotes.length;
+
+  return (
+    <div className="flex h-full min-h-[34dvh] flex-col">
+      {lightbox && <ImageLightbox url={lightbox.url} caption={lightbox.caption} onClose={() => setLightbox(null)} />}
+
+      <div className="border-b border-zinc-200 px-5 py-5">
+        <div className="flex items-center gap-3">
+          <img src={`/api/nocap/place-image/${place.id}`} alt="" className="h-12 w-12 shrink-0 rounded-lg object-cover" />
+          <div className="min-w-0">
+            <span className="text-[11px] font-bold uppercase text-zinc-500">{getCategoryName(place.category)}</span>
+            <h1 className="mt-0.5 text-lg font-black tracking-tight leading-tight">{place.name}</h1>
+          </div>
+        </div>
+        <p className="mt-2 flex items-center gap-1.5 text-xs text-zinc-500"><MapPin className="h-3.5 w-3.5" />{place.address}</p>
+        <p className="mt-3 text-xs font-medium text-zinc-600">
+          {totalCount
+            ? `${reviews.length} ${reviews.length === 1 ? "review/note" : "reviews/notes"}${personNotes.length ? ` · ${personNotes.length} ${personNotes.length === 1 ? "person noted" : "people noted"}` : ""}`
+            : "Be the first local to share a review, note, or person spotlight."}
+        </p>
+
+        {/* Tab filters */}
+        <div className="mt-4 flex items-center gap-1.5 overflow-x-auto">
+          <button
+            type="button"
+            onClick={() => setActiveTab("all")}
+            className={cn(
+              "rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors",
+              activeTab === "all" ? "bg-zinc-950 text-white" : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
+            )}
+          >
+            All ({totalCount})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("reviews")}
+            className={cn(
+              "rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors",
+              activeTab === "reviews" ? "bg-zinc-950 text-white" : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
+            )}
+          >
+            Reviews & Notes ({reviews.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("people")}
+            className={cn(
+              "rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors flex items-center gap-1",
+              activeTab === "people" ? "bg-amber-900 text-white" : "bg-amber-100/70 text-amber-900 hover:bg-amber-200/80"
+            )}
+          >
+            <User className="h-3 w-3" />
+            People ({personNotes.length})
+          </button>
         </div>
       </div>
-      <p className="mt-2 flex items-center gap-1.5 text-xs text-zinc-500"><MapPin className="h-3.5 w-3.5" />{place.address}</p>
-      <p className="mt-3 text-xs font-medium text-zinc-600">{reviews.length ? `${reviews.length} local ${reviews.length === 1 ? "review" : "reviews"}` : "Be the first local to share a review or note."}</p>
+
+      <div className="min-h-0 flex-1 overflow-y-auto p-4">
+        {/* Toggle between writing a review/note or noting a person */}
+        <div className="mb-3 flex items-center rounded-xl bg-zinc-100 p-1">
+          <button
+            type="button"
+            onClick={() => setComposerMode("review")}
+            className={cn(
+              "flex-1 rounded-lg py-1.5 text-xs font-bold transition-all text-center flex items-center justify-center gap-1.5",
+              composerMode === "review" ? "bg-white text-zinc-950 shadow-2xs" : "text-zinc-600 hover:text-zinc-950"
+            )}
+          >
+            <Pencil className="h-3.5 w-3.5" />
+            <span>Review / Note</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setComposerMode("person")}
+            className={cn(
+              "flex-1 rounded-lg py-1.5 text-xs font-bold transition-all text-center flex items-center justify-center gap-1.5",
+              composerMode === "person" ? "bg-white text-amber-950 shadow-2xs" : "text-zinc-600 hover:text-amber-950"
+            )}
+          >
+            <UserPlus className="h-3.5 w-3.5 text-amber-700" />
+            <span>Note a Person</span>
+          </button>
+        </div>
+
+        {composerMode === "review" ? (
+          <ReviewComposer
+            key={place.id}
+            configured={configured}
+            signedIn={signedIn}
+            onSignIn={onSignIn}
+            onPublish={(input) => onPublish({ ...input, placeId: place.id })}
+          />
+        ) : (
+          <PersonNoteComposer
+            key={`person-${place.id}`}
+            placeName={place.name}
+            configured={configured}
+            signedIn={signedIn}
+            onSignIn={onSignIn}
+            onPublish={(input) => onPublishPersonNote({ ...input, placeId: place.id })}
+          />
+        )}
+
+        {detail === null ? (
+          <EvidenceSkeleton />
+        ) : (
+          <div className="mt-4 space-y-3">
+            {activeTab === "people" ? (
+              personNotes.length ? (
+                personNotes.map((note) => (
+                  <PersonNoteCard
+                    key={note.id}
+                    note={note}
+                    onViewPhoto={(url, caption) => setLightbox({ url, caption })}
+                  />
+                ))
+              ) : (
+                <div className="rounded-md border border-dashed border-amber-200 bg-amber-50/50 p-5 text-center">
+                  <UserPlus className="mx-auto h-5 w-5 text-amber-600" />
+                  <h2 className="mt-2 text-sm font-bold text-amber-950">No people noted here yet.</h2>
+                  <p className="mt-1 text-xs text-amber-800">
+                    Know a chef, barista, or iconic character here? Click &ldquo;Note a Person&rdquo; above!
+                  </p>
+                </div>
+              )
+            ) : activeTab === "reviews" ? (
+              reviews.length ? (
+                reviews.map((review) => (
+                  <ReviewCard
+                    key={review.id}
+                    review={review}
+                    onViewPhoto={(url, caption) => setLightbox({ url, caption })}
+                  />
+                ))
+              ) : (
+                <div className="rounded-md border border-dashed border-zinc-300 bg-zinc-50 p-5">
+                  <CircleUserRound className="h-5 w-5 text-zinc-400" />
+                  <h2 className="mt-3 text-sm font-bold">No local reviews here yet.</h2>
+                  <p className="mt-1 text-xs leading-5 text-zinc-500">Be the first to drop an honest NoCap review here.</p>
+                </div>
+              )
+            ) : (
+              // All items
+              <>
+                {personNotes.map((note) => (
+                  <PersonNoteCard
+                    key={note.id}
+                    note={note}
+                    onViewPhoto={(url, caption) => setLightbox({ url, caption })}
+                  />
+                ))}
+                {reviews.map((review) => (
+                  <ReviewCard
+                    key={review.id}
+                    review={review}
+                    onViewPhoto={(url, caption) => setLightbox({ url, caption })}
+                  />
+                ))}
+                {!totalCount && (
+                  <div className="rounded-md border border-dashed border-zinc-300 bg-zinc-50 p-5">
+                    <CircleUserRound className="h-5 w-5 text-zinc-400" />
+                    <h2 className="mt-3 text-sm font-bold">No local reviews or notes here yet.</h2>
+                    <p className="mt-1 text-xs leading-5 text-zinc-500">Be the first to drop an honest take or note someone here.</p>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+      </div>
     </div>
-    <div className="min-h-0 flex-1 overflow-y-auto p-4">
-      <ReviewComposer key={place.id} configured={configured} signedIn={signedIn} onSignIn={onSignIn} onPublish={(input) => onPublish({ ...input, placeId: place.id })} />
-      {detail === null ? <EvidenceSkeleton /> : reviews.length ? <div className="mt-4 space-y-3">{reviews.map((review) => <ReviewCard key={review.id} review={review} />)}</div> : <div className="mt-4 rounded-md border border-dashed border-zinc-300 bg-zinc-50 p-5"><CircleUserRound className="h-5 w-5 text-zinc-400" /><h2 className="mt-3 text-sm font-bold">No local reviews here yet.</h2><p className="mt-1 text-xs leading-5 text-zinc-500">Be the first to drop an honest NoCap review here.</p></div>}
-    </div>
-  </div>;
+  );
 }
 
-function UserPlacePanel({ place, detail, signedIn, configured, onSignIn, onPublish }: {
+function UserPlacePanel({ place, detail, signedIn, configured, onSignIn, onPublish, onPublishPersonNote }: {
   place: NocapUserPlace; detail: UserPlaceDetail | null; signedIn: boolean; configured: boolean;
-  onSignIn: () => void; onPublish: (input: { body: string; rating: number | null; userPlaceId?: string; makeLegit?: boolean }) => Promise<void>;
+  onSignIn: () => void;
+  onPublish: (input: { body: string; rating: number | null; imageUrl?: string | null; userPlaceId?: string; makeLegit?: boolean }) => Promise<void>;
+  onPublishPersonNote: (input: { placeId?: string; userPlaceId?: string; personName: string; description: string; photoUrl?: string | null }) => Promise<void>;
 }) {
   const reviews = detail?.reviews ?? [];
-  return <div className="flex h-full min-h-[34dvh] flex-col">
-    <div className="border-b border-zinc-200 px-5 py-5">
-      <div className="flex items-center gap-3">
-        <span className="grid h-12 w-12 shrink-0 place-items-center rounded-lg bg-amber-100 text-lg font-black text-amber-700">U</span>
-        <div className="min-w-0">
-          <span className="text-[11px] font-bold uppercase text-amber-600">Community pin · {getCategoryName(place.category)}</span>
-          <h1 className="mt-0.5 text-lg font-black tracking-tight leading-tight">{place.name}</h1>
+  const personNotes = detail?.personNotes ?? [];
+  const [activeTab, setActiveTab] = useState<"all" | "reviews" | "people">("all");
+  const [composerMode, setComposerMode] = useState<"review" | "person">("review");
+  const [lightbox, setLightbox] = useState<{ url: string; caption?: string } | null>(null);
+
+  const totalCount = reviews.length + personNotes.length;
+
+  return (
+    <div className="flex h-full min-h-[34dvh] flex-col">
+      {lightbox && <ImageLightbox url={lightbox.url} caption={lightbox.caption} onClose={() => setLightbox(null)} />}
+
+      <div className="border-b border-zinc-200 px-5 py-5">
+        <div className="flex items-center gap-3">
+          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-lg bg-amber-100 text-lg font-black text-amber-700">U</span>
+          <div className="min-w-0">
+            <span className="text-[11px] font-bold uppercase text-amber-600">Community pin · {getCategoryName(place.category)}</span>
+            <h1 className="mt-0.5 text-lg font-black tracking-tight leading-tight">{place.name}</h1>
+          </div>
+        </div>
+        {place.address && <p className="mt-2 flex items-center gap-1.5 text-xs text-zinc-500"><MapPin className="h-3.5 w-3.5" />{place.address}</p>}
+        <p className="mt-1 text-[11px] text-zinc-400">Pinned by {place.profile.displayName}</p>
+        <p className="mt-3 text-xs font-medium text-zinc-600">
+          {totalCount
+            ? `${reviews.length} ${reviews.length === 1 ? "review/note" : "reviews/notes"}${personNotes.length ? ` · ${personNotes.length} ${personNotes.length === 1 ? "person noted" : "people noted"}` : ""}`
+            : "Be the first to review this spot or note someone here."}
+        </p>
+
+        {/* Tab filters */}
+        <div className="mt-4 flex items-center gap-1.5 overflow-x-auto">
+          <button
+            type="button"
+            onClick={() => setActiveTab("all")}
+            className={cn(
+              "rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors",
+              activeTab === "all" ? "bg-zinc-950 text-white" : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
+            )}
+          >
+            All ({totalCount})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("reviews")}
+            className={cn(
+              "rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors",
+              activeTab === "reviews" ? "bg-zinc-950 text-white" : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
+            )}
+          >
+            Reviews & Notes ({reviews.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("people")}
+            className={cn(
+              "rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors flex items-center gap-1",
+              activeTab === "people" ? "bg-amber-900 text-white" : "bg-amber-100/70 text-amber-900 hover:bg-amber-200/80"
+            )}
+          >
+            <User className="h-3 w-3" />
+            People ({personNotes.length})
+          </button>
         </div>
       </div>
-      {place.address && <p className="mt-2 flex items-center gap-1.5 text-xs text-zinc-500"><MapPin className="h-3.5 w-3.5" />{place.address}</p>}
-      <p className="mt-1 text-[11px] text-zinc-400">Pinned by {place.profile.displayName}</p>
-      <p className="mt-3 text-xs font-medium text-zinc-600">{reviews.length ? `${reviews.length} local ${reviews.length === 1 ? "review" : "reviews"}` : "Be the first to review this spot."}</p>
+
+      <div className="min-h-0 flex-1 overflow-y-auto p-4">
+        {/* Toggle between writing a review/note or noting a person */}
+        <div className="mb-3 flex items-center rounded-xl bg-zinc-100 p-1">
+          <button
+            type="button"
+            onClick={() => setComposerMode("review")}
+            className={cn(
+              "flex-1 rounded-lg py-1.5 text-xs font-bold transition-all text-center flex items-center justify-center gap-1.5",
+              composerMode === "review" ? "bg-white text-zinc-950 shadow-2xs" : "text-zinc-600 hover:text-zinc-950"
+            )}
+          >
+            <Pencil className="h-3.5 w-3.5" />
+            <span>Review / Note</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setComposerMode("person")}
+            className={cn(
+              "flex-1 rounded-lg py-1.5 text-xs font-bold transition-all text-center flex items-center justify-center gap-1.5",
+              composerMode === "person" ? "bg-white text-amber-950 shadow-2xs" : "text-zinc-600 hover:text-amber-950"
+            )}
+          >
+            <UserPlus className="h-3.5 w-3.5 text-amber-700" />
+            <span>Note a Person</span>
+          </button>
+        </div>
+
+        {composerMode === "review" ? (
+          <ReviewComposer
+            key={place.id}
+            configured={configured}
+            signedIn={signedIn}
+            onSignIn={onSignIn}
+            onPublish={(input) => onPublish({ ...input, userPlaceId: place.id })}
+          />
+        ) : (
+          <PersonNoteComposer
+            key={`person-${place.id}`}
+            placeName={place.name}
+            configured={configured}
+            signedIn={signedIn}
+            onSignIn={onSignIn}
+            onPublish={(input) => onPublishPersonNote({ ...input, userPlaceId: place.id })}
+          />
+        )}
+
+        {detail === null ? (
+          <EvidenceSkeleton />
+        ) : (
+          <div className="mt-4 space-y-3">
+            {activeTab === "people" ? (
+              personNotes.length ? (
+                personNotes.map((note) => (
+                  <PersonNoteCard
+                    key={note.id}
+                    note={note}
+                    onViewPhoto={(url, caption) => setLightbox({ url, caption })}
+                  />
+                ))
+              ) : (
+                <div className="rounded-md border border-dashed border-amber-200 bg-amber-50/50 p-5 text-center">
+                  <UserPlus className="mx-auto h-5 w-5 text-amber-600" />
+                  <h2 className="mt-2 text-sm font-bold text-amber-950">No people noted here yet.</h2>
+                  <p className="mt-1 text-xs text-amber-800">
+                    Know a friendly face or person here? Click &ldquo;Note a Person&rdquo; above!
+                  </p>
+                </div>
+              )
+            ) : activeTab === "reviews" ? (
+              reviews.length ? (
+                reviews.map((review) => (
+                  <ReviewCard
+                    key={review.id}
+                    review={review}
+                    onViewPhoto={(url, caption) => setLightbox({ url, caption })}
+                  />
+                ))
+              ) : (
+                <div className="rounded-md border border-dashed border-zinc-300 bg-zinc-50 p-5">
+                  <CircleUserRound className="h-5 w-5 text-zinc-400" />
+                  <h2 className="mt-3 text-sm font-bold">No reviews yet.</h2>
+                  <p className="mt-1 text-xs leading-5 text-zinc-500">Be the first to drop a NoCap here.</p>
+                </div>
+              )
+            ) : (
+              // All items
+              <>
+                {personNotes.map((note) => (
+                  <PersonNoteCard
+                    key={note.id}
+                    note={note}
+                    onViewPhoto={(url, caption) => setLightbox({ url, caption })}
+                  />
+                ))}
+                {reviews.map((review) => (
+                  <ReviewCard
+                    key={review.id}
+                    review={review}
+                    onViewPhoto={(url, caption) => setLightbox({ url, caption })}
+                  />
+                ))}
+                {!totalCount && (
+                  <div className="rounded-md border border-dashed border-zinc-300 bg-zinc-50 p-5">
+                    <CircleUserRound className="h-5 w-5 text-zinc-400" />
+                    <h2 className="mt-3 text-sm font-bold">No reviews or notes yet.</h2>
+                    <p className="mt-1 text-xs leading-5 text-zinc-500">Be the first to drop a NoCap or note someone here.</p>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+      </div>
     </div>
-    <div className="min-h-0 flex-1 overflow-y-auto p-4">
-      <ReviewComposer key={place.id} configured={configured} signedIn={signedIn} onSignIn={onSignIn} onPublish={(input) => onPublish({ ...input, userPlaceId: place.id })} />
-      {detail === null ? <EvidenceSkeleton /> : reviews.length ? <div className="mt-4 space-y-3">{reviews.map((review) => <ReviewCard key={review.id} review={review} />)}</div> : <div className="mt-4 rounded-md border border-dashed border-zinc-300 bg-zinc-50 p-5"><CircleUserRound className="h-5 w-5 text-zinc-400" /><h2 className="mt-3 text-sm font-bold">No reviews yet.</h2><p className="mt-1 text-xs leading-5 text-zinc-500">Be the first to drop a NoCap here.</p></div>}
-    </div>
-  </div>;
+  );
 }
 
 function ReviewComposer({ configured, signedIn, onSignIn, onPublish }: {
   configured: boolean; signedIn: boolean; onSignIn: () => void;
-  onPublish: (input: { body: string; rating: number | null; makeLegit?: boolean }) => Promise<void>;
+  onPublish: (input: { body: string; rating: number | null; imageUrl?: string | null; makeLegit?: boolean }) => Promise<void>;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [body, setBody] = useState("");
   const [rating, setRating] = useState<number | null>(5);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [imageUploading, setImageUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [makeLegit, setMakeLegit] = useState(false);
   const [state, setState] = useState<"idle" | "locating" | "error">("idle");
   const [message, setMessage] = useState("");
+
+  async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setMessage("Please choose an image file (PNG, JPG, WebP).");
+      return;
+    }
+    setImageUploading(true);
+    setMessage("Processing photo…");
+    try {
+      const url = await uploadImageFile(file);
+      setImageUrl(url);
+      setMessage("");
+    } catch (err) {
+      console.error("Image upload failed:", err);
+      setMessage("Could not attach image.");
+    } finally {
+      setImageUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     setState("locating");
     setMessage(ENABLE_PAID_CRAZY_TEA && makeLegit ? "Opening UPI checkout…" : "Publishing your review…");
     try {
-      await onPublish({ body, rating, makeLegit: ENABLE_PAID_CRAZY_TEA && makeLegit });
+      await onPublish({ body, rating, imageUrl, makeLegit: ENABLE_PAID_CRAZY_TEA && makeLegit });
       setBody("");
+      setImageUrl(null);
       setState("idle");
       setMessage(ENABLE_PAID_CRAZY_TEA && makeLegit ? "☕ Crazy Tea review published!" : "Review published successfully.");
       if (makeLegit) {
@@ -1229,13 +1620,13 @@ function ReviewComposer({ configured, signedIn, onSignIn, onPublish }: {
                 {signedIn
                   ? ENABLE_PAID_CRAZY_TEA
                     ? "Drop a review or pin tea to the top (₹49)"
-                    : "Drop a review with your honest local take"
+                    : "Drop a review or note with optional photo"
                   : "Sign in with Google to write"}
               </p>
             </div>
           </div>
           <span className="shrink-0 rounded-lg bg-zinc-950 text-white group-hover:bg-zinc-800 px-3 py-1.5 text-xs font-bold transition-colors">
-            {signedIn ? "Write" : "Sign In"}
+            {signedIn ? "Write Note" : "Sign In"}
           </span>
         </button>
       </div>
@@ -1301,12 +1692,58 @@ function ReviewComposer({ configured, signedIn, onSignIn, onPublish }: {
         className="mt-2.5 min-h-20 w-full resize-y rounded-lg border border-zinc-200 bg-white p-2.5 text-sm text-zinc-900 outline-none focus:border-zinc-500"
       />
 
-      {/* Orange Crazy Tea Option (Pluggable: isolated from production to keep reviews free) */}
+      {/* Image attachment file input & preview */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleFileChange}
+        className="hidden"
+      />
+
+      {imageUrl ? (
+        <div className="relative mt-2.5 inline-block group">
+          <img
+            src={imageUrl}
+            alt="Attached photo"
+            className="h-20 w-28 sm:h-24 sm:w-36 rounded-lg object-cover border border-zinc-200 shadow-2xs"
+          />
+          <button
+            type="button"
+            onClick={() => setImageUrl(null)}
+            className="absolute -top-1.5 -right-1.5 grid h-5 w-5 place-items-center rounded-full bg-zinc-900 text-white hover:bg-red-600 transition-colors shadow-xs"
+            title="Remove image"
+          >
+            <X className="h-3 w-3" />
+          </button>
+        </div>
+      ) : (
+        <div className="mt-2.5 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={imageUploading}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-zinc-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-zinc-600 hover:border-zinc-400 hover:bg-zinc-50 hover:text-zinc-900 transition-colors"
+          >
+            {imageUploading ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-zinc-500" />
+                <span>Processing photo…</span>
+              </>
+            ) : (
+              <>
+                <Camera className="h-3.5 w-3.5 text-zinc-500" />
+                <span>Add photo to note</span>
+              </>
+            )}
+          </button>
+        </div>
+      )}
+
+      {/* Orange Crazy Tea Option */}
       {ENABLE_PAID_CRAZY_TEA && (
         <label className="mt-3 relative flex cursor-pointer items-start gap-3 overflow-hidden rounded-xl border border-orange-500/80 bg-gradient-to-br from-orange-500 via-amber-500 to-orange-600 p-3.5 shadow-lg shadow-orange-500/20 transition-all duration-300 hover:shadow-orange-500/30 hover:border-orange-400 group">
-          {/* Top subtle white shine highlight border */}
           <div className="pointer-events-none absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/60 to-transparent" />
-          {/* Diagonal gloss reflection sheen */}
           <div className="pointer-events-none absolute -inset-full top-0 block -rotate-45 bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-60 transition-opacity duration-500 group-hover:opacity-100" />
 
           <input
@@ -1370,7 +1807,253 @@ function ReviewComposer({ configured, signedIn, onSignIn, onPublish }: {
   );
 }
 
-function ReviewCard({ review }: { review: NocapReview }) {
+function PersonNoteComposer({
+  configured,
+  signedIn,
+  placeName,
+  onSignIn,
+  onPublish,
+}: {
+  configured: boolean;
+  signedIn: boolean;
+  placeName: string;
+  onSignIn: () => void;
+  onPublish: (input: { personName: string; description: string; photoUrl?: string | null }) => Promise<void>;
+}) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [personName, setPersonName] = useState("");
+  const [description, setDescription] = useState("");
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [state, setState] = useState<"idle" | "submitting" | "error">("idle");
+  const [message, setMessage] = useState("");
+
+  async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setMessage("Please choose an image file (PNG, JPG, WebP).");
+      return;
+    }
+    setPhotoUploading(true);
+    setMessage("Processing photo…");
+    try {
+      const url = await uploadImageFile(file);
+      setPhotoUrl(url);
+      setMessage("");
+    } catch (err) {
+      console.error("Person photo upload failed:", err);
+      setMessage("Could not attach photo.");
+    } finally {
+      setPhotoUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    if (personName.trim().length < 2) {
+      setState("error");
+      setMessage("Please enter person's name (at least 2 letters).");
+      return;
+    }
+    if (description.trim().length < 3) {
+      setState("error");
+      setMessage("Please enter a short note about them.");
+      return;
+    }
+    setState("submitting");
+    setMessage("Saving person note…");
+    try {
+      await onPublish({ personName, description, photoUrl });
+      setPersonName("");
+      setDescription("");
+      setPhotoUrl(null);
+      setState("idle");
+      setMessage("✨ Note about this person added!");
+      setTimeout(() => {
+        setIsExpanded(false);
+        setMessage("");
+      }, 1500);
+    } catch (err) {
+      setState("error");
+      setMessage(err instanceof Error ? err.message : "Could not post person note.");
+    }
+  }
+
+  if (!isExpanded) {
+    return (
+      <div className="mb-3.5">
+        <button
+          type="button"
+          onClick={() => {
+            if (!signedIn) {
+              onSignIn();
+            } else {
+              setIsExpanded(true);
+            }
+          }}
+          className="group flex w-full items-center justify-between rounded-xl border border-amber-200/90 bg-gradient-to-br from-amber-50/70 via-white to-orange-50/40 p-2.5 sm:p-3 text-left shadow-2xs hover:border-amber-300 hover:shadow-xs active:scale-[0.99] transition-all"
+        >
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <div className="grid h-8 w-8 sm:h-9 sm:w-9 shrink-0 place-items-center rounded-xl border border-amber-300 bg-amber-100 text-amber-900 group-hover:bg-amber-950 group-hover:text-white group-hover:border-amber-950 transition-colors">
+              <UserPlus className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-bold text-zinc-900 group-hover:text-black">Note someone here</span>
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-200/60 border border-amber-300/80 px-2 py-0.2 text-[10px] font-black text-amber-900">
+                  👤 People
+                </span>
+              </div>
+              <p className="text-[11px] text-zinc-500 truncate mt-0.5">
+                Spotlight a chef, friendly barista, guard, or local character
+              </p>
+            </div>
+          </div>
+          <span className="shrink-0 rounded-lg bg-amber-900 text-white group-hover:bg-amber-950 px-3 py-1.5 text-xs font-bold transition-colors">
+            {signedIn ? "+ Note Person" : "Sign In"}
+          </span>
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={submit} className="mb-4 rounded-xl border border-amber-200 bg-amber-50/40 p-3.5 shadow-2xs">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold text-amber-950">Spotlight a Person</span>
+          <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 border border-amber-200 px-2 py-0.5 text-[10px] font-bold text-amber-900">
+            at {placeName}
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            setIsExpanded(false);
+            setMessage("");
+          }}
+          className="grid h-6 w-6 place-items-center rounded-md text-zinc-400 hover:bg-zinc-200/70 hover:text-zinc-700 transition-colors"
+          title="Close person note form"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
+      {/* Field 1: Name & Role */}
+      <div className="mt-3">
+        <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-600">
+          Person&apos;s Name & Role <span className="text-red-500">*</span>
+        </label>
+        <input
+          type="text"
+          value={personName}
+          onChange={(e) => setPersonName(e.target.value)}
+          required
+          maxLength={100}
+          placeholder="e.g. Anand (Head Waiter), Suresh the Dosa Master..."
+          className="mt-1 w-full rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs text-zinc-900 outline-none focus:border-amber-500"
+        />
+      </div>
+
+      {/* Field 2: Description */}
+      <div className="mt-2.5">
+        <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-600">
+          Description & Story <span className="text-red-500">*</span>
+        </label>
+        <textarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          required
+          minLength={3}
+          maxLength={1500}
+          placeholder="Why are they special? What do they do? Share helpful context, their vibe, or tips about them..."
+          className="mt-1 min-h-18 w-full resize-y rounded-lg border border-zinc-200 bg-white p-2.5 text-xs text-zinc-900 outline-none focus:border-amber-500"
+        />
+      </div>
+
+      {/* Field 3: Photo */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleFileChange}
+        className="hidden"
+      />
+
+      <div className="mt-2.5">
+        <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-600">
+          Photo of this person / spot <span className="text-zinc-400 font-normal">(recommended)</span>
+        </label>
+
+        {photoUrl ? (
+          <div className="relative mt-1.5 inline-block group">
+            <img
+              src={photoUrl}
+              alt="Person preview"
+              className="h-20 w-24 sm:h-24 sm:w-28 rounded-lg object-cover border border-amber-300 shadow-2xs"
+            />
+            <button
+              type="button"
+              onClick={() => setPhotoUrl(null)}
+              className="absolute -top-1.5 -right-1.5 grid h-5 w-5 place-items-center rounded-full bg-zinc-900 text-white hover:bg-red-600 transition-colors shadow-xs"
+              title="Remove photo"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={photoUploading}
+            className="mt-1.5 inline-flex items-center gap-1.5 rounded-lg border border-dashed border-amber-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-amber-900 hover:border-amber-400 hover:bg-amber-50 transition-colors"
+          >
+            {photoUploading ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-amber-600" />
+                <span>Processing photo…</span>
+              </>
+            ) : (
+              <>
+                <Camera className="h-3.5 w-3.5 text-amber-700" />
+                <span>Upload photo of person</span>
+              </>
+            )}
+          </button>
+        )}
+      </div>
+
+      <div className="mt-3 flex items-center justify-between gap-3 border-t border-amber-200/60 pt-2.5">
+        <span className={cn("text-[11px]", state === "error" ? "text-red-600" : "text-amber-800")}>{message}</span>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setIsExpanded(false);
+              setMessage("");
+            }}
+            className="inline-flex h-8 items-center rounded-lg px-2.5 text-xs font-semibold text-zinc-600 hover:bg-zinc-200/60 hover:text-zinc-900 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={state === "submitting" || personName.trim().length < 2 || description.trim().length < 3}
+            className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg bg-amber-900 px-4 text-xs font-bold text-white hover:bg-amber-950 transition-all disabled:opacity-50"
+          >
+            <Send className="h-3.5 w-3.5" />
+            <span>Save Person Note</span>
+          </button>
+        </div>
+      </div>
+    </form>
+  );
+}
+
+function ReviewCard({ review, onViewPhoto }: { review: NocapReview; onViewPhoto?: (url: string, caption?: string) => void }) {
   return (
     <article
       className={cn(
@@ -1411,8 +2094,126 @@ function ReviewCard({ review }: { review: NocapReview }) {
           </div>
         </div>
       </div>
-      <p className="mt-2.5 text-sm leading-5 text-zinc-700">{review.body}</p>
+      <p className="mt-2.5 text-sm leading-5 text-zinc-700 whitespace-pre-line">{review.body}</p>
+
+      {/* Review Photo Attachment */}
+      {review.imageUrl && (
+        <div className="mt-3">
+          <button
+            type="button"
+            onClick={() => onViewPhoto?.(review.imageUrl!, `${review.profile.displayName}'s note photo`)}
+            className="group relative block overflow-hidden rounded-xl border border-zinc-200/90 bg-zinc-100 shadow-2xs hover:opacity-95 transition-opacity"
+          >
+            <img
+              src={review.imageUrl}
+              alt="Photo attached to note"
+              className="max-h-60 w-auto rounded-xl object-cover transition-transform duration-200 group-hover:scale-[1.01]"
+              loading="lazy"
+            />
+            <div className="absolute bottom-2 right-2 flex items-center gap-1 rounded-md bg-black/60 px-2 py-0.5 text-[10px] font-semibold text-white backdrop-blur-xs">
+              <ZoomIn className="h-3 w-3" />
+              <span>Click to expand</span>
+            </div>
+          </button>
+        </div>
+      )}
     </article>
+  );
+}
+
+function PersonNoteCard({
+  note,
+  onViewPhoto,
+}: {
+  note: NocapPersonNote;
+  onViewPhoto?: (url: string, caption?: string) => void;
+}) {
+  return (
+    <article className="rounded-xl border border-amber-200/90 bg-gradient-to-br from-amber-50/50 via-white to-orange-50/30 p-3.5 shadow-2xs">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="inline-flex items-center gap-1 rounded-full bg-amber-200/80 border border-amber-300 px-2 py-0.5 text-[10px] font-black text-amber-900">
+            <User className="h-3 w-3" />
+            Person Spotlight
+          </span>
+          <span className="text-[10px] text-zinc-400">· {timeLabel(note.updatedAt, note.id)}</span>
+        </div>
+      </div>
+
+      <div className="mt-3 flex gap-3 items-start">
+        {note.photoUrl ? (
+          <button
+            type="button"
+            onClick={() => onViewPhoto?.(note.photoUrl!, `${note.personName}`)}
+            className="group relative shrink-0 overflow-hidden rounded-xl border border-amber-200/80 bg-white shadow-2xs hover:opacity-90 transition-opacity"
+          >
+            <img
+              src={note.photoUrl}
+              alt={note.personName}
+              className="h-16 w-16 sm:h-20 sm:w-20 rounded-xl object-cover"
+              loading="lazy"
+            />
+            <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+              <ZoomIn className="h-4 w-4 text-white" />
+            </div>
+          </button>
+        ) : (
+          <div className="grid h-14 w-14 shrink-0 place-items-center rounded-xl border border-amber-200 bg-amber-100/70 text-amber-900">
+            <UserCheck className="h-6 w-6" />
+          </div>
+        )}
+
+        <div className="min-w-0 flex-1">
+          <h3 className="text-sm font-black text-zinc-950 leading-snug">{note.personName}</h3>
+          <p className="mt-1 text-xs leading-relaxed text-zinc-700 whitespace-pre-line">
+            {note.description}
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-3 flex items-center justify-between border-t border-amber-100 pt-2 text-[10px] text-zinc-400">
+        <div className="flex items-center gap-1.5 truncate">
+          <span className="font-semibold text-zinc-600">Noted by {note.profile.displayName || "Local Scout"}</span>
+        </div>
+        <span className="text-amber-700/80 font-medium">Bengaluru Local Community</span>
+      </div>
+    </article>
+  );
+}
+
+function ImageLightbox({ url, caption, onClose }: { url: string; caption?: string; onClose: () => void }) {
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  return (
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm animate-in fade-in duration-200"
+    >
+      <div onClick={(e) => e.stopPropagation()} className="relative max-h-[90vh] max-w-3xl">
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute -top-10 right-0 grid h-8 w-8 place-items-center rounded-full bg-white/20 text-white hover:bg-white/40 transition-colors"
+          title="Close photo"
+        >
+          <X className="h-5 w-5" />
+        </button>
+        <img
+          src={url}
+          alt={caption || "Expanded view"}
+          className="max-h-[80vh] w-auto rounded-2xl object-contain shadow-2xl"
+        />
+        {caption && (
+          <p className="mt-3 text-center text-xs font-semibold text-white/90">{caption}</p>
+        )}
+      </div>
+    </div>
   );
 }
 

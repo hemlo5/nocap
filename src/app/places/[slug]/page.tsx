@@ -21,6 +21,7 @@ import {
   findPlacesByArea,
 } from "@/lib/nocap/places";
 import { getArchivedPlaceReviews } from "@/lib/nocap/local-evidence";
+import { getArchivedPersonNotes } from "@/lib/nocap/person-notes";
 import { SiteFooter } from "@/components/nav/site-footer";
 
 type Props = {
@@ -88,6 +89,7 @@ export default async function PlacePage({ params }: Props) {
   }
 
   const reviews = await getArchivedPlaceReviews(place);
+  const personNotes = getArchivedPersonNotes(place.id);
   const mention = { author: "", permalink: "" };
   const areaSlug = slugifyArea(place.area);
   const nearbyPlaces = findPlacesByArea(areaSlug).filter((p) => p.id !== place.id);
@@ -242,6 +244,61 @@ export default async function PlacePage({ params }: Props) {
               <strong className="font-bold">Verified on-site policy:</strong> Reviews on NoCapBLR receive our trusted verified stamp when posted directly from this venue&apos;s coordinates. No PR agencies, no sponsored influencers.
             </div>
           </div>
+
+          {/* People at this Spot (Person Spotlights) */}
+          {personNotes.length > 0 && (
+            <div className="mt-8">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-xl font-bold tracking-tight text-zinc-950 flex items-center gap-2">
+                    <span>People at {place.name}</span>
+                    <span className="inline-flex items-center rounded-full bg-amber-100 border border-amber-300 px-2 py-0.5 text-[10px] font-black text-amber-900">
+                      Spotlight
+                    </span>
+                  </h2>
+                  <p className="text-xs text-zinc-500 mt-0.5">
+                    The chefs, baristas, curators, and characters who make this place legendary.
+                  </p>
+                </div>
+                <span className="text-xs font-bold bg-amber-100 text-amber-900 px-2.5 py-1 rounded-full">
+                  {personNotes.length} noted
+                </span>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                {personNotes.map((note) => (
+                  <div
+                    key={note.id}
+                    className="rounded-2xl border border-amber-200/90 bg-gradient-to-br from-amber-50/40 via-white to-orange-50/30 p-5 shadow-xs"
+                  >
+                    <div className="flex gap-3.5 items-start">
+                      {note.photoUrl && (
+                        <img
+                          src={note.photoUrl}
+                          alt={note.personName}
+                          className="h-16 w-16 sm:h-20 sm:w-20 rounded-xl object-cover shrink-0 border border-amber-200"
+                        />
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800">
+                          👤 Person Spotlight
+                        </span>
+                        <h3 className="text-sm font-black text-zinc-950 mt-0.5 leading-snug">
+                          {note.personName}
+                        </h3>
+                        <p className="mt-1.5 text-xs text-zinc-700 leading-relaxed whitespace-pre-line">
+                          {note.description}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mt-3 pt-2 border-t border-amber-100 text-[10px] text-zinc-400">
+                      Noted by {note.profile.displayName || "Local Scout"}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Real Community Reviews / Mentions */}
           <div className="mt-8">

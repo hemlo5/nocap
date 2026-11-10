@@ -79,21 +79,79 @@ export async function GET(request: Request) {
       .select("id, profile_id, name, category, address, latitude, longitude, created_at, nocap_profiles!inner(id, display_name, avatar_url, bio)")
       .eq("id", id)
       .single();
-    if (!placeRow) return Response.json({ place: null, reviews: [], supabaseConfigured: true }, { status: 404 });
+    if (!placeRow) return Response.json({ place: null, reviews: [], personNotes: [], supabaseConfigured: true }, { status: 404 });
 
-    const { data: reviewRows } = await admin.from("nocap_reviews")
-      .select("id, place_id, body, rating, latitude, longitude, accuracy_meters, is_legit, payment_id, created_at, updated_at, nocap_profiles!inner(id, display_name, avatar_url, bio)")
-      .eq("place_id", `user:${id}`)
-      .order("is_legit", { ascending: false })
-      .order("created_at", { ascending: false })
-      .limit(100);
+    let reviewRows: Record<string, unknown>[] = [];
+    try {
+      const { data, error } = await admin.from("nocap_reviews")
+        .select("id, place_id, body, rating, image_url, latitude, longitude, accuracy_meters, is_legit, payment_id, created_at, updated_at, nocap_profiles!inner(id, display_name, avatar_url, bio)")
+        .eq("place_id", `user:${id}`)
+        .order("is_legit", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(100);
+      if (!error && data) {
+        reviewRows = data as Record<string, unknown>[];
+      } else {
+        const { data: fallbackData } = await admin.from("nocap_reviews")
+          .select("id, place_id, body, rating, latitude, longitude, accuracy_meters, is_legit, payment_id, created_at, updated_at, nocap_profiles!inner(id, display_name, avatar_url, bio)")
+          .eq("place_id", `user:${id}`)
+          .order("is_legit", { ascending: false })
+          .order("created_at", { ascending: false })
+          .limit(100);
+        reviewRows = (fallbackData ?? []) as Record<string, unknown>[];
+      }
+    } catch {
+      // Ignore
+    }
 
-    const reviews = (reviewRows ?? []).map((r: Record<string, unknown>) => {
+    const reviews = reviewRows.map((r: Record<string, unknown>) => {
       const p = r.nocap_profiles as { id: string; display_name: string; avatar_url: string | null; bio: string | null };
-      return { id: String(r.id), placeId: String(r.place_id), profile: { id: p.id, displayName: p.display_name, avatarUrl: p.avatar_url, bio: p.bio }, body: String(r.body), rating: r.rating != null ? Number(r.rating) : null, latitude: Number(r.latitude), longitude: Number(r.longitude), isLegit: Boolean(r.is_legit), paymentId: r.payment_id ? String(r.payment_id) : null, createdAt: String(r.created_at), updatedAt: String(r.updated_at) };
+      return {
+        id: String(r.id),
+        placeId: String(r.place_id),
+        profile: { id: p.id, displayName: p.display_name, avatarUrl: p.avatar_url, bio: p.bio },
+        body: String(r.body),
+        rating: r.rating != null ? Number(r.rating) : null,
+        imageUrl: r.image_url ? String(r.image_url) : null,
+        latitude: Number(r.latitude),
+        longitude: Number(r.longitude),
+        isLegit: Boolean(r.is_legit),
+        paymentId: r.payment_id ? String(r.payment_id) : null,
+        createdAt: String(r.created_at),
+        updatedAt: String(r.updated_at),
+      };
     });
 
-    return Response.json({ place: toUserPlace(placeRow as Record<string, unknown>), reviews, supabaseConfigured: true });
+    let personNotes: unknown[] = [];
+    try {
+      const { data: pData, error: pErr } = await admin
+        .from("nocap_person_notes")
+        .select("id, place_id, person_name, description, photo_url, created_at, updated_at, nocap_profiles!inner(id, display_name, avatar_url, bio)")
+        .eq("place_id", `user:${id}`)
+        .order("created_at", { ascending: false });
+      if (!pErr && Array.isArray(pData)) {
+        personNotes = pData.map((row) => {
+          const rawProfile = (row as Record<string, unknown>).nocap_profiles;
+          const p = (Array.isArray(rawProfile) ? rawProfile[0] : rawProfile) as
+            | { id: string; display_name: string; avatar_url: string | null; bio: string | null }
+            | undefined;
+          return {
+            id: String(row.id),
+            placeId: String(row.place_id),
+            personName: String(row.person_name),
+            description: String(row.description),
+            photoUrl: row.photo_url ? String(row.photo_url) : null,
+            createdAt: String(row.created_at),
+            updatedAt: String(row.updated_at),
+            profile: { id: p?.id || "anon", displayName: p?.display_name || "Anonymous", avatarUrl: p?.avatar_url || null, bio: p?.bio || null },
+          };
+        });
+      }
+    } catch {
+      // Ignore
+    }
+
+    return Response.json({ place: toUserPlace(placeRow as Record<string, unknown>), reviews, personNotes, supabaseConfigured: true });
   }
 
   // All user places

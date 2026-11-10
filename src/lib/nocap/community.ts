@@ -16,6 +16,18 @@ export type NocapReview = {
   longitude: number;
   isLegit: boolean;
   paymentId: string | null;
+  imageUrl?: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type NocapPersonNote = {
+  id: string;
+  placeId: string;
+  profile: NocapProfile;
+  personName: string;
+  description: string;
+  photoUrl: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -36,5 +48,6 @@ export type NocapCommunityPayload = {
   places: import("./places").NocapPlace[];
   userPlaces: NocapUserPlace[];
   reviews: NocapReview[];
+  personNotes?: NocapPersonNote[];
   supabaseConfigured: boolean;
 };

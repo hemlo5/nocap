@@ -13,17 +13,28 @@ export async function POST(request: Request) {
   const input = await request.json().catch(() => null) as ReviewInput | null;
   const validation = await validateInput(input);
   if (validation instanceof Response) return validation;
-  const { placeId, placeLat, placeLng, body, rating, latitude, longitude, accuracyMeters } = validation;
+  const { placeId, placeLat, placeLng, body, rating, imageUrl, latitude, longitude, accuracyMeters } = validation;
 
   const admin = createAdminClient();
   await ensureProfile(admin, user);
   let upsertResult = await admin.from("nocap_reviews")
     .upsert(
-      { profile_id: user.id, place_id: placeId, body, rating, latitude, longitude, accuracy_meters: accuracyMeters, updated_at: new Date().toISOString() },
+      { profile_id: user.id, place_id: placeId, body, rating, image_url: imageUrl, latitude, longitude, accuracy_meters: accuracyMeters, updated_at: new Date().toISOString() },
       { onConflict: "profile_id,place_id" }
     )
-    .select("id, place_id, body, rating, latitude, longitude, is_legit, payment_id, created_at, updated_at, nocap_profiles!inner(id, display_name, avatar_url, bio)")
+    .select("id, place_id, body, rating, image_url, latitude, longitude, is_legit, payment_id, created_at, updated_at, nocap_profiles!inner(id, display_name, avatar_url, bio)")
     .single();
+
+  if (upsertResult.error && upsertResult.error.code === "42703") {
+    // Column image_url does not exist yet on Supabase table
+    upsertResult = await admin.from("nocap_reviews")
+      .upsert(
+        { profile_id: user.id, place_id: placeId, body, rating, latitude, longitude, accuracy_meters: accuracyMeters, updated_at: new Date().toISOString() },
+        { onConflict: "profile_id,place_id" }
+      )
+      .select("id, place_id, body, rating, latitude, longitude, is_legit, payment_id, created_at, updated_at, nocap_profiles!inner(id, display_name, avatar_url, bio)")
+      .single();
+  }
 
   if (upsertResult.error && (upsertResult.error.code === "23502" || upsertResult.error.code === "23514") && rating === null) {
     // If rating column still has old NOT NULL constraint, fallback to 5
@@ -38,15 +49,20 @@ export async function POST(request: Request) {
 
   const { data, error } = upsertResult;
   if (error || !data) return Response.json({ error: "Could not publish your review." }, { status: 500 });
-  return Response.json({ review: toReview(data) });
+  const review = toReview(data);
+  if (!review.imageUrl && imageUrl) {
+    review.imageUrl = imageUrl;
+  }
+  return Response.json({ review });
 }
 
-type ReviewInput = { placeId?: unknown; userPlaceId?: unknown; body?: unknown; rating?: unknown; latitude?: unknown; longitude?: unknown; accuracyMeters?: unknown };
+type ReviewInput = { placeId?: unknown; userPlaceId?: unknown; body?: unknown; rating?: unknown; imageUrl?: unknown; latitude?: unknown; longitude?: unknown; accuracyMeters?: unknown };
 
 async function validateInput(input: ReviewInput | null) {
   const body = typeof input?.body === "string" ? input.body.trim() : "";
   const rawRating = input?.rating;
   const rating = (rawRating === null || rawRating === undefined || rawRating === "") ? null : Number(rawRating);
+  const imageUrl = typeof input?.imageUrl === "string" && input.imageUrl.trim() ? input.imageUrl.trim() : null;
   const latitude = Number(input?.latitude);
   const longitude = Number(input?.longitude);
   const accuracyMeters = Number(input?.accuracyMeters);
@@ -85,7 +101,7 @@ async function validateInput(input: ReviewInput | null) {
   const finalLng = Number.isFinite(longitude) ? longitude : placeLng;
   const finalAccuracy = Number.isFinite(accuracyMeters) && accuracyMeters > 0 ? accuracyMeters : 15;
 
-  return { placeId: targetPlaceId, placeLat, placeLng, body, rating, latitude: finalLat, longitude: finalLng, accuracyMeters: finalAccuracy };
+  return { placeId: targetPlaceId, placeLat, placeLng, body, rating, imageUrl, latitude: finalLat, longitude: finalLng, accuracyMeters: finalAccuracy };
 }
 
 async function ensureProfile(admin: ReturnType<typeof createAdminClient>, user: { id: string; user_metadata: Record<string, unknown> }) {
@@ -107,11 +123,12 @@ function toReview(review: Record<string, unknown>): NocapReview {
     id: String(review.id),
     placeId: String(review.place_id),
     body: String(review.body),
-    rating: Number(review.rating),
+    rating: review.rating !== null && review.rating !== undefined ? Number(review.rating) : null,
     latitude: Number(review.latitude),
     longitude: Number(review.longitude),
     isLegit: Boolean(review.is_legit),
     paymentId: review.payment_id ? String(review.payment_id) : null,
+    imageUrl: review.image_url ? String(review.image_url) : null,
     createdAt: String(review.created_at),
     updatedAt: String(review.updated_at),
     profile: { id: profile.id, displayName: profile.display_name || "Anonymous", avatarUrl: profile.avatar_url, bio: profile.bio },
