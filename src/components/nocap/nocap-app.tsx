@@ -948,14 +948,14 @@ export function NocapApp() {
           </div>
         )}
 
-        {/* ── GUIDE / HOW TO USE BUTTON (Single responsive button) ── */}
+        {/* ── GUIDE / HOW TO USE BUTTON (Desktop only — mobile uses searchbar guide button beside profile) ── */}
         <button
           type="button"
           onClick={() => setGuideOpen(true)}
-          className="absolute bottom-[15.1rem] lg:bottom-44 right-3 lg:right-6 z-20 grid h-11 w-11 lg:h-10 lg:w-10 place-items-center rounded-full lg:rounded-xl border border-zinc-200/80 bg-white/95 backdrop-blur shadow-lg active:scale-95 transition-all text-zinc-700 hover:text-zinc-950"
+          className="hidden lg:grid absolute bottom-44 right-6 z-20 h-10 w-10 place-items-center rounded-xl border border-zinc-200/80 bg-white/95 backdrop-blur shadow-lg active:scale-95 transition-all text-zinc-700 hover:text-zinc-950"
           title="How to use NoCapBLR (Guide)"
         >
-          <HelpCircle className="h-5 w-5 lg:h-4 lg:w-4 text-zinc-700" />
+          <HelpCircle className="h-4 w-4 text-zinc-700" />
         </button>
 
         {/* ── PIN A PLACE BUTTON (Single responsive button) ── */}
