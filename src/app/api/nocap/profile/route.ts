@@ -1,6 +1,7 @@
 import { createAdminClient, getGoogleUser, isSupabaseConfigured } from "@/lib/supabase/server";
 import type { NocapProfile } from "@/lib/nocap/community";
 import { findNocapPlace } from "@/lib/nocap/places";
+import { memoryPersonNotesStore } from "@/lib/nocap/person-notes";
 
 export async function GET(request: Request) {
   const user = await getUserOrResponse(request);
@@ -14,47 +15,103 @@ export async function GET(request: Request) {
     .eq("profile_id", user.id)
     .order("created_at", { ascending: false });
 
-  // Collect user-place IDs if any
-  const userPlaceIds: string[] = [];
+  let personNotesData: Array<{
+    id: string;
+    place_id: string;
+    person_name: string;
+    description: string;
+    photo_url: string | null;
+    created_at: string;
+    updated_at: string;
+  }> = [];
+
+  try {
+    const { data: pData, error: pErr } = await admin
+      .from("nocap_person_notes")
+      .select("id, place_id, person_name, description, photo_url, created_at, updated_at")
+      .eq("profile_id", user.id)
+      .order("created_at", { ascending: false });
+    if (!pErr && Array.isArray(pData)) {
+      personNotesData = pData;
+    }
+  } catch (err) {
+    console.warn("[Profile GET] Error fetching person notes:", err);
+  }
+
+  // Include any in-memory person notes by this user
+  const inMemory = memoryPersonNotesStore.filter((n) => n.profile.id === user.id);
+
+  // Collect user-place IDs if any from both reviews and person notes
+  const userPlaceIds = new Set<string>();
   for (const r of reviewsData ?? []) {
     if (typeof r.place_id === "string" && r.place_id.startsWith("user:")) {
-      userPlaceIds.push(r.place_id.slice(5));
+      userPlaceIds.add(r.place_id.slice(5));
+    }
+  }
+  for (const pn of personNotesData) {
+    if (typeof pn.place_id === "string") {
+      if (pn.place_id.startsWith("user:")) {
+        userPlaceIds.add(pn.place_id.slice(5));
+      } else if (!findNocapPlace(pn.place_id)) {
+        userPlaceIds.add(pn.place_id);
+      }
+    }
+  }
+  for (const pn of inMemory) {
+    if (typeof pn.placeId === "string") {
+      if (pn.placeId.startsWith("user:")) {
+        userPlaceIds.add(pn.placeId.slice(5));
+      } else if (!findNocapPlace(pn.placeId)) {
+        userPlaceIds.add(pn.placeId);
+      }
     }
   }
 
   // Fetch user places if any
   const userPlacesMap = new Map<string, { name: string; address: string; category: string }>();
-  if (userPlaceIds.length > 0) {
+  if (userPlaceIds.size > 0) {
     const { data: userPlacesRows } = await admin
       .from("nocap_user_places")
       .select("id, name, address, category")
-      .in("id", userPlaceIds);
+      .in("id", Array.from(userPlaceIds));
     for (const up of userPlacesRows ?? []) {
       userPlacesMap.set(`user:${up.id}`, { name: up.name, address: up.address, category: up.category });
+      userPlacesMap.set(up.id, { name: up.name, address: up.address, category: up.category });
     }
   }
 
-  const reviews = (reviewsData ?? []).map((r) => {
-    let placeName = r.place_id;
+  function resolvePlace(rawPlaceId: string) {
+    let placeName = rawPlaceId;
     let placeAddress = "";
     let placeCategory = "other";
 
-    if (r.place_id.startsWith("user:")) {
-      const up = userPlacesMap.get(r.place_id);
+    if (rawPlaceId.startsWith("user:")) {
+      const up = userPlacesMap.get(rawPlaceId);
       if (up) {
         placeName = up.name;
         placeAddress = up.address;
         placeCategory = up.category;
       }
     } else {
-      const hp = findNocapPlace(r.place_id);
+      const hp = findNocapPlace(rawPlaceId);
       if (hp) {
         placeName = hp.name;
         placeAddress = hp.address;
         placeCategory = hp.category;
+      } else {
+        const up = userPlacesMap.get(rawPlaceId);
+        if (up) {
+          placeName = up.name;
+          placeAddress = up.address;
+          placeCategory = up.category;
+        }
       }
     }
+    return { placeName, placeAddress, placeCategory };
+  }
 
+  const reviews = (reviewsData ?? []).map((r) => {
+    const { placeName, placeAddress, placeCategory } = resolvePlace(r.place_id);
     return {
       id: String(r.id),
       placeId: String(r.place_id),
@@ -72,7 +129,55 @@ export async function GET(request: Request) {
     };
   });
 
-  return Response.json({ profile, reviews });
+  const rawPersonNotes = [
+    ...personNotesData.map((pn) => ({
+      id: String(pn.id),
+      placeId: String(pn.place_id),
+      personName: String(pn.person_name),
+      description: String(pn.description),
+      photoUrl: pn.photo_url ? String(pn.photo_url) : null,
+      createdAt: String(pn.created_at),
+      updatedAt: String(pn.updated_at),
+    })),
+    ...inMemory.map((pn) => ({
+      id: String(pn.id),
+      placeId: String(pn.placeId),
+      personName: String(pn.personName),
+      description: String(pn.description),
+      photoUrl: pn.photoUrl ? String(pn.photoUrl) : null,
+      createdAt: String(pn.createdAt),
+      updatedAt: String(pn.updatedAt),
+    })),
+  ];
+
+  const uniquePersonNotesMap = new Map<string, {
+    id: string;
+    placeId: string;
+    placeName: string;
+    placeAddress: string;
+    placeCategory: string;
+    personName: string;
+    description: string;
+    photoUrl: string | null;
+    createdAt: string;
+    updatedAt: string;
+  }>();
+
+  for (const pn of rawPersonNotes) {
+    if (!uniquePersonNotesMap.has(pn.id)) {
+      const { placeName, placeAddress, placeCategory } = resolvePlace(pn.placeId);
+      uniquePersonNotesMap.set(pn.id, {
+        ...pn,
+        placeName,
+        placeAddress,
+        placeCategory,
+      });
+    }
+  }
+
+  const personNotes = Array.from(uniquePersonNotesMap.values());
+
+  return Response.json({ profile, reviews, personNotes });
 }
 
 export async function PATCH(request: Request) {

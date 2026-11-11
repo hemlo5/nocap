@@ -1517,7 +1517,7 @@ export function NocapApp() {
                       : null;
                     return (
                       <button key={up.id} type="button" onClick={() => { userCameraMovedRef.current = true; setEntryBannerVisible(false); setSelectedUserPlaceId(up.id); setSelectedPlaceId(null); setSelectedSuggestionId(null); setSelectedSuggestionPlace(null); setSuggestionHostAnchor(null); dismissLocate(); exitPinMode(); mapRef.current?.flyToUser(up.latitude, up.longitude, 14); }} className={cn("mb-1 flex w-full items-start gap-3 rounded-md px-3 py-3 text-left transition-colors", up.id === selectedUserPlaceId ? "bg-zinc-950 text-white" : "hover:bg-zinc-100")}>
-                        <span className={cn("mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full text-[10px] font-black", up.id === selectedUserPlaceId ? "bg-white text-zinc-950" : "bg-amber-100 text-amber-700")}>U</span>
+                        <span className={cn("mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full text-[10px] font-black", up.id === selectedUserPlaceId ? "bg-white text-zinc-950" : "bg-zinc-950 text-white")}>U</span>
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-sm font-bold">{up.name}</span>
                           <span className={cn("mt-0.5 block truncate text-xs", up.id === selectedUserPlaceId ? "text-zinc-300" : "text-zinc-500")}>{up.address || getCategoryName(up.category)}{distLabel ? ` · ${distLabel}` : ""}</span>
@@ -1553,7 +1553,7 @@ export function NocapApp() {
                             "mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full border text-[10px] font-black",
                             s.id === selectedSuggestionId
                               ? "border-white bg-white text-zinc-950"
-                              : "border-zinc-950 bg-white text-zinc-950"
+                              : "border-dashed border-zinc-400/80 bg-zinc-900/45 text-white"
                           )}
                         >
                           {cat === "other" ? "+" : cat[0].toUpperCase()}
@@ -1679,7 +1679,7 @@ export function NocapApp() {
             >
               {searchAnchor ? (
                 <>
-                  <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-amber-500 ring-2 ring-amber-200" />
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-zinc-950 ring-2 ring-zinc-300" />
                   <span className="truncate">
                     {loadingNearbySuggestions
                       ? `${searchAnchor.label} · Finding nearby spots…`
@@ -2220,9 +2220,9 @@ function UserPlacePanel({ place, detail, signedIn, configured, onSignIn, onPubli
 
       <div className="border-b border-zinc-200 px-5 py-5">
         <div className="flex items-center gap-3">
-          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-lg bg-amber-100 text-lg font-black text-amber-700">U</span>
+          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-lg bg-zinc-950 text-lg font-black text-white">U</span>
           <div className="min-w-0">
-            <span className="text-[11px] font-bold uppercase text-amber-600">Community pin · {getCategoryName(place.category)}</span>
+            <span className="text-[11px] font-bold uppercase text-zinc-500">Community pin · {getCategoryName(place.category)}</span>
             <h1 className="mt-0.5 text-lg font-black tracking-tight leading-tight">{place.name}</h1>
           </div>
         </div>
@@ -3247,7 +3247,7 @@ function SuggestedPlacePanel({
     <div className="flex h-full min-h-[34dvh] flex-col">
       <div className="border-b border-zinc-200 px-5 py-5">
         <div className="flex items-center gap-3">
-          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-lg border-2 border-zinc-950 bg-white text-lg font-black text-zinc-950">
+          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-lg border-2 border-dashed border-zinc-400 bg-zinc-900/45 text-lg font-black text-white">
             {initial}
           </span>
           <div className="min-w-0">
