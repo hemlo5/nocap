@@ -252,7 +252,7 @@ export default async function PlacePage({ params }: Props) {
                 <div>
                   <h2 className="text-xl font-bold tracking-tight text-zinc-950 flex items-center gap-2">
                     <span>People at {place.name}</span>
-                    <span className="inline-flex items-center rounded-full bg-amber-100 border border-amber-300 px-2 py-0.5 text-[10px] font-black text-amber-900">
+                    <span className="inline-flex items-center rounded-full bg-zinc-950 px-2 py-0.5 text-[10px] font-black text-white">
                       Spotlight
                     </span>
                   </h2>
@@ -260,7 +260,7 @@ export default async function PlacePage({ params }: Props) {
                     The chefs, baristas, curators, and characters who make this place legendary.
                   </p>
                 </div>
-                <span className="text-xs font-bold bg-amber-100 text-amber-900 px-2.5 py-1 rounded-full">
+                <span className="text-xs font-bold bg-zinc-100 text-zinc-900 px-2.5 py-1 rounded-full">
                   {personNotes.length} noted
                 </span>
               </div>
@@ -269,19 +269,19 @@ export default async function PlacePage({ params }: Props) {
                 {personNotes.map((note) => (
                   <div
                     key={note.id}
-                    className="rounded-2xl border border-amber-200/90 bg-gradient-to-br from-amber-50/40 via-white to-orange-50/30 p-5 shadow-xs"
+                    className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-xs"
                   >
                     <div className="flex gap-3.5 items-start">
                       {note.photoUrl && (
                         <img
                           src={note.photoUrl}
                           alt={note.personName}
-                          className="h-16 w-16 sm:h-20 sm:w-20 rounded-xl object-cover shrink-0 border border-amber-200"
+                          className="h-16 w-16 sm:h-20 sm:w-20 rounded-xl object-cover shrink-0 border border-zinc-200"
                         />
                       )}
                       <div className="min-w-0 flex-1">
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800">
-                          👤 Person Spotlight
+                        <span className="inline-flex items-center text-[10px] font-bold text-zinc-600">
+                          Person Spotlight
                         </span>
                         <h3 className="text-sm font-black text-zinc-950 mt-0.5 leading-snug">
                           {note.personName}
@@ -291,7 +291,7 @@ export default async function PlacePage({ params }: Props) {
                         </p>
                       </div>
                     </div>
-                    <div className="mt-3 pt-2 border-t border-amber-100 text-[10px] text-zinc-400">
+                    <div className="mt-3 pt-2 border-t border-zinc-100 text-[10px] text-zinc-400">
                       Noted by {note.profile.displayName || "Local Scout"}
                     </div>
                   </div>

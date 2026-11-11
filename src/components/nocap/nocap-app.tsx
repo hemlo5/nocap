@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import { Camera, ChevronDown, CircleUserRound, HelpCircle, Loader2, LocateFixed, LogIn, LogOut, MapPin, Navigation, Pencil, Pin, Search, Send, Star, User, UserCheck, UserPlus, Users, X, Sparkles, ZoomIn } from "lucide-react";
+import { Camera, ChevronDown, CircleUserRound, HelpCircle, Loader2, LocateFixed, LogIn, LogOut, MapPin, Navigation, Pencil, Pin, Search, Send, Star, X, Sparkles, ZoomIn } from "lucide-react";
 import type { NocapPlace, NocapPlaceCategory } from "@/lib/nocap/places";
 import type { NocapPersonNote, NocapProfile, NocapReview, NocapUserPlace } from "@/lib/nocap/community";
 import { uploadImageFile } from "@/lib/nocap/image-helper";
@@ -1200,11 +1200,10 @@ function PlacePanel({ place, detail, signedIn, configured, onSignIn, onPublish, 
             type="button"
             onClick={() => setActiveTab("people")}
             className={cn(
-              "rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors flex items-center gap-1",
-              activeTab === "people" ? "bg-amber-900 text-white" : "bg-amber-100/70 text-amber-900 hover:bg-amber-200/80"
+              "rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors",
+              activeTab === "people" ? "bg-zinc-950 text-white" : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
             )}
           >
-            <User className="h-3 w-3" />
             People ({personNotes.length})
           </button>
         </div>
@@ -1229,10 +1228,10 @@ function PlacePanel({ place, detail, signedIn, configured, onSignIn, onPublish, 
             onClick={() => setComposerMode("person")}
             className={cn(
               "flex-1 rounded-lg py-1.5 text-xs font-bold transition-all text-center flex items-center justify-center gap-1.5",
-              composerMode === "person" ? "bg-white text-amber-950 shadow-2xs" : "text-zinc-600 hover:text-amber-950"
+              composerMode === "person" ? "bg-white text-zinc-950 shadow-2xs" : "text-zinc-600 hover:text-zinc-950"
             )}
           >
-            <UserPlus className="h-3.5 w-3.5 text-amber-700" />
+            <Pencil className="h-3.5 w-3.5" />
             <span>Note a Person</span>
           </button>
         </div>
@@ -1270,10 +1269,10 @@ function PlacePanel({ place, detail, signedIn, configured, onSignIn, onPublish, 
                   />
                 ))
               ) : (
-                <div className="rounded-md border border-dashed border-amber-200 bg-amber-50/50 p-5 text-center">
-                  <UserPlus className="mx-auto h-5 w-5 text-amber-600" />
-                  <h2 className="mt-2 text-sm font-bold text-amber-950">No people noted here yet.</h2>
-                  <p className="mt-1 text-xs text-amber-800">
+                <div className="rounded-md border border-dashed border-zinc-300 bg-zinc-50 p-5 text-center">
+                  <CircleUserRound className="mx-auto h-5 w-5 text-zinc-400" />
+                  <h2 className="mt-2 text-sm font-bold text-zinc-900">No people noted here yet.</h2>
+                  <p className="mt-1 text-xs text-zinc-500">
                     Know a chef, barista, or iconic character here? Click &ldquo;Note a Person&rdquo; above!
                   </p>
                 </div>
@@ -1387,11 +1386,10 @@ function UserPlacePanel({ place, detail, signedIn, configured, onSignIn, onPubli
             type="button"
             onClick={() => setActiveTab("people")}
             className={cn(
-              "rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors flex items-center gap-1",
-              activeTab === "people" ? "bg-amber-900 text-white" : "bg-amber-100/70 text-amber-900 hover:bg-amber-200/80"
+              "rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors",
+              activeTab === "people" ? "bg-zinc-950 text-white" : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
             )}
           >
-            <User className="h-3 w-3" />
             People ({personNotes.length})
           </button>
         </div>
@@ -1416,10 +1414,10 @@ function UserPlacePanel({ place, detail, signedIn, configured, onSignIn, onPubli
             onClick={() => setComposerMode("person")}
             className={cn(
               "flex-1 rounded-lg py-1.5 text-xs font-bold transition-all text-center flex items-center justify-center gap-1.5",
-              composerMode === "person" ? "bg-white text-amber-950 shadow-2xs" : "text-zinc-600 hover:text-amber-950"
+              composerMode === "person" ? "bg-white text-zinc-950 shadow-2xs" : "text-zinc-600 hover:text-zinc-950"
             )}
           >
-            <UserPlus className="h-3.5 w-3.5 text-amber-700" />
+            <Pencil className="h-3.5 w-3.5" />
             <span>Note a Person</span>
           </button>
         </div>
@@ -1457,10 +1455,10 @@ function UserPlacePanel({ place, detail, signedIn, configured, onSignIn, onPubli
                   />
                 ))
               ) : (
-                <div className="rounded-md border border-dashed border-amber-200 bg-amber-50/50 p-5 text-center">
-                  <UserPlus className="mx-auto h-5 w-5 text-amber-600" />
-                  <h2 className="mt-2 text-sm font-bold text-amber-950">No people noted here yet.</h2>
-                  <p className="mt-1 text-xs text-amber-800">
+                <div className="rounded-md border border-dashed border-zinc-300 bg-zinc-50 p-5 text-center">
+                  <CircleUserRound className="mx-auto h-5 w-5 text-zinc-400" />
+                  <h2 className="mt-2 text-sm font-bold text-zinc-900">No people noted here yet.</h2>
+                  <p className="mt-1 text-xs text-zinc-500">
                     Know a friendly face or person here? Click &ldquo;Note a Person&rdquo; above!
                   </p>
                 </div>
@@ -1894,26 +1892,21 @@ function PersonNoteComposer({
               setIsExpanded(true);
             }
           }}
-          className="group flex w-full items-center justify-between rounded-xl border border-amber-200/90 bg-gradient-to-br from-amber-50/70 via-white to-orange-50/40 p-2.5 sm:p-3 text-left shadow-2xs hover:border-amber-300 hover:shadow-xs active:scale-[0.99] transition-all"
+          className="group flex w-full items-center justify-between rounded-xl border border-zinc-200/90 bg-white p-2.5 sm:p-3 text-left shadow-2xs hover:border-zinc-300 hover:shadow-xs active:scale-[0.99] transition-all"
         >
           <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-            <div className="grid h-8 w-8 sm:h-9 sm:w-9 shrink-0 place-items-center rounded-xl border border-amber-300 bg-amber-100 text-amber-900 group-hover:bg-amber-950 group-hover:text-white group-hover:border-amber-950 transition-colors">
-              <UserPlus className="h-4 w-4" />
+            <div className="grid h-8 w-8 sm:h-9 sm:w-9 shrink-0 place-items-center rounded-xl border border-zinc-200/80 bg-zinc-100 text-zinc-700 group-hover:bg-zinc-950 group-hover:text-white group-hover:border-zinc-950 transition-colors">
+              <Pencil className="h-4 w-4" />
             </div>
             <div className="min-w-0">
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-bold text-zinc-900 group-hover:text-black">Note someone here</span>
-                <span className="inline-flex items-center gap-1 rounded-full bg-amber-200/60 border border-amber-300/80 px-2 py-0.2 text-[10px] font-black text-amber-900">
-                  👤 People
-                </span>
-              </div>
+              <span className="text-xs font-bold text-zinc-900 group-hover:text-black">Note someone here</span>
               <p className="text-[11px] text-zinc-500 truncate mt-0.5">
                 Spotlight a chef, friendly barista, guard, or local character
               </p>
             </div>
           </div>
-          <span className="shrink-0 rounded-lg bg-amber-900 text-white group-hover:bg-amber-950 px-3 py-1.5 text-xs font-bold transition-colors">
-            {signedIn ? "+ Note Person" : "Sign In"}
+          <span className="shrink-0 rounded-lg bg-zinc-950 text-white group-hover:bg-zinc-800 px-3 py-1.5 text-xs font-bold transition-colors">
+            {signedIn ? "Note Person" : "Sign In"}
           </span>
         </button>
       </div>
@@ -1921,11 +1914,11 @@ function PersonNoteComposer({
   }
 
   return (
-    <form onSubmit={submit} className="mb-4 rounded-xl border border-amber-200 bg-amber-50/40 p-3.5 shadow-2xs">
+    <form onSubmit={submit} className="mb-4 rounded-xl border border-zinc-200 bg-zinc-50/90 p-3.5 shadow-2xs">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-bold text-amber-950">Spotlight a Person</span>
-          <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 border border-amber-200 px-2 py-0.5 text-[10px] font-bold text-amber-900">
+          <span className="text-xs font-bold text-zinc-900">Spotlight a Person</span>
+          <span className="inline-flex items-center gap-1 rounded-full bg-zinc-200/70 px-2 py-0.5 text-[10px] font-bold text-zinc-700">
             at {placeName}
           </span>
         </div>
@@ -1954,7 +1947,7 @@ function PersonNoteComposer({
           required
           maxLength={100}
           placeholder="e.g. Anand (Head Waiter), Suresh the Dosa Master..."
-          className="mt-1 w-full rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs text-zinc-900 outline-none focus:border-amber-500"
+          className="mt-1 w-full rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs text-zinc-900 outline-none focus:border-zinc-500"
         />
       </div>
 
@@ -1970,7 +1963,7 @@ function PersonNoteComposer({
           minLength={3}
           maxLength={1500}
           placeholder="Why are they special? What do they do? Share helpful context, their vibe, or tips about them..."
-          className="mt-1 min-h-18 w-full resize-y rounded-lg border border-zinc-200 bg-white p-2.5 text-xs text-zinc-900 outline-none focus:border-amber-500"
+          className="mt-1 min-h-18 w-full resize-y rounded-lg border border-zinc-200 bg-white p-2.5 text-xs text-zinc-900 outline-none focus:border-zinc-500"
         />
       </div>
 
@@ -1993,7 +1986,7 @@ function PersonNoteComposer({
             <img
               src={photoUrl}
               alt="Person preview"
-              className="h-20 w-24 sm:h-24 sm:w-28 rounded-lg object-cover border border-amber-300 shadow-2xs"
+              className="h-20 w-24 sm:h-24 sm:w-28 rounded-lg object-cover border border-zinc-200 shadow-2xs"
             />
             <button
               type="button"
@@ -2009,16 +2002,16 @@ function PersonNoteComposer({
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={photoUploading}
-            className="mt-1.5 inline-flex items-center gap-1.5 rounded-lg border border-dashed border-amber-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-amber-900 hover:border-amber-400 hover:bg-amber-50 transition-colors"
+            className="mt-1.5 inline-flex items-center gap-1.5 rounded-lg border border-dashed border-zinc-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-zinc-600 hover:border-zinc-400 hover:bg-zinc-50 hover:text-zinc-900 transition-colors"
           >
             {photoUploading ? (
               <>
-                <Loader2 className="h-3.5 w-3.5 animate-spin text-amber-600" />
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-zinc-500" />
                 <span>Processing photo…</span>
               </>
             ) : (
               <>
-                <Camera className="h-3.5 w-3.5 text-amber-700" />
+                <Camera className="h-3.5 w-3.5 text-zinc-500" />
                 <span>Upload photo of person</span>
               </>
             )}
@@ -2026,8 +2019,8 @@ function PersonNoteComposer({
         )}
       </div>
 
-      <div className="mt-3 flex items-center justify-between gap-3 border-t border-amber-200/60 pt-2.5">
-        <span className={cn("text-[11px]", state === "error" ? "text-red-600" : "text-amber-800")}>{message}</span>
+      <div className="mt-3 flex items-center justify-between gap-3 border-t border-zinc-200/80 pt-2.5">
+        <span className={cn("text-[11px]", state === "error" ? "text-red-600" : "text-zinc-500")}>{message}</span>
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -2042,7 +2035,7 @@ function PersonNoteComposer({
           <button
             type="submit"
             disabled={state === "submitting" || personName.trim().length < 2 || description.trim().length < 3}
-            className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg bg-amber-900 px-4 text-xs font-bold text-white hover:bg-amber-950 transition-all disabled:opacity-50"
+            className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg bg-zinc-950 px-4 text-xs font-bold text-white hover:bg-zinc-800 transition-all disabled:opacity-50"
           >
             <Send className="h-3.5 w-3.5" />
             <span>Save Person Note</span>
@@ -2128,12 +2121,13 @@ function PersonNoteCard({
   note: NocapPersonNote;
   onViewPhoto?: (url: string, caption?: string) => void;
 }) {
+  const initial = (note.personName.trim().charAt(0) || "P").toUpperCase();
+
   return (
-    <article className="rounded-xl border border-amber-200/90 bg-gradient-to-br from-amber-50/50 via-white to-orange-50/30 p-3.5 shadow-2xs">
+    <article className="rounded-xl border border-zinc-200 bg-white p-3.5 shadow-2xs">
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="inline-flex items-center gap-1 rounded-full bg-amber-200/80 border border-amber-300 px-2 py-0.5 text-[10px] font-black text-amber-900">
-            <User className="h-3 w-3" />
+          <span className="inline-flex items-center rounded-full bg-zinc-950 px-2 py-0.5 text-[10px] font-black text-white">
             Person Spotlight
           </span>
           <span className="text-[10px] text-zinc-400">· {timeLabel(note.updatedAt, note.id)}</span>
@@ -2145,7 +2139,7 @@ function PersonNoteCard({
           <button
             type="button"
             onClick={() => onViewPhoto?.(note.photoUrl!, `${note.personName}`)}
-            className="group relative shrink-0 overflow-hidden rounded-xl border border-amber-200/80 bg-white shadow-2xs hover:opacity-90 transition-opacity"
+            className="group relative shrink-0 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-2xs hover:opacity-90 transition-opacity"
           >
             <img
               src={note.photoUrl}
@@ -2158,8 +2152,8 @@ function PersonNoteCard({
             </div>
           </button>
         ) : (
-          <div className="grid h-14 w-14 shrink-0 place-items-center rounded-xl border border-amber-200 bg-amber-100/70 text-amber-900">
-            <UserCheck className="h-6 w-6" />
+          <div className="grid h-14 w-14 shrink-0 place-items-center rounded-xl border border-zinc-200 bg-zinc-950 text-base font-black text-white">
+            {initial}
           </div>
         )}
 
@@ -2171,11 +2165,11 @@ function PersonNoteCard({
         </div>
       </div>
 
-      <div className="mt-3 flex items-center justify-between border-t border-amber-100 pt-2 text-[10px] text-zinc-400">
+      <div className="mt-3 flex items-center justify-between border-t border-zinc-100 pt-2 text-[10px] text-zinc-400">
         <div className="flex items-center gap-1.5 truncate">
           <span className="font-semibold text-zinc-600">Noted by {note.profile.displayName || "Local Scout"}</span>
         </div>
-        <span className="text-amber-700/80 font-medium">Bengaluru Local Community</span>
+        <span className="text-zinc-500 font-medium">Bengaluru Local Community</span>
       </div>
     </article>
   );
