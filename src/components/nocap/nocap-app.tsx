@@ -8,7 +8,7 @@ import type { NocapPlace, NocapPlaceCategory } from "@/lib/nocap/places";
 import type { NocapPersonNote, NocapProfile, NocapReview, NocapUserPlace } from "@/lib/nocap/community";
 import { uploadImageFile } from "@/lib/nocap/image-helper";
 import { createSupabaseBrowserClient, hasSupabaseBrowserConfig } from "@/lib/supabase/client";
-import { NocapMap, type NocapMapHandle } from "./nocap-map";
+import { NocapMap, type NocapMapHandle, type SuggestedMapPlace } from "./nocap-map";
 import { NocapGuideModal } from "./nocap-guide-modal";
 import { cn } from "@/lib/utils/cn";
 import { trackEvent } from "@/lib/analytics/gtag";
@@ -71,6 +71,73 @@ function haversineM(lat1: number, lng1: number, lat2: number, lng2: number) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+const USER_LOCATION_STORAGE_KEY = "nocap_user_location";
+const USER_LOCATION_TTL_MS = 12 * 60 * 60 * 1000;
+const AREA_EXPLORE_ZOOM = 13.8;
+const AREA_RADIUS_M = 3_000;
+const SUGGESTION_MAX_EXISTING_DOTS = 10;
+
+function isBengaluruCoord(lat: number, lng: number) {
+  return lat >= 12.72 && lat <= 13.3 && lng >= 77.34 && lng <= 77.9;
+}
+
+function formatDistance(meters: number) {
+  return meters < 1000 ? `${Math.round(meters)}m` : `${(meters / 1000).toFixed(1)}km`;
+}
+
+function normalizeSpotName(name: string) {
+  return name.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function readSavedUserLocation(): { lat: number; lng: number } | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(USER_LOCATION_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { lat?: unknown; lng?: unknown; updatedAt?: unknown };
+    if (
+      typeof parsed.lat !== "number" ||
+      typeof parsed.lng !== "number" ||
+      !Number.isFinite(parsed.lat) ||
+      !Number.isFinite(parsed.lng) ||
+      parsed.lat < -90 ||
+      parsed.lat > 90 ||
+      parsed.lng < -180 ||
+      parsed.lng > 180 ||
+      typeof parsed.updatedAt !== "number" ||
+      Date.now() - parsed.updatedAt > USER_LOCATION_TTL_MS
+    ) {
+      return null;
+    }
+    return { lat: parsed.lat, lng: parsed.lng };
+  } catch {
+    return null;
+  }
+}
+
+function saveUserLocation(loc: { lat: number; lng: number }) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(
+      USER_LOCATION_STORAGE_KEY,
+      JSON.stringify({ lat: loc.lat, lng: loc.lng, updatedAt: Date.now() })
+    );
+  } catch {}
+}
+
+async function getGeolocationPermissionState(): Promise<"granted" | "prompt" | "denied" | "unknown"> {
+  if (typeof window === "undefined" || !navigator.permissions?.query) return "unknown";
+  try {
+    const status = await navigator.permissions.query({ name: "geolocation" });
+    if (status.state === "granted" || status.state === "prompt" || status.state === "denied") {
+      return status.state;
+    }
+    return "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+
 export function NocapApp() {
   const mapRef = useRef<NocapMapHandle>(null);
   const [places, setPlaces] = useState<NocapPlace[]>([]);
@@ -92,15 +159,28 @@ export function NocapApp() {
   const [nearbyPlaces, setNearbyPlaces] = useState<NocapPlace[]>([]);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [locatingUser, setLocatingUser] = useState(false);
+  const [entryLocateStatus, setEntryLocateStatus] = useState<"idle" | "asking" | "grabbed" | "needs_tap" | "dismissed">("idle");
+  const [entryBannerVisible, setEntryBannerVisible] = useState(false);
+  const userCameraMovedRef = useRef(false);
+  const wasGuideOpenRef = useRef(false);
   // Pin-drop states
   const [pinMode, setPinMode] = useState(false);
   const [pendingPin, setPendingPin] = useState<{ lat: number; lng: number } | null>(null);
   const [pinFormOpen, setPinFormOpen] = useState(false);
-  const [pinPrefill, setPinPrefill] = useState<{ name: string; address: string } | null>(null);
+  const [pinPrefill, setPinPrefill] = useState<{ name: string; address: string; category?: NocapPlaceCategory } | null>(null);
   // Search autocomplete & map suggestions states
   const [searchFocused, setSearchFocused] = useState(false);
-  const [mapSuggestions, setMapSuggestions] = useState<Array<{ id: string; title: string; subtitle: string; lat: number; lng: number }>>([]);
+  const [mapSuggestions, setMapSuggestions] = useState<Array<{ id: string; title: string; subtitle: string; lat: number; lng: number; category?: NocapPlaceCategory }>>([]);
   const [loadingMapSuggestions, setLoadingMapSuggestions] = useState(false);
+  // Searched area anchor & auto nearby suggested dots when existing dots within 3 km <= 10
+  const [searchAnchor, setSearchAnchor] = useState<{ lat: number; lng: number; label: string } | null>(null);
+  const [focusedSuggestion, setFocusedSuggestion] = useState<SuggestedMapPlace | null>(null);
+  const [nearbySuggestionsRaw, setNearbySuggestionsRaw] = useState<SuggestedMapPlace[]>([]);
+  const [loadingNearbySuggestions, setLoadingNearbySuggestions] = useState(false);
+  const [selectedSuggestionId, setSelectedSuggestionId] = useState<string | null>(null);
+  const [selectedSuggestionPlace, setSelectedSuggestionPlace] = useState<SuggestedMapPlace | null>(null);
+  const [suggestionHostAnchor, setSuggestionHostAnchor] = useState<{ lat: number; lng: number; label: string } | null>(null);
+  const suggestionOriginRef = useRef<{ lat: number; lng: number } | null>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const mobileSearchContainerRef = useRef<HTMLDivElement>(null);
   // Selected user place
@@ -119,6 +199,105 @@ export function NocapApp() {
       }
     } catch {}
   }, []);
+
+  // Ask for location on entry if not cached, then center map on user's area to show nearby dots
+  useEffect(() => {
+    let cancelled = false;
+
+    async function initEntryLocation() {
+      const params = new URLSearchParams(window.location.search);
+      const hasDeepPlace = Boolean(params.get("place"));
+      const saved = readSavedUserLocation();
+
+      if (saved) {
+        setUserLocation(saved);
+        if (!hasDeepPlace && !userCameraMovedRef.current) {
+          mapRef.current?.flyToUser(saved.lat, saved.lng, AREA_EXPLORE_ZOOM);
+          setEntryLocateStatus("grabbed");
+          setEntryBannerVisible(true);
+        }
+
+        const perm = await getGeolocationPermissionState();
+        if (cancelled || perm !== "granted") return;
+        try {
+          const pos = await currentPosition();
+          if (cancelled) return;
+          const fresh = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          saveUserLocation(fresh);
+          setUserLocation(fresh);
+          if (
+            !hasDeepPlace &&
+            !userCameraMovedRef.current &&
+            haversineM(saved.lat, saved.lng, fresh.lat, fresh.lng) > 250
+          ) {
+            mapRef.current?.flyToUser(fresh.lat, fresh.lng, AREA_EXPLORE_ZOOM);
+          }
+        } catch {
+          // Keep saved location if silent background refresh fails
+        }
+        return;
+      }
+
+      const perm = await getGeolocationPermissionState();
+      if (cancelled || perm === "denied") return;
+      if (hasDeepPlace && perm !== "granted") return;
+
+      setEntryLocateStatus("asking");
+      setEntryBannerVisible(true);
+
+      try {
+        const pos = await currentPosition();
+        if (cancelled) return;
+        const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        saveUserLocation(loc);
+        setUserLocation(loc);
+        setEntryLocateStatus("grabbed");
+        setEntryBannerVisible(true);
+        trackEvent("entry_locate_success", { permission: perm });
+        if (!hasDeepPlace && !userCameraMovedRef.current) {
+          mapRef.current?.flyToUser(loc.lat, loc.lng, AREA_EXPLORE_ZOOM);
+        }
+      } catch (err) {
+        if (cancelled) return;
+        const msg = err instanceof Error ? err.message : "";
+        if (msg.includes("PERMISSION_DENIED")) {
+          setEntryLocateStatus("dismissed");
+          setEntryBannerVisible(false);
+        } else {
+          // Mobile/WebView may require an explicit tap for geolocation prompt
+          setEntryLocateStatus("needs_tap");
+          setEntryBannerVisible(true);
+        }
+      }
+    }
+
+    initEntryLocation();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // When first-time guide closes after location was grabbed underneath, glide smoothly to user's area
+  useEffect(() => {
+    if (guideOpen) {
+      wasGuideOpenRef.current = true;
+      return;
+    }
+    if (wasGuideOpenRef.current) {
+      wasGuideOpenRef.current = false;
+      if (userLocation && !selectedPlaceId && !selectedUserPlaceId && !userCameraMovedRef.current) {
+        mapRef.current?.flyToUser(userLocation.lat, userLocation.lng, AREA_EXPLORE_ZOOM);
+      }
+    }
+  }, [guideOpen, userLocation, selectedPlaceId, selectedUserPlaceId]);
+
+  // Auto-hide entry status pill shortly after places finish loading and guide is dismissed (keep pinned while exploring a searched area)
+  useEffect(() => {
+    if (searchAnchor || !entryBannerVisible || entryLocateStatus !== "grabbed" || loading || guideOpen) return;
+    const timeoutMs = userLocation && !isBengaluruCoord(userLocation.lat, userLocation.lng) ? 9000 : 5500;
+    const timer = setTimeout(() => setEntryBannerVisible(false), timeoutMs);
+    return () => clearTimeout(timer);
+  }, [searchAnchor, entryBannerVisible, entryLocateStatus, loading, guideOpen, userLocation]);
 
   // Check URL query parameters (e.g. ?place=... or ?legit=success)
   useEffect(() => {
@@ -256,9 +435,19 @@ export function NocapApp() {
     return () => { cancelled = true; };
   }, [selectedUserPlaceId, reviews, personNotes]);
 
+  const activeAreaCenter = useMemo(
+    () =>
+      searchAnchor
+        ? { lat: searchAnchor.lat, lng: searchAnchor.lng, label: searchAnchor.label, isSearch: true as const }
+        : userLocation
+          ? { lat: userLocation.lat, lng: userLocation.lng, label: "Your area", isSearch: false as const }
+          : null,
+    [searchAnchor, userLocation]
+  );
+
   const visiblePlaces = useMemo(() => {
     const normalized = query.trim().toLowerCase();
-    return places.filter((place) => {
+    const filtered = places.filter((place) => {
       const categoryMatch =
         category === "all"
           ? true
@@ -268,11 +457,17 @@ export function NocapApp() {
       const queryMatch = !normalized || [place.name, place.area, place.address, ...place.aliases].join(" ").toLowerCase().includes(normalized);
       return categoryMatch && queryMatch;
     });
-  }, [category, places, query]);
+    if (!activeAreaCenter) return filtered;
+    return [...filtered].sort(
+      (a, b) =>
+        haversineM(activeAreaCenter.lat, activeAreaCenter.lng, a.latitude, a.longitude) -
+        haversineM(activeAreaCenter.lat, activeAreaCenter.lng, b.latitude, b.longitude)
+    );
+  }, [category, places, query, activeAreaCenter]);
 
   const visibleUserPlaces = useMemo(() => {
     const normalized = query.trim().toLowerCase();
-    return userPlaces.filter((up) => {
+    const filtered = userPlaces.filter((up) => {
       const categoryMatch =
         category === "all"
           ? true
@@ -282,10 +477,159 @@ export function NocapApp() {
       const queryMatch = !normalized || [up.name, up.address, up.category].join(" ").toLowerCase().includes(normalized);
       return categoryMatch && queryMatch;
     });
-  }, [category, query, userPlaces]);
+    if (!activeAreaCenter) return filtered;
+    return [...filtered].sort(
+      (a, b) =>
+        haversineM(activeAreaCenter.lat, activeAreaCenter.lng, a.latitude, a.longitude) -
+        haversineM(activeAreaCenter.lat, activeAreaCenter.lng, b.latitude, b.longitude)
+    );
+  }, [category, query, userPlaces, activeAreaCenter]);
 
   const selectedPlace = places.find((place) => place.id === selectedPlaceId) ?? null;
   const selectedUserPlace = userPlaces.find((up) => up.id === selectedUserPlaceId) ?? null;
+
+  const suggestionAnchor = useMemo(() => {
+    if (selectedPlace) {
+      return { lat: selectedPlace.latitude, lng: selectedPlace.longitude, label: selectedPlace.name };
+    }
+    if (selectedUserPlace) {
+      return { lat: selectedUserPlace.latitude, lng: selectedUserPlace.longitude, label: selectedUserPlace.name };
+    }
+    if (suggestionHostAnchor) {
+      return suggestionHostAnchor;
+    }
+    return activeAreaCenter;
+  }, [selectedPlace, selectedUserPlace, suggestionHostAnchor, activeAreaCenter]);
+
+  const areaNearbyCount = useMemo(() => {
+    if (!suggestionAnchor) return 0;
+    let count = 0;
+    for (const p of places) {
+      if (haversineM(suggestionAnchor.lat, suggestionAnchor.lng, p.latitude, p.longitude) <= AREA_RADIUS_M) count++;
+    }
+    for (const up of userPlaces) {
+      if (haversineM(suggestionAnchor.lat, suggestionAnchor.lng, up.latitude, up.longitude) <= AREA_RADIUS_M) count++;
+    }
+    return count;
+  }, [places, userPlaces, suggestionAnchor]);
+
+  // If dots within 3 km of selected spot / searched place / user location <= 10, load closest nearby map suggestions
+  useEffect(() => {
+    if (loading || !suggestionAnchor) return;
+
+    if (areaNearbyCount > SUGGESTION_MAX_EXISTING_DOTS) {
+      setNearbySuggestionsRaw([]);
+      setLoadingNearbySuggestions(false);
+      suggestionOriginRef.current = null;
+      return;
+    }
+
+    const lastOrigin = suggestionOriginRef.current;
+    if (lastOrigin && haversineM(lastOrigin.lat, lastOrigin.lng, suggestionAnchor.lat, suggestionAnchor.lng) < 350) {
+      return;
+    }
+
+    let cancelled = false;
+    const controller = new AbortController();
+    setLoadingNearbySuggestions(true);
+
+    fetch(
+      `/api/nocap/search-locations?lat=${encodeURIComponent(String(suggestionAnchor.lat))}&lng=${encodeURIComponent(String(suggestionAnchor.lng))}&limit=75`,
+      { signal: controller.signal }
+    )
+      .then((res) => (res.ok ? res.json() : { results: [] }))
+      .then((data) => {
+        if (cancelled) return;
+        const rows = Array.isArray(data?.results) ? (data.results as SuggestedMapPlace[]) : [];
+        suggestionOriginRef.current = rows.length > 0 ? { lat: suggestionAnchor.lat, lng: suggestionAnchor.lng } : null;
+        setNearbySuggestionsRaw(rows);
+      })
+      .catch((err: unknown) => {
+        if ((err as Error)?.name !== "AbortError" && !cancelled) {
+          setNearbySuggestionsRaw([]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingNearbySuggestions(false);
+      });
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [loading, suggestionAnchor, areaNearbyCount]);
+
+  const activeSelectedSuggestion =
+    selectedSuggestionPlace && selectedSuggestionPlace.id === selectedSuggestionId
+      ? selectedSuggestionPlace
+      : focusedSuggestion && focusedSuggestion.id === selectedSuggestionId
+        ? focusedSuggestion
+        : null;
+
+  const visibleSuggestedDots = useMemo(() => {
+    const queryLower = query.trim().toLowerCase();
+    const base =
+      suggestionAnchor && areaNearbyCount <= SUGGESTION_MAX_EXISTING_DOTS ? nearbySuggestionsRaw : [];
+
+    const combined =
+      activeSelectedSuggestion &&
+      !base.some((b) => haversineM(b.lat, b.lng, activeSelectedSuggestion.lat, activeSelectedSuggestion.lng) <= 80)
+        ? [activeSelectedSuggestion, ...base]
+        : base;
+
+    if (combined.length === 0) return [];
+    const normalized = queryLower;
+
+    return combined
+      .filter((item) => {
+        const isSelectedSearchSpot =
+          Boolean(focusedSuggestion) &&
+          item.id === focusedSuggestion?.id &&
+          item.id === selectedSuggestionId;
+        if (isSelectedSearchSpot) return true;
+
+        if (suggestionAnchor && haversineM(suggestionAnchor.lat, suggestionAnchor.lng, item.lat, item.lng) > AREA_RADIUS_M) {
+          return false;
+        }
+
+        const itemCat = item.category ?? "other";
+        const categoryMatch =
+          category === "all"
+            ? true
+            : category === "other"
+            ? !["eat", "street", "park", "culture"].includes(itemCat) || itemCat === "other"
+            : itemCat === category;
+        if (!categoryMatch) return false;
+
+        if (normalized) {
+          const textMatch = `${item.title} ${item.subtitle}`.toLowerCase().includes(normalized);
+          if (!textMatch) return false;
+        }
+
+        const itemNorm = normalizeSpotName(item.title);
+        for (const p of places) {
+          const dist = haversineM(item.lat, item.lng, p.latitude, p.longitude);
+          if (dist <= 80) return false;
+          if (itemNorm && dist <= 1500 && normalizeSpotName(p.name) === itemNorm) return false;
+        }
+        for (const up of userPlaces) {
+          const dist = haversineM(item.lat, item.lng, up.latitude, up.longitude);
+          if (dist <= 80) return false;
+          if (itemNorm && dist <= 1500 && normalizeSpotName(up.name) === itemNorm) return false;
+        }
+        return true;
+      })
+      .sort((a, b) =>
+        suggestionAnchor
+          ? haversineM(suggestionAnchor.lat, suggestionAnchor.lng, a.lat, a.lng) -
+            haversineM(suggestionAnchor.lat, suggestionAnchor.lng, b.lat, b.lng)
+          : 0
+      )
+      .slice(0, 60);
+  }, [areaNearbyCount, category, nearbySuggestionsRaw, places, query, suggestionAnchor, activeSelectedSuggestion, userPlaces]);
+
+  const selectedSuggestion =
+    activeSelectedSuggestion ?? visibleSuggestedDots.find((item) => item.id === selectedSuggestionId) ?? null;
 
   const reviewCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -362,7 +706,7 @@ export function NocapApp() {
       } finally {
         setLoadingMapSuggestions(false);
       }
-    }, 280);
+    }, 180);
 
     return () => {
       clearTimeout(timer);
@@ -418,7 +762,7 @@ export function NocapApp() {
     setProfileOpen(false);
   }
 
-  async function publishReview(input: { body: string; rating: number | null; imageUrl?: string | null; placeId?: string; userPlaceId?: string; makeLegit?: boolean }) {
+  async function submitReview(input: { body: string; rating: number | null; imageUrl?: string | null; placeId?: string; userPlaceId?: string; makeLegit?: boolean }): Promise<NocapReview | null> {
     if (!accessToken) throw new Error("Sign in with Google before publishing.");
     let lat: number | undefined = userLocation?.lat;
     let lng: number | undefined = userLocation?.lng;
@@ -464,7 +808,7 @@ export function NocapApp() {
           is_legit_requested: true,
         });
         window.location.href = checkoutData.checkoutUrl;
-        return;
+        return null;
       }
       throw new Error("No checkout URL returned from payment provider.");
     }
@@ -491,7 +835,142 @@ export function NocapApp() {
       rating: input.rating,
       is_legit_requested: false,
     });
-    setReviews((current) => [data.review, ...current.filter((review) => review.id !== data.review.id)]);
+    const createdReview = data.review as NocapReview;
+    setReviews((current) => [createdReview, ...current.filter((review) => review.id !== createdReview.id)]);
+    return createdReview;
+  }
+
+  async function publishReview(input: { body: string; rating: number | null; imageUrl?: string | null; placeId?: string; userPlaceId?: string; makeLegit?: boolean }) {
+    await submitReview(input);
+  }
+
+  async function publishSuggestionReview(
+    suggestion: SuggestedMapPlace,
+    input: { body: string; rating: number | null; imageUrl?: string | null; makeLegit?: boolean },
+  ) {
+    if (!accessToken) throw new Error("Sign in with Google before publishing.");
+    if (!isBengaluruCoord(suggestion.lat, suggestion.lng)) {
+      throw new Error("Reviews can only be published for Bengaluru spots.");
+    }
+    const cleanBody = input.body.trim();
+    if (cleanBody.length < 8) throw new Error("Review must be at least 8 characters.");
+    if (cleanBody.length > 1200) throw new Error("Review must be under 1200 characters.");
+
+    const targetNameNorm = normalizeSpotName(suggestion.title);
+
+    // If a permanent dot already exists at this exact spot, attach the review to it rather than duplicating
+    const existingCurated = places.find(
+      (p) =>
+        haversineM(p.latitude, p.longitude, suggestion.lat, suggestion.lng) <= 80 ||
+        (targetNameNorm.length >= 3 &&
+          haversineM(p.latitude, p.longitude, suggestion.lat, suggestion.lng) <= 300 &&
+          normalizeSpotName(p.name) === targetNameNorm),
+    );
+    if (existingCurated) {
+      await submitReview({
+        placeId: existingCurated.id,
+        body: cleanBody,
+        rating: input.rating,
+        imageUrl: input.imageUrl,
+        makeLegit: input.makeLegit,
+      });
+      setSelectedSuggestionId(null);
+      setSelectedSuggestionPlace(null);
+      setSuggestionHostAnchor(null);
+      setFocusedSuggestion((curr) =>
+        curr && (curr.id === suggestion.id || haversineM(curr.lat, curr.lng, existingCurated.latitude, existingCurated.longitude) <= 80)
+          ? null
+          : curr,
+      );
+      setSelectedUserPlaceId(null);
+      setSelectedPlaceId(existingCurated.id);
+      return;
+    }
+
+    let targetUserPlace =
+      userPlaces.find(
+        (up) =>
+          haversineM(up.latitude, up.longitude, suggestion.lat, suggestion.lng) <= 80 ||
+          (targetNameNorm.length >= 3 &&
+            haversineM(up.latitude, up.longitude, suggestion.lat, suggestion.lng) <= 300 &&
+            normalizeSpotName(up.name) === targetNameNorm),
+      ) ?? null;
+
+    if (!targetUserPlace) {
+      const validCategory: NocapPlaceCategory =
+        suggestion.category && ["eat", "street", "park", "culture", "other"].includes(suggestion.category)
+          ? suggestion.category
+          : "other";
+      const trimmedTitle = suggestion.title.trim();
+      const safeName = (trimmedTitle.length >= 2 ? trimmedTitle : `${trimmedTitle || "Local"} Spot`).slice(0, 120);
+
+      const placeRes = await fetch("/api/nocap/user-places", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          name: safeName,
+          category: validCategory,
+          address: (suggestion.subtitle || "Bengaluru").trim().slice(0, 200),
+          latitude: suggestion.lat,
+          longitude: suggestion.lng,
+          userLatitude: userLocation?.lat,
+          userLongitude: userLocation?.lng,
+        }),
+      });
+      const placeData = await placeRes.json();
+      if (!placeRes.ok || !placeData?.place) {
+        throw new Error(placeData?.error ?? "Could not convert this spot into a permanent dot.");
+      }
+      targetUserPlace = placeData.place as NocapUserPlace;
+      setUserPlaces((prev) => [targetUserPlace!, ...prev.filter((up) => up.id !== targetUserPlace!.id)]);
+      trackEvent("pin_user_place", {
+        place_id: targetUserPlace.id,
+        category: targetUserPlace.category,
+        from_suggestion: true,
+      });
+    }
+
+    const createdReview = await submitReview({
+      userPlaceId: targetUserPlace.id,
+      body: cleanBody,
+      rating: input.rating,
+      imageUrl: input.imageUrl,
+      makeLegit: input.makeLegit,
+    });
+
+    if (createdReview) {
+      setUserPlaceDetail({
+        place: targetUserPlace,
+        reviews: [
+          createdReview,
+          ...reviews.filter(
+            (r) =>
+              (r.placeId === targetUserPlace!.id || r.placeId === `user:${targetUserPlace!.id}`) &&
+              r.id !== createdReview.id,
+          ),
+        ],
+        personNotes: personNotes.filter((n) => n.placeId === `user:${targetUserPlace!.id}` || n.placeId === targetUserPlace!.id),
+        supabaseConfigured,
+      });
+    }
+
+    setNearbySuggestionsRaw((prev) =>
+      prev.filter((item) => haversineM(item.lat, item.lng, targetUserPlace!.latitude, targetUserPlace!.longitude) > 80),
+    );
+    setSelectedSuggestionId(null);
+    setSelectedSuggestionPlace(null);
+    setSuggestionHostAnchor(null);
+    setFocusedSuggestion((curr) =>
+      curr && (curr.id === suggestion.id || haversineM(curr.lat, curr.lng, targetUserPlace!.latitude, targetUserPlace!.longitude) <= 80)
+        ? null
+        : curr,
+    );
+    setSelectedPlaceId(null);
+    setSelectedUserPlaceId(targetUserPlace.id);
+    mapRef.current?.flyToUser(targetUserPlace.latitude, targetUserPlace.longitude, 16);
   }
 
   async function publishPersonNote(input: { personName: string; description: string; photoUrl?: string | null; placeId?: string; userPlaceId?: string }) {
@@ -534,12 +1013,14 @@ export function NocapApp() {
   async function handleWriteNoCap() {
     trackEvent("write_nocap_click");
     setLocationError(null);
+    setEntryBannerVisible(false);
     setLocateState("locating");
     try {
       console.log("[NoCap] Requesting location via getCurrentPosition...");
       const position = await currentPosition();
       console.log("[NoCap] Got position:", position.coords.latitude, position.coords.longitude);
       const loc = { lat: position.coords.latitude, lng: position.coords.longitude };
+      saveUserLocation(loc);
       setUserLocation(loc);
       setLocateState("located");
       mapRef.current?.flyToUser(loc.lat, loc.lng);
@@ -558,10 +1039,16 @@ export function NocapApp() {
   async function handleLocateMe() {
     trackEvent("locate_user_click");
     setLocationError(null);
+    setSearchAnchor(null);
+    setFocusedSuggestion(null);
+    setSelectedSuggestionId(null);
+    setSelectedSuggestionPlace(null);
+    setSuggestionHostAnchor(null);
+    setEntryBannerVisible(true);
 
     // Instant response if already located
     if (userLocation) {
-      mapRef.current?.flyToUser(userLocation.lat, userLocation.lng, 16);
+      mapRef.current?.flyToUser(userLocation.lat, userLocation.lng, AREA_EXPLORE_ZOOM);
       mapRef.current?.showRadiusCircle(userLocation.lat, userLocation.lng, 1);
       setLocateState("located");
     }
@@ -570,7 +1057,9 @@ export function NocapApp() {
     try {
       const position = await currentPosition();
       const loc = { lat: position.coords.latitude, lng: position.coords.longitude };
+      saveUserLocation(loc);
       setUserLocation(loc);
+      setEntryLocateStatus("grabbed");
       mapRef.current?.flyToUser(loc.lat, loc.lng, 16);
       mapRef.current?.showRadiusCircle(loc.lat, loc.lng, 1);
       setLocateState("located");
@@ -591,6 +1080,34 @@ export function NocapApp() {
     }
   }
 
+  async function handleEntryShareLocation() {
+    trackEvent("entry_locate_tap");
+    setLocationError(null);
+    setSearchAnchor(null);
+    setFocusedSuggestion(null);
+    setEntryLocateStatus("asking");
+    setEntryBannerVisible(true);
+    try {
+      const position = await currentPosition();
+      const loc = { lat: position.coords.latitude, lng: position.coords.longitude };
+      saveUserLocation(loc);
+      setUserLocation(loc);
+      setEntryLocateStatus("grabbed");
+      setEntryBannerVisible(true);
+      userCameraMovedRef.current = false;
+      mapRef.current?.flyToUser(loc.lat, loc.lng, AREA_EXPLORE_ZOOM);
+    } catch (err: any) {
+      if (err?.message?.includes("PERMISSION_DENIED")) {
+        setEntryLocateStatus("dismissed");
+        setEntryBannerVisible(false);
+        setLocationError("Location access is blocked. Tap the lock/info icon in your address bar, allow location access, and try again.");
+      } else {
+        setEntryLocateStatus("needs_tap");
+        setLocationError("Unable to find your location. Please check your device GPS settings and try again.");
+      }
+    }
+  }
+
   function dismissLocate() {
     setLocateState("idle");
     setNearbyPlaces([]);
@@ -601,6 +1118,7 @@ export function NocapApp() {
     setPinMode(true);
     mapRef.current?.enterPinMode();
     dismissLocate();
+    setEntryBannerVisible(false);
     setLocationError(null);
 
     // Retrieve user location and show 1km boundary circle
@@ -609,6 +1127,7 @@ export function NocapApp() {
       try {
         const pos = await currentPosition();
         loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        saveUserLocation(loc);
         setUserLocation(loc);
       } catch (err) {
         console.warn("[NoCap] Could not get location for pin mode:", err);
@@ -630,34 +1149,180 @@ export function NocapApp() {
   }
 
   function handleSelectDot(item: { type: "place"; place: NocapPlace } | { type: "userPlace"; place: NocapUserPlace }) {
+    userCameraMovedRef.current = true;
+    setSearchAnchor({ lat: item.place.latitude, lng: item.place.longitude, label: item.place.name });
+    setFocusedSuggestion(null);
+    setQuery("");
+    setEntryBannerVisible(true);
     setSearchFocused(false);
     dismissLocate();
     exitPinMode();
+    setSelectedSuggestionId(null);
+    setSelectedSuggestionPlace(null);
+    setSuggestionHostAnchor(null);
     if (item.type === "place") {
       setSelectedPlaceId(item.place.id);
       setSelectedUserPlaceId(null);
-      mapRef.current?.flyToUser(item.place.latitude, item.place.longitude, 16);
+      mapRef.current?.flyToUser(item.place.latitude, item.place.longitude, 15);
     } else {
       setSelectedUserPlaceId(item.place.id);
       setSelectedPlaceId(null);
-      mapRef.current?.flyToUser(item.place.latitude, item.place.longitude, 16);
+      mapRef.current?.flyToUser(item.place.latitude, item.place.longitude, 15);
     }
   }
 
-  function handleSelectMapSuggestion(suggestion: { id: string; title: string; subtitle: string; lat: number; lng: number }) {
+  function handleSelectSuggestionDot(suggestion: SuggestedMapPlace) {
+    userCameraMovedRef.current = true;
+    setEntryBannerVisible(false);
+    setSearchFocused(false);
+    dismissLocate();
+    exitPinMode();
+    if (suggestionAnchor) {
+      setSuggestionHostAnchor({
+        lat: suggestionAnchor.lat,
+        lng: suggestionAnchor.lng,
+        label: suggestionAnchor.label,
+      });
+    } else {
+      setSuggestionHostAnchor({
+        lat: suggestion.lat,
+        lng: suggestion.lng,
+        label: suggestion.title,
+      });
+    }
+    setSelectedPlaceId(null);
+    setSelectedUserPlaceId(null);
+    setSelectedSuggestionId(suggestion.id);
+    setSelectedSuggestionPlace(suggestion);
+    mapRef.current?.flyToUser(suggestion.lat, suggestion.lng, 16);
+  }
+
+  function handleExploreMapSuggestion(suggestion: { id: string; title: string; subtitle: string; lat: number; lng: number; category?: NocapPlaceCategory }) {
+    userCameraMovedRef.current = true;
+    setSearchFocused(false);
+    dismissLocate();
+    exitPinMode();
+    setQuery("");
+    setSearchAnchor({ lat: suggestion.lat, lng: suggestion.lng, label: suggestion.title });
+    setEntryBannerVisible(true);
+
+    // If a specific venue category is clicked, or an existing dot sits within 150m, highlight it;
+    // for broad area searches (e.g. UB City / Whitefield / Electronic City), show the surrounding map directly.
+    const isSpecificSpot =
+      suggestion.category && ["eat", "street", "park", "culture"].includes(suggestion.category);
+
+    const nearbyExistingPlace = places.find(
+      (p) => haversineM(suggestion.lat, suggestion.lng, p.latitude, p.longitude) <= 150
+    );
+    if (nearbyExistingPlace && (isSpecificSpot || normalizeSpotName(nearbyExistingPlace.name) === normalizeSpotName(suggestion.title))) {
+      setFocusedSuggestion(null);
+      setSelectedSuggestionId(null);
+      setSelectedSuggestionPlace(null);
+      setSuggestionHostAnchor(null);
+      setSelectedUserPlaceId(null);
+      setSelectedPlaceId(nearbyExistingPlace.id);
+      mapRef.current?.flyToUser(nearbyExistingPlace.latitude, nearbyExistingPlace.longitude, 14);
+      return;
+    }
+
+    const nearbyExistingUserPlace = userPlaces.find(
+      (up) => haversineM(suggestion.lat, suggestion.lng, up.latitude, up.longitude) <= 150
+    );
+    if (nearbyExistingUserPlace && (isSpecificSpot || normalizeSpotName(nearbyExistingUserPlace.name) === normalizeSpotName(suggestion.title))) {
+      setFocusedSuggestion(null);
+      setSelectedSuggestionId(null);
+      setSelectedSuggestionPlace(null);
+      setSuggestionHostAnchor(null);
+      setSelectedPlaceId(null);
+      setSelectedUserPlaceId(nearbyExistingUserPlace.id);
+      mapRef.current?.flyToUser(nearbyExistingUserPlace.latitude, nearbyExistingUserPlace.longitude, 14);
+      return;
+    }
+
+    if (isSpecificSpot) {
+      const asSuggested: SuggestedMapPlace = {
+        id: `searched-${suggestion.id}`,
+        title: suggestion.title,
+        subtitle: suggestion.subtitle || "Bengaluru, Karnataka",
+        lat: suggestion.lat,
+        lng: suggestion.lng,
+        category: suggestion.category,
+      };
+      setFocusedSuggestion(asSuggested);
+      setSuggestionHostAnchor(null);
+      setSelectedPlaceId(null);
+      setSelectedUserPlaceId(null);
+      setSelectedSuggestionId(asSuggested.id);
+      setSelectedSuggestionPlace(asSuggested);
+      mapRef.current?.flyToUser(suggestion.lat, suggestion.lng, 14);
+      return;
+    }
+
+    setFocusedSuggestion(null);
+    setSelectedPlaceId(null);
+    setSelectedUserPlaceId(null);
+    setSelectedSuggestionId(null);
+    setSelectedSuggestionPlace(null);
+    setSuggestionHostAnchor(null);
+    mapRef.current?.flyToUser(suggestion.lat, suggestion.lng, 13.6);
+  }
+
+  async function handleSearchKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
+    if (event.key !== "Enter") return;
+    const trimmed = query.trim();
+    if (trimmed.length < 2) return;
+    event.preventDefault();
+
+    if (mapSuggestions.length > 0) {
+      handleExploreMapSuggestion(mapSuggestions[0]);
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/nocap/search-locations?q=${encodeURIComponent(trimmed)}`);
+      if (res.ok) {
+        const data = await res.json();
+        const first = Array.isArray(data?.results) ? data.results[0] : null;
+        if (first) {
+          handleExploreMapSuggestion(first);
+          return;
+        }
+      }
+    } catch {}
+
+    if (matchingDots.length > 0) {
+      handleExploreMapSuggestion({
+        id: matchingDots[0].place.id,
+        title: matchingDots[0].place.name,
+        subtitle: matchingDots[0].place.address || "Bengaluru",
+        lat: matchingDots[0].place.latitude,
+        lng: matchingDots[0].place.longitude,
+      });
+    }
+  }
+
+  function handleSelectMapSuggestion(suggestion: { id: string; title: string; subtitle: string; lat: number; lng: number; category?: NocapPlaceCategory }) {
+    userCameraMovedRef.current = true;
+    setEntryBannerVisible(false);
     setSearchFocused(false);
     dismissLocate();
     setSelectedPlaceId(null);
     setSelectedUserPlaceId(null);
+    setSelectedSuggestionId(null);
+    setSelectedSuggestionPlace(null);
+    setSuggestionHostAnchor(null);
+    setFocusedSuggestion(null);
+    setSearchAnchor({ lat: suggestion.lat, lng: suggestion.lng, label: suggestion.title });
 
     // Smoothly fly camera to the exact map location
     mapRef.current?.flyToUser(suggestion.lat, suggestion.lng, 16);
 
-    // Drop pending pin right at the location & pre-fill the name and address
+    // Drop pending pin right at the location & pre-fill the name, address, and category
     setPendingPin({ lat: suggestion.lat, lng: suggestion.lng });
     setPinPrefill({
       name: suggestion.title,
       address: suggestion.subtitle,
+      category: suggestion.category,
     });
     setPinFormOpen(true);
   }
@@ -683,6 +1348,7 @@ export function NocapApp() {
       try {
         const pos = await currentPosition();
         loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        saveUserLocation(loc);
         setUserLocation(loc);
       } catch {
         loc = { lat: pendingPin.lat, lng: pendingPin.lng };
@@ -710,6 +1376,9 @@ export function NocapApp() {
     setPinPrefill(null);
     setSelectedUserPlaceId(newPlace.id);
     setSelectedPlaceId(null);
+    setSelectedSuggestionId(null);
+    setSelectedSuggestionPlace(null);
+    setSuggestionHostAnchor(null);
   }
 
   const commonPanelProps = {
@@ -720,7 +1389,7 @@ export function NocapApp() {
     onPublishPersonNote: publishPersonNote,
   };
 
-  const hasSelection = Boolean(selectedPlace || selectedUserPlace);
+  const hasSelection = Boolean(selectedPlace || selectedUserPlace || selectedSuggestion);
 
   // Portal: render AccountButton into the nav's #nav-search-slot on desktop
   const [navSlot, setNavSlot] = useState<Element | null>(null);
@@ -760,6 +1429,7 @@ export function NocapApp() {
                 setSearchFocused(true);
               }}
               onFocus={() => setSearchFocused(true)}
+              onKeyDown={handleSearchKeyDown}
               placeholder="Search places or areas"
               className="min-w-0 flex-1 bg-transparent text-sm text-zinc-900 outline-none placeholder:text-zinc-400"
             />
@@ -787,6 +1457,7 @@ export function NocapApp() {
               loadingMap={loadingMapSuggestions}
               reviewCounts={reviewCounts}
               onSelectDot={handleSelectDot}
+              onExploreMapSuggestion={handleExploreMapSuggestion}
               onSelectMapSuggestion={handleSelectMapSuggestion}
             />
           )}
@@ -804,7 +1475,7 @@ export function NocapApp() {
                 Loading places & takes...
               </span>
             ) : (
-              <span>{visiblePlaces.length + visibleUserPlaces.length} places · {reviews.length} local reviews</span>
+              <span>{visiblePlaces.length + visibleUserPlaces.length + visibleSuggestedDots.length} places · {reviews.length} local reviews</span>
             )}
             <button
               type="button"
@@ -822,12 +1493,15 @@ export function NocapApp() {
             <>
               {visiblePlaces.map((place) => {
                 const count = reviewCounts.get(place.id) ?? 0;
-                return <button key={place.id} type="button" onClick={() => { setSelectedPlaceId(place.id); setSelectedUserPlaceId(null); dismissLocate(); exitPinMode(); }} className={cn("mb-1 flex w-full items-start gap-3 rounded-md px-3 py-3 text-left transition-colors", place.id === selectedPlaceId ? "bg-zinc-950 text-white" : "hover:bg-zinc-100")}>
+                const distLabel = activeAreaCenter
+                  ? formatDistance(haversineM(activeAreaCenter.lat, activeAreaCenter.lng, place.latitude, place.longitude))
+                  : null;
+                return <button key={place.id} type="button" onClick={() => { userCameraMovedRef.current = true; setEntryBannerVisible(false); setSelectedPlaceId(place.id); setSelectedUserPlaceId(null); setSelectedSuggestionId(null); setSelectedSuggestionPlace(null); setSuggestionHostAnchor(null); dismissLocate(); exitPinMode(); mapRef.current?.flyToUser(place.latitude, place.longitude, 14); }} className={cn("mb-1 flex w-full items-start gap-3 rounded-md px-3 py-3 text-left transition-colors", place.id === selectedPlaceId ? "bg-zinc-950 text-white" : "hover:bg-zinc-100")}>
                   <span className={cn("mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full text-[10px] font-black", place.id === selectedPlaceId ? "bg-white text-zinc-950" : "bg-zinc-100 text-zinc-600")}>{place.category[0].toUpperCase()}</span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-bold">{place.name}</span>
                     <span className={cn("mt-0.5 flex items-center gap-1.5 text-xs", place.id === selectedPlaceId ? "text-zinc-300" : "text-zinc-500")}>
-                      {place.area} · {getCategoryName(place.category)}
+                      <span className="truncate">{place.area} · {getCategoryName(place.category)}{distLabel ? ` · ${distLabel}` : ""}</span>
                       {count > 0 && <span className={cn("ml-auto shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold", place.id === selectedPlaceId ? "bg-white/20 text-white" : "bg-emerald-100 text-emerald-700")}>{count}</span>}
                     </span>
                   </span>
@@ -837,15 +1511,62 @@ export function NocapApp() {
               {visibleUserPlaces.length > 0 && (
                 <div className="mt-3">
                   <p className="mb-1 px-3 text-[10px] font-bold uppercase tracking-widest text-zinc-400">Pinned by community</p>
-                  {visibleUserPlaces.map((up) => (
-                    <button key={up.id} type="button" onClick={() => { setSelectedUserPlaceId(up.id); setSelectedPlaceId(null); dismissLocate(); exitPinMode(); }} className={cn("mb-1 flex w-full items-start gap-3 rounded-md px-3 py-3 text-left transition-colors", up.id === selectedUserPlaceId ? "bg-zinc-950 text-white" : "hover:bg-zinc-100")}>
-                      <span className={cn("mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full text-[10px] font-black", up.id === selectedUserPlaceId ? "bg-white text-zinc-950" : "bg-amber-100 text-amber-700")}>U</span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-bold">{up.name}</span>
-                        <span className={cn("mt-0.5 text-xs", up.id === selectedUserPlaceId ? "text-zinc-300" : "text-zinc-500")}>{up.address || getCategoryName(up.category)}</span>
-                      </span>
-                    </button>
-                  ))}
+                  {visibleUserPlaces.map((up) => {
+                    const distLabel = activeAreaCenter
+                      ? formatDistance(haversineM(activeAreaCenter.lat, activeAreaCenter.lng, up.latitude, up.longitude))
+                      : null;
+                    return (
+                      <button key={up.id} type="button" onClick={() => { userCameraMovedRef.current = true; setEntryBannerVisible(false); setSelectedUserPlaceId(up.id); setSelectedPlaceId(null); setSelectedSuggestionId(null); setSelectedSuggestionPlace(null); setSuggestionHostAnchor(null); dismissLocate(); exitPinMode(); mapRef.current?.flyToUser(up.latitude, up.longitude, 14); }} className={cn("mb-1 flex w-full items-start gap-3 rounded-md px-3 py-3 text-left transition-colors", up.id === selectedUserPlaceId ? "bg-zinc-950 text-white" : "hover:bg-zinc-100")}>
+                        <span className={cn("mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full text-[10px] font-black", up.id === selectedUserPlaceId ? "bg-white text-zinc-950" : "bg-amber-100 text-amber-700")}>U</span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-bold">{up.name}</span>
+                          <span className={cn("mt-0.5 block truncate text-xs", up.id === selectedUserPlaceId ? "text-zinc-300" : "text-zinc-500")}>{up.address || getCategoryName(up.category)}{distLabel ? ` · ${distLabel}` : ""}</span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {visibleSuggestedDots.length > 0 && (
+                <div className="mt-3">
+                  <p className="mb-1 px-3 text-[10px] font-bold uppercase tracking-widest text-zinc-400">
+                    {suggestionAnchor ? `Closest to ${suggestionAnchor.label} · Suggested` : "Around you · Suggested"}
+                  </p>
+                  {visibleSuggestedDots.map((s) => {
+                    const distLabel = suggestionAnchor
+                      ? formatDistance(haversineM(suggestionAnchor.lat, suggestionAnchor.lng, s.lat, s.lng))
+                      : null;
+                    const cat = s.category ?? "other";
+                    return (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => handleSelectSuggestionDot(s)}
+                        className={cn(
+                          "mb-1 flex w-full items-start gap-3 rounded-md px-3 py-3 text-left transition-colors",
+                          s.id === selectedSuggestionId ? "bg-zinc-950 text-white" : "hover:bg-zinc-100"
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full border text-[10px] font-black",
+                            s.id === selectedSuggestionId
+                              ? "border-white bg-white text-zinc-950"
+                              : "border-zinc-950 bg-white text-zinc-950"
+                          )}
+                        >
+                          {cat === "other" ? "+" : cat[0].toUpperCase()}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-bold">{s.title}</span>
+                          <span className={cn("mt-0.5 block truncate text-xs", s.id === selectedSuggestionId ? "text-zinc-300" : "text-zinc-500")}>
+                            {s.subtitle || getCategoryName(cat)}{distLabel ? ` · ${distLabel}` : ""}
+                          </span>
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </>
@@ -860,9 +1581,11 @@ export function NocapApp() {
           places={visiblePlaces}
           reviews={reviews}
           userPlaces={userPlaces}
-          selectedPlaceId={selectedPlaceId ?? selectedUserPlaceId}
-          onSelectPlace={(id) => { setSelectedPlaceId(id); setSelectedUserPlaceId(null); dismissLocate(); exitPinMode(); }}
-          onSelectUserPlace={(id) => { setSelectedUserPlaceId(id); setSelectedPlaceId(null); dismissLocate(); exitPinMode(); }}
+          suggestedPlaces={visibleSuggestedDots}
+          selectedPlaceId={selectedPlaceId ?? selectedUserPlaceId ?? selectedSuggestionId}
+          onSelectPlace={(id) => { userCameraMovedRef.current = true; setEntryBannerVisible(false); setSelectedPlaceId(id); setSelectedUserPlaceId(null); setSelectedSuggestionId(null); setSelectedSuggestionPlace(null); setSuggestionHostAnchor(null); dismissLocate(); exitPinMode(); }}
+          onSelectUserPlace={(id) => { userCameraMovedRef.current = true; setEntryBannerVisible(false); setSelectedUserPlaceId(id); setSelectedPlaceId(null); setSelectedSuggestionId(null); setSelectedSuggestionPlace(null); setSuggestionHostAnchor(null); dismissLocate(); exitPinMode(); }}
+          onSelectSuggestion={handleSelectSuggestionDot}
           userLocation={userLocation}
           pendingPin={pendingPin}
           onPinDrop={handlePinDrop}
@@ -881,6 +1604,7 @@ export function NocapApp() {
                   setSearchFocused(true);
                 }}
                 onFocus={() => setSearchFocused(true)}
+                onKeyDown={handleSearchKeyDown}
                 placeholder="Search places or areas"
                 className="min-w-0 flex-1 bg-transparent text-sm text-zinc-900 outline-none placeholder:text-zinc-400"
               />
@@ -917,6 +1641,7 @@ export function NocapApp() {
                 loadingMap={loadingMapSuggestions}
                 reviewCounts={reviewCounts}
                 onSelectDot={handleSelectDot}
+                onExploreMapSuggestion={handleExploreMapSuggestion}
                 onSelectMapSuggestion={handleSelectMapSuggestion}
                 isMobile
               />
@@ -938,6 +1663,120 @@ export function NocapApp() {
             Loading Bengaluru places...
           </div>
         )}
+
+        {/* ── ENTRY LOCATION STATUS PILL (Non-blocking, monochrome) ── */}
+        {entryBannerVisible &&
+          !loading &&
+          !guideOpen &&
+          !pinMode &&
+          locateState === "idle" &&
+          !locationError && (
+            <div
+              className={cn(
+                "pointer-events-auto absolute top-28 lg:top-4 left-1/2 -translate-x-1/2 z-20 max-w-[calc(100%-1.5rem)] items-center gap-2 rounded-full border border-zinc-200 bg-white/95 px-3.5 py-2 text-xs font-semibold text-zinc-900 shadow-lg backdrop-blur",
+                hasSelection ? "hidden lg:flex" : "flex"
+              )}
+            >
+              {searchAnchor ? (
+                <>
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-amber-500 ring-2 ring-amber-200" />
+                  <span className="truncate">
+                    {loadingNearbySuggestions
+                      ? `${searchAnchor.label} · Finding nearby spots…`
+                      : areaNearbyCount <= SUGGESTION_MAX_EXISTING_DOTS
+                        ? visibleSuggestedDots.length > 0
+                          ? `${searchAnchor.label} · ${areaNearbyCount} NoCap + ${visibleSuggestedDots.length} suggested within 3 km`
+                          : `${searchAnchor.label} · ${areaNearbyCount} NoCap dot${areaNearbyCount === 1 ? "" : "s"} within 3 km`
+                        : `${searchAnchor.label} · ${areaNearbyCount} NoCap dots within 3 km`}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchAnchor(null);
+                      setFocusedSuggestion(null);
+                      setSelectedSuggestionId(null);
+                      setSelectedSuggestionPlace(null);
+                      setSuggestionHostAnchor(null);
+                      if (userLocation) {
+                        userCameraMovedRef.current = false;
+                        mapRef.current?.flyToUser(userLocation.lat, userLocation.lng, AREA_EXPLORE_ZOOM);
+                      } else {
+                        setEntryBannerVisible(false);
+                        mapRef.current?.flyToBengaluru();
+                      }
+                    }}
+                    className="shrink-0 rounded-full bg-zinc-950 px-2.5 py-1 text-[11px] font-bold text-white hover:bg-zinc-800 transition-colors"
+                  >
+                    {userLocation ? "My area" : "Reset"}
+                  </button>
+                </>
+              ) : (
+                <>
+                  {entryLocateStatus === "asking" && (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-zinc-700" />
+                      <span className="truncate">Finding dots around your area…</span>
+                    </>
+                  )}
+
+                  {entryLocateStatus === "needs_tap" && (
+                    <>
+                      <LocateFixed className="h-3.5 w-3.5 shrink-0 text-zinc-700" />
+                      <span className="truncate">See dots around your area</span>
+                      <button
+                        type="button"
+                        onClick={handleEntryShareLocation}
+                        className="shrink-0 rounded-full bg-zinc-950 px-2.5 py-1 text-[11px] font-bold text-white hover:bg-zinc-800 transition-colors"
+                      >
+                        Use location
+                      </button>
+                    </>
+                  )}
+
+                  {entryLocateStatus === "grabbed" && userLocation && (
+                    <>
+                      <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-blue-600 ring-2 ring-blue-200" />
+                      <span className="truncate">
+                        {loadingNearbySuggestions
+                          ? "Your area · Finding nearby spots…"
+                          : !isBengaluruCoord(userLocation.lat, userLocation.lng)
+                            ? visibleSuggestedDots.length > 0
+                              ? `Your area · ${visibleSuggestedDots.length} suggested spot${visibleSuggestedDots.length === 1 ? "" : "s"} nearby`
+                              : "Showing your location"
+                            : areaNearbyCount <= SUGGESTION_MAX_EXISTING_DOTS && visibleSuggestedDots.length > 0
+                              ? `Your area · ${areaNearbyCount} NoCap + ${visibleSuggestedDots.length} suggested within 3 km`
+                              : areaNearbyCount > 0
+                                ? `Your area · ${areaNearbyCount} NoCap dot${areaNearbyCount === 1 ? "" : "s"} within 3 km`
+                                : "Your area · Pin a spot nearby"}
+                      </span>
+                      {!isBengaluruCoord(userLocation.lat, userLocation.lng) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            userCameraMovedRef.current = true;
+                            setEntryBannerVisible(false);
+                            mapRef.current?.flyToBengaluru();
+                          }}
+                          className="shrink-0 rounded-full bg-zinc-950 px-2.5 py-1 text-[11px] font-bold text-white hover:bg-zinc-800 transition-colors"
+                        >
+                          Bengaluru dots
+                        </button>
+                      )}
+                    </>
+                  )}
+                </>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setEntryBannerVisible(false)}
+                className="grid h-5 w-5 shrink-0 place-items-center rounded-full text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 transition-colors"
+                aria-label="Dismiss location notice"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          )}
 
         {/* ── PIN MODE BANNER (Responsive: centered on desktop, banner on mobile) ── */}
         {pinMode && (
@@ -1044,12 +1883,12 @@ export function NocapApp() {
         {/* ── MOBILE BOTTOM SHEET (slides up when place is selected) ── */}
         {hasSelection && (
           <div className="lg:hidden">
-            <div onClick={() => { setSelectedPlaceId(null); setSelectedUserPlaceId(null); }} className="absolute inset-0 z-30 bg-black/20" />
+            <div onClick={() => { setSelectedPlaceId(null); setSelectedUserPlaceId(null); setSelectedSuggestionId(null); setSelectedSuggestionPlace(null); setSuggestionHostAnchor(null); }} className="absolute inset-0 z-30 bg-black/20" />
             <div className="absolute bottom-0 left-0 right-0 z-40 max-h-[70dvh] overflow-y-auto rounded-t-2xl bg-white shadow-2xl nocap-sheet">
               <div className="sticky top-0 z-10 flex justify-center bg-white pt-3 pb-2 rounded-t-2xl">
                 <div className="h-1 w-10 rounded-full bg-zinc-300" />
               </div>
-              <button type="button" onClick={() => { setSelectedPlaceId(null); setSelectedUserPlaceId(null); }} className="absolute top-3 right-3 z-10 grid h-8 w-8 place-items-center rounded-full bg-zinc-100 text-zinc-500 hover:bg-zinc-200">
+              <button type="button" onClick={() => { setSelectedPlaceId(null); setSelectedUserPlaceId(null); setSelectedSuggestionId(null); setSelectedSuggestionPlace(null); setSuggestionHostAnchor(null); }} className="absolute top-3 right-3 z-10 grid h-8 w-8 place-items-center rounded-full bg-zinc-100 text-zinc-500 hover:bg-zinc-200">
                 <X className="h-4 w-4" />
               </button>
               {selectedPlace && (
@@ -1064,6 +1903,23 @@ export function NocapApp() {
                   place={selectedUserPlace}
                   detail={userPlaceDetail?.place.id === selectedUserPlace.id ? userPlaceDetail : null}
                   {...commonPanelProps}
+                />
+              )}
+              {selectedSuggestion && (
+                <SuggestedPlacePanel
+                  suggestion={selectedSuggestion}
+                  userLocation={userLocation}
+                  configured={supabaseConfigured}
+                  signedIn={Boolean(accessToken)}
+                  onSignIn={signIn}
+                  onPublishReview={(input) => publishSuggestionReview(selectedSuggestion, input)}
+                  onPinAndReview={() => handleSelectMapSuggestion(selectedSuggestion)}
+                  onViewBengaluru={() => {
+                    setSelectedSuggestionId(null);
+                    setSelectedSuggestionPlace(null);
+                    setSuggestionHostAnchor(null);
+                    mapRef.current?.flyToBengaluru();
+                  }}
                 />
               )}
             </div>
@@ -1086,7 +1942,24 @@ export function NocapApp() {
         {selectedUserPlace && (
           <UserPlacePanel place={selectedUserPlace} detail={userPlaceDetail?.place.id === selectedUserPlace.id ? userPlaceDetail : null} {...commonPanelProps} />
         )}
-        {!selectedPlace && !selectedUserPlace && (
+        {selectedSuggestion && (
+          <SuggestedPlacePanel
+            suggestion={selectedSuggestion}
+            userLocation={userLocation}
+            configured={supabaseConfigured}
+            signedIn={Boolean(accessToken)}
+            onSignIn={signIn}
+            onPublishReview={(input) => publishSuggestionReview(selectedSuggestion, input)}
+            onPinAndReview={() => handleSelectMapSuggestion(selectedSuggestion)}
+            onViewBengaluru={() => {
+              setSelectedSuggestionId(null);
+              setSelectedSuggestionPlace(null);
+              setSuggestionHostAnchor(null);
+              mapRef.current?.flyToBengaluru();
+            }}
+          />
+        )}
+        {!selectedPlace && !selectedUserPlace && !selectedSuggestion && (
           <div className="flex h-full flex-col items-center justify-center p-6 text-center">
             <MapPin className="h-8 w-8 text-zinc-300" />
             <p className="mt-3 text-sm font-bold text-zinc-700">Select a place</p>
@@ -1109,6 +1982,7 @@ export function NocapApp() {
         accessToken={accessToken}
         initialName={pinPrefill?.name ?? ""}
         initialAddress={pinPrefill?.address ?? ""}
+        initialCategory={pinPrefill?.category}
         onCancel={() => {
           setPinPrefill(null);
           exitPinMode();
@@ -1512,11 +2386,12 @@ function UserPlacePanel({ place, detail, signedIn, configured, onSignIn, onPubli
   );
 }
 
-function ReviewComposer({ configured, signedIn, onSignIn, onPublish }: {
+function ReviewComposer({ configured, signedIn, onSignIn, onPublish, defaultExpanded = false }: {
   configured: boolean; signedIn: boolean; onSignIn: () => void;
   onPublish: (input: { body: string; rating: number | null; imageUrl?: string | null; makeLegit?: boolean }) => Promise<void>;
+  defaultExpanded?: boolean;
 }) {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(Boolean(defaultExpanded && signedIn));
   const [body, setBody] = useState("");
   const [rating, setRating] = useState<number | null>(5);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -1525,6 +2400,12 @@ function ReviewComposer({ configured, signedIn, onSignIn, onPublish }: {
   const [makeLegit, setMakeLegit] = useState(false);
   const [state, setState] = useState<"idle" | "locating" | "error">("idle");
   const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    if (defaultExpanded && signedIn) {
+      setIsExpanded(true);
+    }
+  }, [defaultExpanded, signedIn]);
 
   async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -1580,7 +2461,7 @@ function ReviewComposer({ configured, signedIn, onSignIn, onPublish }: {
   if (!configured) return <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-800">Community reviews activate once Supabase is configured.</div>;
 
   // ── Collapsed compact button ───────────────────────────────────────────
-  if (!isExpanded) {
+  if (!signedIn || !isExpanded) {
     return (
       <div className="mb-3.5">
         <button
@@ -2336,17 +3217,119 @@ function ProfileEditor({ profile, onClose, onSave, onSignOut }: { profile: Nocap
   );
 }
 
-function PinPlaceForm({ location, accessToken, initialName = "", initialAddress = "", onCancel, onSubmit, onSignIn }: {
+function SuggestedPlacePanel({
+  suggestion,
+  userLocation,
+  configured,
+  signedIn,
+  onSignIn,
+  onPublishReview,
+  onPinAndReview,
+  onViewBengaluru,
+}: {
+  suggestion: SuggestedMapPlace;
+  userLocation: { lat: number; lng: number } | null;
+  configured: boolean;
+  signedIn: boolean;
+  onSignIn: () => void;
+  onPublishReview: (input: { body: string; rating: number | null; imageUrl?: string | null; makeLegit?: boolean }) => Promise<void>;
+  onPinAndReview: () => void;
+  onViewBengaluru: () => void;
+}) {
+  const cat = suggestion.category ?? "other";
+  const initial = cat === "other" ? "+" : cat[0].toUpperCase();
+  const distLabel = userLocation
+    ? formatDistance(haversineM(userLocation.lat, userLocation.lng, suggestion.lat, suggestion.lng))
+    : null;
+  const insideBengaluru = isBengaluruCoord(suggestion.lat, suggestion.lng);
+
+  return (
+    <div className="flex h-full min-h-[34dvh] flex-col">
+      <div className="border-b border-zinc-200 px-5 py-5">
+        <div className="flex items-center gap-3">
+          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-lg border-2 border-zinc-950 bg-white text-lg font-black text-zinc-950">
+            {initial}
+          </span>
+          <div className="min-w-0">
+            <span className="text-[11px] font-bold uppercase tracking-wide text-zinc-500">
+              Suggested spot · {getCategoryName(cat)}
+            </span>
+            <h1 className="mt-0.5 text-lg font-black tracking-tight leading-tight">{suggestion.title}</h1>
+          </div>
+        </div>
+        {suggestion.subtitle && (
+          <p className="mt-2 flex items-center gap-1.5 text-xs text-zinc-500">
+            <MapPin className="h-3.5 w-3.5 shrink-0" />
+            <span>{suggestion.subtitle}</span>
+          </p>
+        )}
+        {distLabel && (
+          <p className="mt-1 text-[11px] font-semibold text-zinc-600">{distLabel} from your location</p>
+        )}
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto p-4">
+        {insideBengaluru ? (
+          <>
+            <div className="mb-3 rounded-xl border border-zinc-200 bg-zinc-50 p-3.5">
+              <p className="text-xs font-bold text-zinc-950">Write the first review</p>
+              <p className="mt-1 text-[11px] leading-4 text-zinc-600">
+                Publishing a review automatically turns{" "}
+                <span className="font-semibold text-zinc-900">{suggestion.title}</span> into a permanent NoCap dot.
+              </p>
+            </div>
+
+            <ReviewComposer
+              key={suggestion.id}
+              configured={configured}
+              signedIn={signedIn}
+              onSignIn={onSignIn}
+              onPublish={onPublishReview}
+              defaultExpanded
+            />
+
+            <button
+              type="button"
+              onClick={onPinAndReview}
+              className="mt-1 inline-flex items-center gap-1.5 px-1 py-1 text-[11px] font-semibold text-zinc-500 hover:text-zinc-900 transition-colors"
+            >
+              <Pin className="h-3 w-3" />
+              <span>Edit spot name or category first</span>
+            </button>
+          </>
+        ) : (
+          <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4">
+            <h2 className="text-sm font-bold text-zinc-950">Outside Bengaluru</h2>
+            <p className="mt-1.5 text-[11px] leading-5 text-zinc-500">
+              Pinning permanent spots and writing local reviews is currently open within Bengaluru.
+            </p>
+            <button
+              type="button"
+              onClick={onViewBengaluru}
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-zinc-950 px-4 py-2.5 text-xs font-bold text-white hover:bg-zinc-800 transition-colors"
+            >
+              <Navigation className="h-3.5 w-3.5" />
+              <span>Explore Bengaluru dots</span>
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PinPlaceForm({ location, accessToken, initialName = "", initialAddress = "", initialCategory, onCancel, onSubmit, onSignIn }: {
   location: { lat: number; lng: number };
   accessToken: string | null;
   initialName?: string;
   initialAddress?: string;
+  initialCategory?: NocapPlaceCategory;
   onCancel: () => void;
   onSubmit: (input: { name: string; category: NocapPlaceCategory; customCategory?: string; address: string }) => Promise<void>;
   onSignIn?: () => void;
 }) {
   const [name, setName] = useState(initialName);
-  const [category, setCategory] = useState<string>("eat");
+  const [category, setCategory] = useState<string>(initialCategory && ["eat", "street", "park", "culture", "other"].includes(initialCategory) ? initialCategory : "eat");
   const [customCategory, setCustomCategory] = useState("");
   const [address, setAddress] = useState(initialAddress);
   const [error, setError] = useState("");
@@ -2355,7 +3338,10 @@ function PinPlaceForm({ location, accessToken, initialName = "", initialAddress 
   useEffect(() => {
     if (initialName) setName(initialName);
     if (initialAddress) setAddress(initialAddress);
-  }, [initialName, initialAddress]);
+    if (initialCategory && ["eat", "street", "park", "culture", "other"].includes(initialCategory)) {
+      setCategory(initialCategory);
+    }
+  }, [initialName, initialAddress, initialCategory]);
 
   if (!accessToken) {
     return (
@@ -2572,16 +3558,18 @@ function SearchSuggestionsDropdown({
   loadingMap,
   reviewCounts,
   onSelectDot,
+  onExploreMapSuggestion,
   onSelectMapSuggestion,
   isMobile = false,
 }: {
   query: string;
   matchingDots: Array<{ type: "place"; place: NocapPlace } | { type: "userPlace"; place: NocapUserPlace }>;
-  mapSuggestions: Array<{ id: string; title: string; subtitle: string; lat: number; lng: number }>;
+  mapSuggestions: Array<{ id: string; title: string; subtitle: string; lat: number; lng: number; category?: NocapPlaceCategory }>;
   loadingMap: boolean;
   reviewCounts: Map<string, number>;
   onSelectDot: (item: { type: "place"; place: NocapPlace } | { type: "userPlace"; place: NocapUserPlace }) => void;
-  onSelectMapSuggestion: (suggestion: { id: string; title: string; subtitle: string; lat: number; lng: number }) => void;
+  onExploreMapSuggestion: (suggestion: { id: string; title: string; subtitle: string; lat: number; lng: number; category?: NocapPlaceCategory }) => void;
+  onSelectMapSuggestion: (suggestion: { id: string; title: string; subtitle: string; lat: number; lng: number; category?: NocapPlaceCategory }) => void;
   isMobile?: boolean;
 }) {
   return (
@@ -2667,7 +3655,7 @@ function SearchSuggestionsDropdown({
             Bengaluru Map Search
           </span>
           <span className="text-[10px] font-medium normal-case text-blue-600">
-            Tap to pin spot
+            Tap to view area · 3 km
           </span>
         </div>
 
@@ -2679,28 +3667,38 @@ function SearchSuggestionsDropdown({
         ) : mapSuggestions.length > 0 ? (
           <div className="divide-y divide-zinc-50">
             {mapSuggestions.map((s) => (
-              <button
+              <div
                 key={s.id}
-                type="button"
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  onSelectMapSuggestion(s);
-                }}
-                className="w-full flex items-center justify-between gap-3 px-3.5 py-2.5 text-left hover:bg-blue-50/40 active:bg-blue-50 transition-colors group"
+                className="w-full flex items-center justify-between gap-2 px-3.5 py-2.5 hover:bg-blue-50/40 transition-colors group"
               >
-                <div className="min-w-0 flex-1">
+                <button
+                  type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    onExploreMapSuggestion(s);
+                  }}
+                  className="min-w-0 flex-1 text-left"
+                >
                   <p className="truncate text-xs font-bold text-zinc-900 group-hover:text-blue-950">
                     {s.title}
                   </p>
                   <p className="truncate text-[11px] text-zinc-500 mt-0.5">
                     {s.subtitle || "Bengaluru, Karnataka"}
                   </p>
-                </div>
-                <div className="shrink-0 flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-bold text-blue-700 border border-blue-200/70 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                </button>
+                <button
+                  type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    onSelectMapSuggestion(s);
+                  }}
+                  title="Pin this location on NoCap"
+                  className="shrink-0 flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-bold text-blue-700 border border-blue-200/70 hover:bg-blue-600 hover:text-white transition-colors"
+                >
                   <Pin className="h-3 w-3" />
                   Pin here
-                </div>
-              </button>
+                </button>
+              </div>
             ))}
           </div>
         ) : (

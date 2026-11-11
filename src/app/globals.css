@@ -96,6 +96,20 @@ input {
 .nocap-marker--park { background: linear-gradient(135deg, #15803d, #84cc16); }
 .nocap-marker--culture { background: linear-gradient(135deg, #7c3aed, #ec4899); }
 .nocap-marker--user { background: linear-gradient(135deg, #d97706, #f59e0b); border: 2.5px dashed #fbbf24; }
+.nocap-marker--suggestion {
+  background: #18181b;
+  color: #ffffff;
+  border: 2px dashed #ffffff;
+  box-shadow: 0 0 0 2px #18181b, 0 4px 14px rgb(24 24 27 / 34%);
+}
+.nocap-marker--suggestion:hover,
+.nocap-marker--suggestion.is-selected {
+  background: #09090b;
+  color: #ffffff;
+  border-style: solid;
+  border-color: #ffffff;
+  box-shadow: 0 0 0 3px #18181b, 0 8px 22px rgb(24 24 27 / 40%);
+}
 
 .nocap-marker-photo {
   position: absolute;

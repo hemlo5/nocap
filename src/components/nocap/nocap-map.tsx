@@ -8,19 +8,31 @@ import type { NocapUserPlace } from "@/lib/nocap/community";
 
 export type NocapMapHandle = {
   flyToUser: (lat: number, lng: number, zoom?: number) => void;
+  flyToBengaluru: () => void;
   showRadiusCircle: (lat: number, lng: number, radiusKm: number) => void;
   hideRadiusCircle: () => void;
   enterPinMode: () => void;
   exitPinMode: () => void;
 };
 
+export type SuggestedMapPlace = {
+  id: string;
+  title: string;
+  subtitle: string;
+  lat: number;
+  lng: number;
+  category?: NocapPlaceCategory;
+};
+
 type NocapMapProps = {
   places: NocapPlace[];
   reviews: NocapReview[];
   userPlaces: NocapUserPlace[];
+  suggestedPlaces?: SuggestedMapPlace[];
   selectedPlaceId: string | null;
   onSelectPlace: (id: string) => void;
   onSelectUserPlace: (id: string) => void;
+  onSelectSuggestion?: (suggestion: SuggestedMapPlace) => void;
   userLocation: { lat: number; lng: number } | null;
   pendingPin?: { lat: number; lng: number } | null;
   onPinDrop?: (lat: number, lng: number) => void;
@@ -67,43 +79,66 @@ function radiusGeoJSON(lat: number, lng: number, radiusKm: number) {
 }
 
 export const NocapMap = forwardRef<NocapMapHandle, NocapMapProps>(function NocapMap(
-  { places, reviews, userPlaces, selectedPlaceId, onSelectPlace, onSelectUserPlace, userLocation, pendingPin, onPinDrop },
+  { places, reviews, userPlaces, suggestedPlaces = [], selectedPlaceId, onSelectPlace, onSelectUserPlace, onSelectSuggestion, userLocation, pendingPin, onPinDrop },
   ref
 ) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const placeMarkersRef = useRef<Marker[]>([]);
   const userPlaceMarkersRef = useRef<Marker[]>([]);
+  const suggestedMarkersRef = useRef<Marker[]>([]);
   const userMarkerRef = useRef<Marker | null>(null);
   const pendingPinMarkerRef = useRef<Marker | null>(null);
   const onSelectPlaceRef = useRef(onSelectPlace);
   const onSelectUserPlaceRef = useRef(onSelectUserPlace);
+  const onSelectSuggestionRef = useRef(onSelectSuggestion);
   const onPinDropRef = useRef(onPinDrop);
   const pinModeRef = useRef(false);
+  const mapReadyRef = useRef(false);
+  const pendingCameraRef = useRef<{ center: [number, number]; zoom: number; enforceBlrBounds: boolean } | null>(null);
   const [mapReady, setMapReady] = useState(false);
   const [zoomedIn, setZoomedIn] = useState(false);
+  const [suggestionLabelsVisible, setSuggestionLabelsVisible] = useState(false);
   const mapPlaces = useMemo(() => placeData(places, selectedPlaceId), [places, selectedPlaceId]);
 
   useEffect(() => { onSelectPlaceRef.current = onSelectPlace; }, [onSelectPlace]);
   useEffect(() => { onSelectUserPlaceRef.current = onSelectUserPlace; }, [onSelectUserPlace]);
+  useEffect(() => { onSelectSuggestionRef.current = onSelectSuggestion; }, [onSelectSuggestion]);
   useEffect(() => { onPinDropRef.current = onPinDrop; }, [onPinDrop]);
+
+  function applyCameraMove(map: MapLibreMap, center: [number, number], zoom: number, enforceBlrBounds: boolean) {
+    if (enforceBlrBounds) {
+      map.setMaxBounds([
+        [77.34, 12.72],
+        [77.9, 13.3],
+      ]);
+    } else {
+      // If user is outside Bengaluru bounds, lift maxBounds so map camera can freely zoom to user's real location
+      map.setMaxBounds(undefined);
+    }
+    map.flyTo({ center, zoom, duration: 1000, essential: true });
+  }
 
   // Expose methods to parent
   useImperativeHandle(ref, () => ({
     flyToUser(lat: number, lng: number, zoom = 16) {
-      const map = mapRef.current;
-      if (!map) return;
       const insideBLR = lat >= 12.72 && lat <= 13.3 && lng >= 77.34 && lng <= 77.9;
-      if (!insideBLR) {
-        // If user is outside Bengaluru bounds, lift maxBounds so map camera can freely zoom to user's real location
-        map.setMaxBounds(undefined);
-      } else {
-        map.setMaxBounds([
-          [77.34, 12.72],
-          [77.9, 13.3],
-        ]);
+      const map = mapRef.current;
+      if (!map || !mapReadyRef.current) {
+        pendingCameraRef.current = { center: [lng, lat], zoom, enforceBlrBounds: insideBLR };
+        return;
       }
-      map.flyTo({ center: [lng, lat], zoom, duration: 1000, essential: true });
+      pendingCameraRef.current = null;
+      applyCameraMove(map, [lng, lat], zoom, insideBLR);
+    },
+    flyToBengaluru() {
+      const map = mapRef.current;
+      if (!map || !mapReadyRef.current) {
+        pendingCameraRef.current = { center: [77.6046, 12.9716], zoom: 11, enforceBlrBounds: true };
+        return;
+      }
+      pendingCameraRef.current = null;
+      applyCameraMove(map, [77.6046, 12.9716], 11, true);
     },
     showRadiusCircle(lat: number, lng: number, radiusKm: number) {
       const map = mapRef.current;
@@ -177,8 +212,23 @@ export const NocapMap = forwardRef<NocapMapHandle, NocapMapProps>(function Nocap
       });
       mapRef.current = map;
       map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
-      map.on("load", () => { if (!cancelled) { ensurePlaceLayers(map); map.resize(); setMapReady(true); } });
-      map.on("zoom", () => { setZoomedIn(map.getZoom() >= 13.5); });
+      map.on("load", () => {
+        if (cancelled) return;
+        ensurePlaceLayers(map);
+        map.resize();
+        mapReadyRef.current = true;
+        setMapReady(true);
+        if (pendingCameraRef.current) {
+          const { center, zoom, enforceBlrBounds } = pendingCameraRef.current;
+          pendingCameraRef.current = null;
+          applyCameraMove(map, center, zoom, enforceBlrBounds);
+        }
+      });
+      map.on("zoom", () => {
+        const z = map.getZoom();
+        setZoomedIn(z >= 13.5);
+        setSuggestionLabelsVisible(z >= 14.3);
+      });
       let clickedFeature = false;
       map.on("click", haloLayerId, (event) => {
         if (pinModeRef.current) return; // let the general click handle it
@@ -197,7 +247,7 @@ export const NocapMap = forwardRef<NocapMapHandle, NocapMapProps>(function Nocap
       map.on("mouseleave", haloLayerId, () => { if (!pinModeRef.current) map.getCanvas().style.cursor = ""; });
     }
     boot();
-    return () => { cancelled = true; placeMarkersRef.current.forEach((m) => m.remove()); userPlaceMarkersRef.current.forEach((m) => m.remove()); userMarkerRef.current?.remove(); mapRef.current?.remove(); mapRef.current = null; setMapReady(false); };
+    return () => { cancelled = true; mapReadyRef.current = false; pendingCameraRef.current = null; placeMarkersRef.current.forEach((m) => m.remove()); userPlaceMarkersRef.current.forEach((m) => m.remove()); suggestedMarkersRef.current.forEach((m) => m.remove()); userMarkerRef.current?.remove(); mapRef.current?.remove(); mapRef.current = null; setMapReady(false); };
   }, []);
 
   // Update GeoJSON data
@@ -271,6 +321,50 @@ export const NocapMap = forwardRef<NocapMapHandle, NocapMapProps>(function Nocap
     return () => { cancelled = true; userPlaceMarkersRef.current.forEach((m) => m.remove()); userPlaceMarkersRef.current = []; };
   }, [mapReady, userPlaces, selectedPlaceId, zoomedIn]);
 
+  // Render nearby map suggestion markers when curated/community dots around user <= 10
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+    const targetMap = map;
+    let cancelled = false;
+    async function renderSuggestedMarkers() {
+      const maplibregl: MapLibreModule = await import("maplibre-gl");
+      if (cancelled || mapRef.current !== targetMap) return;
+      suggestedMarkersRef.current.forEach((m) => m.remove());
+      suggestedMarkersRef.current = suggestedPlaces.map((item) => {
+        const anchor = document.createElement("div");
+        const marker = document.createElement("button");
+        const label =
+          item.category === "eat"
+            ? "F"
+            : item.category === "street"
+            ? "S"
+            : item.category === "park"
+            ? "P"
+            : item.category === "culture"
+            ? "C"
+            : "+";
+        marker.type = "button";
+        marker.className = `nocap-marker nocap-marker--suggestion${item.id === selectedPlaceId ? " is-selected" : ""}`;
+        marker.title = item.title;
+        marker.setAttribute("aria-label", `Inspect nearby suggestion ${item.title}`);
+        marker.textContent = label;
+        const nameLabel = document.createElement("span");
+        nameLabel.className = "nocap-marker-label";
+        nameLabel.textContent = item.title.length > 16 ? item.title.slice(0, 14) + "\u2026" : item.title;
+        anchor.append(marker);
+        if (suggestionLabelsVisible) anchor.append(nameLabel);
+        marker.addEventListener("click", (event) => {
+          event.stopPropagation();
+          if (!pinModeRef.current) onSelectSuggestionRef.current?.(item);
+        });
+        return new maplibregl.Marker({ element: anchor, anchor: "center" }).setLngLat([item.lng, item.lat]).addTo(targetMap);
+      });
+    }
+    renderSuggestedMarkers();
+    return () => { cancelled = true; suggestedMarkersRef.current.forEach((m) => m.remove()); suggestedMarkersRef.current = []; };
+  }, [mapReady, suggestedPlaces, selectedPlaceId, suggestionLabelsVisible]);
+
   // User location blue dot
   useEffect(() => {
     const map = mapRef.current;
@@ -331,7 +425,18 @@ export const NocapMap = forwardRef<NocapMapHandle, NocapMapProps>(function Nocap
   }, [mapReady, pendingPin]);
 
   // Fly to selected place
-  useEffect(() => { const place = places.find((item) => item.id === selectedPlaceId) || userPlaces.find((item) => item.id === selectedPlaceId); if (place && mapRef.current) mapRef.current.flyTo({ center: [place.longitude, place.latitude], zoom: 14.5, duration: 650, essential: true }); }, [places, userPlaces, selectedPlaceId]);
+  useEffect(() => {
+    if (!selectedPlaceId || !mapRef.current) return;
+    const place = places.find((item) => item.id === selectedPlaceId) || userPlaces.find((item) => item.id === selectedPlaceId);
+    if (place) {
+      mapRef.current.flyTo({ center: [place.longitude, place.latitude], zoom: 14.5, duration: 650, essential: true });
+      return;
+    }
+    const suggested = suggestedPlaces.find((item) => item.id === selectedPlaceId);
+    if (suggested) {
+      mapRef.current.flyTo({ center: [suggested.lng, suggested.lat], zoom: 15, duration: 650, essential: true });
+    }
+  }, [places, userPlaces, suggestedPlaces, selectedPlaceId]);
 
   return <div className="relative h-full w-full overflow-hidden"><div ref={containerRef} className="h-full w-full" /><div className="pointer-events-none absolute left-3 top-3 z-10 hidden lg:flex overflow-hidden rounded-lg border border-white/80 bg-white/94 text-[11px] font-semibold text-zinc-600 shadow-sm backdrop-blur"><span className="bg-zinc-900 px-3 py-2 text-white">Bengaluru</span><span className="px-3 py-2">Community map</span></div><div className="pointer-events-none absolute bottom-4 left-3 z-10 hidden rounded-lg border border-white/80 bg-white/94 px-3 py-2 text-xs text-zinc-600 shadow-sm backdrop-blur sm:block">Tap any spot to see honest takes and wait times.</div></div>;
 });
