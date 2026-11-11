@@ -17,38 +17,73 @@ export async function POST(request: Request) {
 
   const admin = createAdminClient();
   await ensureProfile(admin, user);
-  let upsertResult = await admin.from("nocap_reviews")
-    .upsert(
-      { profile_id: user.id, place_id: placeId, body, rating, image_url: imageUrl, latitude, longitude, accuracy_meters: accuracyMeters, updated_at: new Date().toISOString() },
-      { onConflict: "profile_id,place_id" }
-    )
-    .select("id, place_id, body, rating, image_url, latitude, longitude, is_legit, payment_id, created_at, updated_at, nocap_profiles!inner(id, display_name, avatar_url, bio)")
-    .single();
 
-  if (upsertResult.error && upsertResult.error.code === "42703") {
-    // Column image_url does not exist yet on Supabase table
-    upsertResult = await admin.from("nocap_reviews")
-      .upsert(
-        { profile_id: user.id, place_id: placeId, body, rating, latitude, longitude, accuracy_meters: accuracyMeters, updated_at: new Date().toISOString() },
-        { onConflict: "profile_id,place_id" }
-      )
-      .select("id, place_id, body, rating, latitude, longitude, is_legit, payment_id, created_at, updated_at, nocap_profiles!inner(id, display_name, avatar_url, bio)")
-      .single();
-  }
+  const fullSelect =
+    "id, place_id, body, rating, image_url, latitude, longitude, is_legit, payment_id, created_at, updated_at, nocap_profiles!inner(id, display_name, avatar_url, bio)";
+  const noImageSelect =
+    "id, place_id, body, rating, latitude, longitude, is_legit, payment_id, created_at, updated_at, nocap_profiles!inner(id, display_name, avatar_url, bio)";
 
-  if (upsertResult.error && (upsertResult.error.code === "23502" || upsertResult.error.code === "23514") && rating === null) {
-    // If rating column still has old NOT NULL constraint, fallback to 5
-    upsertResult = await admin.from("nocap_reviews")
-      .upsert(
-        { profile_id: user.id, place_id: placeId, body, rating: 5, latitude, longitude, accuracy_meters: accuracyMeters, updated_at: new Date().toISOString() },
-        { onConflict: "profile_id,place_id" }
-      )
-      .select("id, place_id, body, rating, latitude, longitude, is_legit, payment_id, created_at, updated_at, nocap_profiles!inner(id, display_name, avatar_url, bio)")
+  let includeImageColumn = true;
+  let effectiveRating: number | null = rating;
+  let effectiveAccuracy = accuracyMeters;
+  let upsertResult: {
+    data: Record<string, unknown> | null;
+    error: { code?: string; message?: string; details?: string } | null;
+  } = { data: null, error: null };
+
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const payload: Record<string, unknown> = {
+      profile_id: user.id,
+      place_id: placeId,
+      body,
+      rating: effectiveRating,
+      latitude,
+      longitude,
+      accuracy_meters: effectiveAccuracy,
+      updated_at: new Date().toISOString(),
+    };
+    if (includeImageColumn) {
+      payload.image_url = imageUrl;
+    }
+
+    const result = await admin
+      .from("nocap_reviews")
+      .upsert(payload, { onConflict: "profile_id,place_id" })
+      .select(includeImageColumn ? fullSelect : noImageSelect)
       .single();
+
+    upsertResult = {
+      data: result.data as Record<string, unknown> | null,
+      error: result.error,
+    };
+
+    const err = upsertResult.error;
+    if (!err) break;
+
+    const errMsg = `${err.message ?? ""} ${err.details ?? ""}`.toLowerCase();
+    // Missing image_url column: PostgREST returns PGRST204 on upsert/insert and 42703 on select
+    if (includeImageColumn && (err.code === "PGRST204" || err.code === "42703") && errMsg.includes("image_url")) {
+      includeImageColumn = false;
+      continue;
+    }
+    // Legacy NOT NULL rating column when rating is omitted
+    if (effectiveRating === null && (err.code === "23502" || (err.code === "23514" && errMsg.includes("rating")))) {
+      effectiveRating = 5;
+      continue;
+    }
+    // Coarse desktop/Wi-Fi accuracy exceeding DB check constraint
+    if (err.code === "23514" && errMsg.includes("accuracy_meters") && effectiveAccuracy > 15) {
+      effectiveAccuracy = 15;
+      continue;
+    }
+    break;
   }
 
   const { data, error } = upsertResult;
-  if (error || !data) return Response.json({ error: "Could not publish your review." }, { status: 500 });
+  if (error || !data) {
+    console.error("[NoCap] Review upsert failed:", error);
+    return Response.json({ error: "Could not publish your review." }, { status: 500 });
+  }
   const review = toReview(data);
   if (!review.imageUrl && imageUrl) {
     review.imageUrl = imageUrl;
@@ -99,7 +134,10 @@ async function validateInput(input: ReviewInput | null) {
 
   const finalLat = Number.isFinite(latitude) ? latitude : placeLat;
   const finalLng = Number.isFinite(longitude) ? longitude : placeLng;
-  const finalAccuracy = Number.isFinite(accuracyMeters) && accuracyMeters > 0 ? accuracyMeters : 15;
+  const finalAccuracy =
+    Number.isFinite(accuracyMeters) && accuracyMeters > 0
+      ? Math.min(accuracyMeters, maxAccuracyMeters)
+      : 15;
 
   return { placeId: targetPlaceId, placeLat, placeLng, body, rating, imageUrl, latitude: finalLat, longitude: finalLng, accuracyMeters: finalAccuracy };
 }
@@ -107,7 +145,8 @@ async function validateInput(input: ReviewInput | null) {
 async function ensureProfile(admin: ReturnType<typeof createAdminClient>, user: { id: string; user_metadata: Record<string, unknown> }) {
   const { data: existing } = await admin.from("nocap_profiles").select("id, display_name").eq("id", user.id).maybeSingle();
   if (!existing) {
-    await admin.from("nocap_profiles").upsert({ id: user.id, display_name: "Anonymous", avatar_url: null });
+    const { error } = await admin.from("nocap_profiles").upsert({ id: user.id, display_name: "Anonymous", avatar_url: null });
+    if (error) console.error("[NoCap] ensureProfile upsert failed:", error);
   } else {
     const candidate = user.user_metadata.full_name ?? user.user_metadata.name ?? user.user_metadata.user_name;
     const rawGoogleName = typeof candidate === "string" && candidate.trim() ? candidate.trim().slice(0, 60) : "";
