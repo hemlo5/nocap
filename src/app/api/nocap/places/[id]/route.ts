@@ -7,7 +7,53 @@ import type { NocapPersonNote, NocapReview } from "@/lib/nocap/community";
 export async function GET(_request: Request, context: RouteContext<"/api/nocap/places/[id]">) {
   const { id } = await context.params;
   const place = findNocapPlace(id);
-  if (!place) return Response.json({ error: "Place not found" }, { status: 404 });
+
+  if (!place) {
+    if (!isSupabaseConfigured()) {
+      return Response.json({ error: "Place not found" }, { status: 404 });
+    }
+    const cleanId = id.startsWith("user:") ? id.slice(5) : id;
+    const admin = createAdminClient();
+    const { data: userPlaceRow } = await admin
+      .from("nocap_user_places")
+      .select("id, profile_id, name, category, address, latitude, longitude, created_at, nocap_profiles!inner(id, display_name, avatar_url, bio)")
+      .eq("id", cleanId)
+      .maybeSingle();
+
+    if (!userPlaceRow) {
+      return Response.json({ error: "Place not found" }, { status: 404 });
+    }
+
+    const targetPlaceIds = [cleanId, `user:${cleanId}`];
+    let reviews: NocapReview[] = [];
+    try {
+      const { data: rData } = await admin
+        .from("nocap_reviews")
+        .select("id, place_id, body, rating, image_url, latitude, longitude, is_legit, payment_id, created_at, updated_at, nocap_profiles!inner(id, display_name, avatar_url, bio)")
+        .in("place_id", targetPlaceIds)
+        .order("is_legit", { ascending: false })
+        .order("created_at", { ascending: false });
+      if (Array.isArray(rData)) reviews = rData.map(toReview);
+    } catch {}
+
+    let personNotes: NocapPersonNote[] = [];
+    try {
+      const { data: pData } = await admin
+        .from("nocap_person_notes")
+        .select("id, place_id, person_name, description, photo_url, created_at, updated_at, nocap_profiles!inner(id, display_name, avatar_url, bio)")
+        .in("place_id", targetPlaceIds)
+        .order("created_at", { ascending: false });
+      if (Array.isArray(pData)) personNotes = pData.map(toPersonNote);
+    } catch {}
+
+    return Response.json({
+      place: userPlaceRow,
+      reviews,
+      personNotes,
+      status: "ready",
+      supabaseConfigured: true,
+    });
+  }
 
   const archivedReviews = await getArchivedPlaceReviews(place);
   const archivedPersonNotes = getArchivedPersonNotes(id);

@@ -343,19 +343,39 @@ export function NocapApp() {
     }
   }, []);
 
-  // When places load, check if URL has a ?place=... param
+  // When places load, check if URL has a ?place=... param and open drawer + zoom to dot
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const placeParam = params.get("place");
-    if (placeParam) {
-      if (placeParam.startsWith("user:")) {
-        const upId = placeParam.slice(5);
-        setSelectedUserPlaceId(upId);
-        setSelectedPlaceId(null);
-      } else {
-        setSelectedPlaceId(placeParam);
-        setSelectedUserPlaceId(null);
-      }
+    if (!placeParam || (places.length === 0 && userPlaces.length === 0)) return;
+
+    const cleanParam = placeParam.startsWith("user:") ? placeParam.slice(5) : placeParam;
+    const curated = places.find((p) => p.id === cleanParam || slugifyPlaceName(p.name) === cleanParam);
+    const userPlace = userPlaces.find((up) => up.id === cleanParam || slugifyPlaceName(up.name) === cleanParam);
+
+    if (curated) {
+      setSelectedPlaceId(curated.id);
+      setSelectedUserPlaceId(null);
+      setSelectedSuggestionId(null);
+      setDrawerSlug(curated.id);
+      setSearchAnchor({ lat: curated.latitude, lng: curated.longitude, label: curated.name });
+      mapRef.current?.flyToUser(curated.latitude, curated.longitude, 16);
+    } else if (userPlace) {
+      const slug = slugifyPlaceName(userPlace.name) || userPlace.id;
+      setSelectedPlaceId(null);
+      setSelectedUserPlaceId(userPlace.id);
+      setSelectedSuggestionId(null);
+      setDrawerSlug(slug);
+      setSearchAnchor({ lat: userPlace.latitude, lng: userPlace.longitude, label: userPlace.name });
+      mapRef.current?.flyToUser(userPlace.latitude, userPlace.longitude, 16);
+    } else if (placeParam.startsWith("user:") || /^[0-9a-f]{8}-[0-9a-f]{4}/i.test(cleanParam)) {
+      setSelectedPlaceId(null);
+      setSelectedUserPlaceId(cleanParam);
+      setDrawerSlug(cleanParam);
+    } else {
+      setSelectedPlaceId(cleanParam);
+      setSelectedUserPlaceId(null);
+      setDrawerSlug(cleanParam);
     }
   }, [places, userPlaces]);
 
@@ -528,7 +548,7 @@ export function NocapApp() {
   useEffect(() => {
     if (loading || !suggestionAnchor) return;
 
-    const isSelectedDot = Boolean(selectedPlace || selectedUserPlace || drawerSlug);
+    const isSelectedDot = Boolean(selectedPlaceId || selectedUserPlaceId || drawerSlug);
 
     if (!isSelectedDot && areaNearbyCount > SUGGESTION_MAX_EXISTING_DOTS) {
       setNearbySuggestionsRaw([]);
@@ -570,7 +590,7 @@ export function NocapApp() {
       cancelled = true;
       controller.abort();
     };
-  }, [loading, suggestionAnchor, areaNearbyCount, selectedPlace, selectedUserPlace, drawerSlug]);
+  }, [loading, suggestionAnchor, areaNearbyCount, Boolean(selectedPlaceId || selectedUserPlaceId || drawerSlug)]);
 
   const activeSelectedSuggestion =
     selectedSuggestionPlace && selectedSuggestionPlace.id === selectedSuggestionId
@@ -581,7 +601,7 @@ export function NocapApp() {
 
   const visibleSuggestedDots = useMemo(() => {
     const queryLower = query.trim().toLowerCase();
-    const isSelectedDot = Boolean(selectedPlace || selectedUserPlace || drawerSlug);
+    const isSelectedDot = Boolean(selectedPlaceId || selectedUserPlaceId || drawerSlug);
     const base =
       suggestionAnchor && (isSelectedDot || areaNearbyCount <= SUGGESTION_MAX_EXISTING_DOTS) ? nearbySuggestionsRaw : [];
 
