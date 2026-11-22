@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -11,6 +11,7 @@ import { uploadImageFile } from "@/lib/nocap/image-helper";
 import { createSupabaseBrowserClient, hasSupabaseBrowserConfig } from "@/lib/supabase/client";
 import { NocapMap, type NocapMapHandle, type SuggestedMapPlace } from "./nocap-map";
 import { NocapGuideModal } from "./nocap-guide-modal";
+import { MapPlaceDrawer } from "./map-place-drawer";
 import { cn } from "@/lib/utils/cn";
 import { trackEvent } from "@/lib/analytics/gtag";
 
@@ -147,6 +148,8 @@ export function NocapApp() {
   const [reviews, setReviews] = useState<NocapReview[]>([]);
   const [personNotes, setPersonNotes] = useState<NocapPersonNote[]>([]);
   const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
+  // ── Place drawer: slug of the place currently open in the 50% right overlay ──
+  const [drawerSlug, setDrawerSlug] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<(typeof filters)[number]["id"]>("all");
   const [detail, setDetail] = useState<PlaceDetail | null>(null);
@@ -886,7 +889,7 @@ export function NocapApp() {
       );
       setSelectedUserPlaceId(null);
       setSelectedPlaceId(existingCurated.id);
-      router.push(`/places/${existingCurated.id}`);
+      setDrawerSlug(existingCurated.id);
       return;
     }
 
@@ -974,7 +977,7 @@ export function NocapApp() {
     setSelectedPlaceId(null);
     setSelectedUserPlaceId(targetUserPlace.id);
     const slug = slugifyPlaceName(targetUserPlace.name) || targetUserPlace.id;
-    router.push(`/places/${slug}`);
+    setDrawerSlug(slug);
   }
 
   async function publishPersonNote(input: { personName: string; description: string; photoUrl?: string | null; placeId?: string; userPlaceId?: string }) {
@@ -1165,10 +1168,10 @@ export function NocapApp() {
     setSelectedSuggestionPlace(null);
     setSuggestionHostAnchor(null);
     if (item.type === "place") {
-      router.push(`/places/${item.place.id}`);
+      setDrawerSlug(item.place.id);
     } else {
       const slug = slugifyPlaceName(item.place.name) || item.place.id;
-      router.push(`/places/${slug}`);
+      setDrawerSlug(slug);
     }
   }
 
@@ -1220,7 +1223,7 @@ export function NocapApp() {
       setSelectedSuggestionId(null);
       setSelectedSuggestionPlace(null);
       setSuggestionHostAnchor(null);
-      router.push(`/places/${nearbyExistingPlace.id}`);
+      setDrawerSlug(nearbyExistingPlace.id);
       return;
     }
 
@@ -1233,7 +1236,7 @@ export function NocapApp() {
       setSelectedSuggestionPlace(null);
       setSuggestionHostAnchor(null);
       const slug = slugifyPlaceName(nearbyExistingUserPlace.name) || nearbyExistingUserPlace.id;
-      router.push(`/places/${slug}`);
+      setDrawerSlug(slug);
       return;
     }
 
@@ -1378,7 +1381,7 @@ export function NocapApp() {
     setSelectedSuggestionPlace(null);
     setSuggestionHostAnchor(null);
     const slug = slugifyPlaceName(newPlace.name) || newPlace.id;
-    router.push(`/places/${slug}`);
+    setDrawerSlug(slug);
   }
 
   const commonPanelProps = {
@@ -1397,12 +1400,18 @@ export function NocapApp() {
     setNavSlot(document.getElementById("nav-search-slot"));
   }, []);
 
-  return <main className="h-dvh lg:h-[calc(100dvh-3.5rem)] bg-[#F6F5F2] text-zinc-950">
+  return <main className="relative h-dvh lg:h-[calc(100dvh-3.5rem)] bg-[#F6F5F2] text-zinc-950 overflow-hidden">
     {/* Inject profile button into the nav header on desktop */}
     {navSlot && createPortal(
       <AccountButton configured={supabaseConfigured} profile={profile} onSignIn={signIn} onOpenProfile={() => setProfileOpen(true)} />,
       navSlot,
     )}
+
+    {/* ── 50% Place Drawer overlay (slides over map on dot click) ── */}
+    <MapPlaceDrawer
+      slug={drawerSlug}
+      onClose={() => setDrawerSlug(null)}
+    />
 
     {/* Crazy Tea success banner in orange */}
     {legitSuccess && (
@@ -1496,7 +1505,7 @@ export function NocapApp() {
                 const distLabel = activeAreaCenter
                   ? formatDistance(haversineM(activeAreaCenter.lat, activeAreaCenter.lng, place.latitude, place.longitude))
                   : null;
-                return <button key={place.id} type="button" onClick={() => router.push(`/places/${place.id}`)} className={cn("mb-1 flex w-full items-start gap-3 rounded-md px-3 py-3 text-left transition-colors", place.id === selectedPlaceId ? "bg-zinc-950 text-white" : "hover:bg-zinc-100")}>
+                return <button key={place.id} type="button" onClick={() => setDrawerSlug(place.id)} className={cn("mb-1 flex w-full items-start gap-3 rounded-md px-3 py-3 text-left transition-colors", place.id === selectedPlaceId ? "bg-zinc-950 text-white" : "hover:bg-zinc-100")}>
                   <span className={cn("mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full text-[10px] font-black", place.id === selectedPlaceId ? "bg-white text-zinc-950" : "bg-zinc-100 text-zinc-600")}>{place.category[0].toUpperCase()}</span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-bold">{place.name}</span>
@@ -1516,7 +1525,7 @@ export function NocapApp() {
                       ? formatDistance(haversineM(activeAreaCenter.lat, activeAreaCenter.lng, up.latitude, up.longitude))
                       : null;
                     return (
-                      <button key={up.id} type="button" onClick={() => { const slug = slugifyPlaceName(up.name) || up.id; router.push(`/places/${slug}`); }} className={cn("mb-1 flex w-full items-start gap-3 rounded-md px-3 py-3 text-left transition-colors", up.id === selectedUserPlaceId ? "bg-zinc-950 text-white" : "hover:bg-zinc-100")}>
+                      <button key={up.id} type="button" onClick={() => { const slug = slugifyPlaceName(up.name) || up.id; setDrawerSlug(slug); }} className={cn("mb-1 flex w-full items-start gap-3 rounded-md px-3 py-3 text-left transition-colors", up.id === selectedUserPlaceId ? "bg-zinc-950 text-white" : "hover:bg-zinc-100")}>
                         <span className={cn("mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full text-[10px] font-black", up.id === selectedUserPlaceId ? "bg-white text-zinc-950" : "bg-zinc-950 text-white")}>U</span>
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-sm font-bold">{up.name}</span>
@@ -1586,14 +1595,14 @@ export function NocapApp() {
           onSelectPlace={(id) => {
             userCameraMovedRef.current = true;
             setEntryBannerVisible(false);
-            router.push(`/places/${id}`);
+            setDrawerSlug(id);
           }}
           onSelectUserPlace={(id) => {
             userCameraMovedRef.current = true;
             setEntryBannerVisible(false);
             const up = userPlaces.find((p) => p.id === id);
             const slug = up ? (slugifyPlaceName(up.name) || up.id) : id;
-            router.push(`/places/${slug}`);
+            setDrawerSlug(slug);
           }}
           onSelectSuggestion={handleSelectSuggestionDot}
           userLocation={userLocation}
@@ -1871,7 +1880,7 @@ export function NocapApp() {
               <div className="max-h-40 lg:max-h-48 space-y-1 overflow-y-auto mb-2">
                 {nearbyPlaces.map((p) => {
                   const dist = userLocation ? Math.round(haversineM(userLocation.lat, userLocation.lng, p.latitude, p.longitude)) : 0;
-                  return <button key={p.id} type="button" onClick={() => { dismissLocate(); router.push(`/places/${p.id}`); }} className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-xs hover:bg-zinc-100">
+                  return <button key={p.id} type="button" onClick={() => { dismissLocate(); setDrawerSlug(p.id); }} className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-xs hover:bg-zinc-100">
                     <span className={cn("grid h-6 w-6 shrink-0 place-items-center rounded-full text-[9px] font-black text-white", p.category === "eat" ? "bg-red-500" : p.category === "street" ? "bg-blue-500" : p.category === "park" ? "bg-green-600" : "bg-purple-600")}>{p.category[0].toUpperCase()}</span>
                     <span className="min-w-0 flex-1 truncate font-semibold">{p.name}</span>
                     <span className="shrink-0 text-zinc-400">{dist}m</span>
