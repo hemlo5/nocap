@@ -116,7 +116,14 @@ export const NocapMap = forwardRef<NocapMapHandle, NocapMapProps>(function Nocap
       // If user is outside Bengaluru bounds, lift maxBounds so map camera can freely zoom to user's real location
       map.setMaxBounds(undefined);
     }
-    map.flyTo({ center, zoom, duration: 1000, essential: true });
+    const isDesktop = typeof window !== "undefined" && window.innerWidth >= 1024;
+    map.flyTo({
+      center,
+      zoom,
+      padding: { right: isDesktop ? Math.round(window.innerWidth * 0.45) : 0, left: 0, top: 0, bottom: 0 },
+      duration: 800,
+      essential: true,
+    });
   }
 
   // Expose methods to parent
@@ -428,13 +435,15 @@ export const NocapMap = forwardRef<NocapMapHandle, NocapMapProps>(function Nocap
   useEffect(() => {
     if (!selectedPlaceId || !mapRef.current) return;
     const place = places.find((item) => item.id === selectedPlaceId) || userPlaces.find((item) => item.id === selectedPlaceId);
+    const isDesktop = typeof window !== "undefined" && window.innerWidth >= 1024;
+    const padding = { right: isDesktop ? Math.round(window.innerWidth * 0.45) : 0, left: 0, top: 0, bottom: 0 };
     if (place) {
-      mapRef.current.flyTo({ center: [place.longitude, place.latitude], zoom: 14.5, duration: 650, essential: true });
+      mapRef.current.flyTo({ center: [place.longitude, place.latitude], zoom: 16, padding, duration: 800, essential: true });
       return;
     }
     const suggested = suggestedPlaces.find((item) => item.id === selectedPlaceId);
     if (suggested) {
-      mapRef.current.flyTo({ center: [suggested.lng, suggested.lat], zoom: 15, duration: 650, essential: true });
+      mapRef.current.flyTo({ center: [suggested.lng, suggested.lat], zoom: 16, padding, duration: 800, essential: true });
     }
   }, [places, userPlaces, suggestedPlaces, selectedPlaceId]);
 

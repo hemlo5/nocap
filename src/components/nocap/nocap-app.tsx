@@ -500,11 +500,17 @@ export function NocapApp() {
     if (selectedUserPlace) {
       return { lat: selectedUserPlace.latitude, lng: selectedUserPlace.longitude, label: selectedUserPlace.name };
     }
+    if (drawerSlug) {
+      const p = places.find((item) => item.id === drawerSlug || slugifyPlaceName(item.name) === drawerSlug);
+      if (p) return { lat: p.latitude, lng: p.longitude, label: p.name };
+      const up = userPlaces.find((item) => item.id === drawerSlug || slugifyPlaceName(item.name) === drawerSlug);
+      if (up) return { lat: up.latitude, lng: up.longitude, label: up.name };
+    }
     if (suggestionHostAnchor) {
       return suggestionHostAnchor;
     }
     return activeAreaCenter;
-  }, [selectedPlace, selectedUserPlace, suggestionHostAnchor, activeAreaCenter]);
+  }, [selectedPlace, selectedUserPlace, drawerSlug, places, userPlaces, suggestionHostAnchor, activeAreaCenter]);
 
   const areaNearbyCount = useMemo(() => {
     if (!suggestionAnchor) return 0;
@@ -518,11 +524,13 @@ export function NocapApp() {
     return count;
   }, [places, userPlaces, suggestionAnchor]);
 
-  // If dots within 3 km of selected spot / searched place / user location <= 10, load closest nearby map suggestions
+  // Load closest nearby map suggestions around selected dot or active area
   useEffect(() => {
     if (loading || !suggestionAnchor) return;
 
-    if (areaNearbyCount > SUGGESTION_MAX_EXISTING_DOTS) {
+    const isSelectedDot = Boolean(selectedPlace || selectedUserPlace || drawerSlug);
+
+    if (!isSelectedDot && areaNearbyCount > SUGGESTION_MAX_EXISTING_DOTS) {
       setNearbySuggestionsRaw([]);
       setLoadingNearbySuggestions(false);
       suggestionOriginRef.current = null;
@@ -530,7 +538,7 @@ export function NocapApp() {
     }
 
     const lastOrigin = suggestionOriginRef.current;
-    if (lastOrigin && haversineM(lastOrigin.lat, lastOrigin.lng, suggestionAnchor.lat, suggestionAnchor.lng) < 350) {
+    if (!isSelectedDot && lastOrigin && haversineM(lastOrigin.lat, lastOrigin.lng, suggestionAnchor.lat, suggestionAnchor.lng) < 350) {
       return;
     }
 
@@ -562,7 +570,7 @@ export function NocapApp() {
       cancelled = true;
       controller.abort();
     };
-  }, [loading, suggestionAnchor, areaNearbyCount]);
+  }, [loading, suggestionAnchor, areaNearbyCount, selectedPlace, selectedUserPlace, drawerSlug]);
 
   const activeSelectedSuggestion =
     selectedSuggestionPlace && selectedSuggestionPlace.id === selectedSuggestionId
@@ -573,8 +581,9 @@ export function NocapApp() {
 
   const visibleSuggestedDots = useMemo(() => {
     const queryLower = query.trim().toLowerCase();
+    const isSelectedDot = Boolean(selectedPlace || selectedUserPlace || drawerSlug);
     const base =
-      suggestionAnchor && areaNearbyCount <= SUGGESTION_MAX_EXISTING_DOTS ? nearbySuggestionsRaw : [];
+      suggestionAnchor && (isSelectedDot || areaNearbyCount <= SUGGESTION_MAX_EXISTING_DOTS) ? nearbySuggestionsRaw : [];
 
     const combined =
       activeSelectedSuggestion &&
@@ -1168,10 +1177,16 @@ export function NocapApp() {
     setSelectedSuggestionPlace(null);
     setSuggestionHostAnchor(null);
     if (item.type === "place") {
+      setSelectedPlaceId(item.place.id);
+      setSelectedUserPlaceId(null);
       setDrawerSlug(item.place.id);
+      mapRef.current?.flyToUser(item.place.latitude, item.place.longitude, 16);
     } else {
+      setSelectedPlaceId(null);
+      setSelectedUserPlaceId(item.place.id);
       const slug = slugifyPlaceName(item.place.name) || item.place.id;
       setDrawerSlug(slug);
+      mapRef.current?.flyToUser(item.place.latitude, item.place.longitude, 16);
     }
   }
 
@@ -1329,6 +1344,14 @@ export function NocapApp() {
   }
 
   async function handlePinDrop(lat: number, lng: number) {
+    if (!pinMode) {
+      if (drawerSlug) {
+        setDrawerSlug(null);
+        setSelectedPlaceId(null);
+        setSelectedUserPlaceId(null);
+      }
+      return;
+    }
     setLocationError(null);
     // Check Bengaluru limits
     if (lat < 12.72 || lat > 13.3 || lng < 77.34 || lng > 77.9) {
@@ -1410,7 +1433,11 @@ export function NocapApp() {
     {/* ── 50% Place Drawer overlay (slides over map on dot click) ── */}
     <MapPlaceDrawer
       slug={drawerSlug}
-      onClose={() => setDrawerSlug(null)}
+      onClose={() => {
+        setDrawerSlug(null);
+        setSelectedPlaceId(null);
+        setSelectedUserPlaceId(null);
+      }}
     />
 
     {/* Crazy Tea success banner in orange */}
@@ -1505,7 +1532,15 @@ export function NocapApp() {
                 const distLabel = activeAreaCenter
                   ? formatDistance(haversineM(activeAreaCenter.lat, activeAreaCenter.lng, place.latitude, place.longitude))
                   : null;
-                return <button key={place.id} type="button" onClick={() => setDrawerSlug(place.id)} className={cn("mb-1 flex w-full items-start gap-3 rounded-md px-3 py-3 text-left transition-colors", place.id === selectedPlaceId ? "bg-zinc-950 text-white" : "hover:bg-zinc-100")}>
+                return <button key={place.id} type="button" onClick={() => {
+                  userCameraMovedRef.current = true;
+                  setSelectedPlaceId(place.id);
+                  setSelectedUserPlaceId(null);
+                  setSelectedSuggestionId(null);
+                  setSearchAnchor({ lat: place.latitude, lng: place.longitude, label: place.name });
+                  setDrawerSlug(place.id);
+                  mapRef.current?.flyToUser(place.latitude, place.longitude, 16);
+                }} className={cn("mb-1 flex w-full items-start gap-3 rounded-md px-3 py-3 text-left transition-colors", place.id === selectedPlaceId ? "bg-zinc-950 text-white" : "hover:bg-zinc-100")}>
                   <span className={cn("mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full text-[10px] font-black", place.id === selectedPlaceId ? "bg-white text-zinc-950" : "bg-zinc-100 text-zinc-600")}>{place.category[0].toUpperCase()}</span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-bold">{place.name}</span>
@@ -1525,7 +1560,16 @@ export function NocapApp() {
                       ? formatDistance(haversineM(activeAreaCenter.lat, activeAreaCenter.lng, up.latitude, up.longitude))
                       : null;
                     return (
-                      <button key={up.id} type="button" onClick={() => { const slug = slugifyPlaceName(up.name) || up.id; setDrawerSlug(slug); }} className={cn("mb-1 flex w-full items-start gap-3 rounded-md px-3 py-3 text-left transition-colors", up.id === selectedUserPlaceId ? "bg-zinc-950 text-white" : "hover:bg-zinc-100")}>
+                      <button key={up.id} type="button" onClick={() => {
+                        userCameraMovedRef.current = true;
+                        const slug = slugifyPlaceName(up.name) || up.id;
+                        setSelectedPlaceId(null);
+                        setSelectedUserPlaceId(up.id);
+                        setSelectedSuggestionId(null);
+                        setSearchAnchor({ lat: up.latitude, lng: up.longitude, label: up.name });
+                        setDrawerSlug(slug);
+                        mapRef.current?.flyToUser(up.latitude, up.longitude, 16);
+                      }} className={cn("mb-1 flex w-full items-start gap-3 rounded-md px-3 py-3 text-left transition-colors", up.id === selectedUserPlaceId ? "bg-zinc-950 text-white" : "hover:bg-zinc-100")}>
                         <span className={cn("mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full text-[10px] font-black", up.id === selectedUserPlaceId ? "bg-white text-zinc-950" : "bg-zinc-950 text-white")}>U</span>
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-sm font-bold">{up.name}</span>
@@ -1595,14 +1639,29 @@ export function NocapApp() {
           onSelectPlace={(id) => {
             userCameraMovedRef.current = true;
             setEntryBannerVisible(false);
+            const p = places.find((item) => item.id === id);
+            setSelectedPlaceId(id);
+            setSelectedUserPlaceId(null);
+            setSelectedSuggestionId(null);
             setDrawerSlug(id);
+            if (p) {
+              setSearchAnchor({ lat: p.latitude, lng: p.longitude, label: p.name });
+              mapRef.current?.flyToUser(p.latitude, p.longitude, 16);
+            }
           }}
           onSelectUserPlace={(id) => {
             userCameraMovedRef.current = true;
             setEntryBannerVisible(false);
             const up = userPlaces.find((p) => p.id === id);
             const slug = up ? (slugifyPlaceName(up.name) || up.id) : id;
+            setSelectedPlaceId(null);
+            setSelectedUserPlaceId(id);
+            setSelectedSuggestionId(null);
             setDrawerSlug(slug);
+            if (up) {
+              setSearchAnchor({ lat: up.latitude, lng: up.longitude, label: up.name });
+              mapRef.current?.flyToUser(up.latitude, up.longitude, 16);
+            }
           }}
           onSelectSuggestion={handleSelectSuggestionDot}
           userLocation={userLocation}
@@ -1880,7 +1939,16 @@ export function NocapApp() {
               <div className="max-h-40 lg:max-h-48 space-y-1 overflow-y-auto mb-2">
                 {nearbyPlaces.map((p) => {
                   const dist = userLocation ? Math.round(haversineM(userLocation.lat, userLocation.lng, p.latitude, p.longitude)) : 0;
-                  return <button key={p.id} type="button" onClick={() => { dismissLocate(); setDrawerSlug(p.id); }} className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-xs hover:bg-zinc-100">
+                  return <button key={p.id} type="button" onClick={() => {
+                    dismissLocate();
+                    userCameraMovedRef.current = true;
+                    setSelectedPlaceId(p.id);
+                    setSelectedUserPlaceId(null);
+                    setSelectedSuggestionId(null);
+                    setSearchAnchor({ lat: p.latitude, lng: p.longitude, label: p.name });
+                    setDrawerSlug(p.id);
+                    mapRef.current?.flyToUser(p.latitude, p.longitude, 16);
+                  }} className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-xs hover:bg-zinc-100">
                     <span className={cn("grid h-6 w-6 shrink-0 place-items-center rounded-full text-[9px] font-black text-white", p.category === "eat" ? "bg-red-500" : p.category === "street" ? "bg-blue-500" : p.category === "park" ? "bg-green-600" : "bg-purple-600")}>{p.category[0].toUpperCase()}</span>
                     <span className="min-w-0 flex-1 truncate font-semibold">{p.name}</span>
                     <span className="shrink-0 text-zinc-400">{dist}m</span>

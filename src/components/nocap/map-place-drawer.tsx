@@ -70,10 +70,9 @@ export function MapPlaceDrawer({ slug, onClose }: Props) {
 
   return (
     <>
-      {/* Backdrop — desktop only */}
+      {/* Backdrop — non-blocking so the map and its suggestion dots remain fully interactive */}
       <div
-        className="hidden lg:block absolute inset-0 z-[200] bg-black/15 backdrop-blur-[1px]"
-        onClick={onClose}
+        className="hidden lg:block pointer-events-none absolute inset-0 z-[190] bg-black/5"
         aria-hidden="true"
       />
 
