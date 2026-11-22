@@ -548,7 +548,7 @@ export function NocapApp() {
   useEffect(() => {
     if (loading || !suggestionAnchor) return;
 
-    const isSelectedDot = Boolean(selectedPlaceId || selectedUserPlaceId || drawerSlug);
+    const isSelectedDot = Boolean(selectedPlaceId || selectedUserPlaceId || selectedSuggestionId || drawerSlug);
 
     if (!isSelectedDot && areaNearbyCount > SUGGESTION_MAX_EXISTING_DOTS) {
       setNearbySuggestionsRaw([]);
@@ -590,7 +590,7 @@ export function NocapApp() {
       cancelled = true;
       controller.abort();
     };
-  }, [loading, suggestionAnchor, areaNearbyCount, Boolean(selectedPlaceId || selectedUserPlaceId || drawerSlug)]);
+  }, [loading, suggestionAnchor, areaNearbyCount, Boolean(selectedPlaceId || selectedUserPlaceId || selectedSuggestionId || drawerSlug)]);
 
   const activeSelectedSuggestion =
     selectedSuggestionPlace && selectedSuggestionPlace.id === selectedSuggestionId
@@ -601,7 +601,7 @@ export function NocapApp() {
 
   const visibleSuggestedDots = useMemo(() => {
     const queryLower = query.trim().toLowerCase();
-    const isSelectedDot = Boolean(selectedPlaceId || selectedUserPlaceId || drawerSlug);
+    const isSelectedDot = Boolean(selectedPlaceId || selectedUserPlaceId || selectedSuggestionId || drawerSlug);
     const base =
       suggestionAnchor && (isSelectedDot || areaNearbyCount <= SUGGESTION_MAX_EXISTING_DOTS) ? nearbySuggestionsRaw : [];
 
@@ -660,7 +660,7 @@ export function NocapApp() {
           : 0
       )
       .slice(0, 60);
-  }, [areaNearbyCount, category, nearbySuggestionsRaw, places, query, suggestionAnchor, activeSelectedSuggestion, userPlaces]);
+  }, [areaNearbyCount, category, nearbySuggestionsRaw, places, query, suggestionAnchor, activeSelectedSuggestion, userPlaces, selectedPlaceId, selectedUserPlaceId, selectedSuggestionId, drawerSlug]);
 
   const selectedSuggestion =
     activeSelectedSuggestion ?? visibleSuggestedDots.find((item) => item.id === selectedSuggestionId) ?? null;
@@ -1216,21 +1216,22 @@ export function NocapApp() {
     setSearchFocused(false);
     dismissLocate();
     exitPinMode();
-    if (suggestionAnchor) {
-      setSuggestionHostAnchor({
-        lat: suggestionAnchor.lat,
-        lng: suggestionAnchor.lng,
-        label: suggestionAnchor.label,
-      });
-    } else {
-      setSuggestionHostAnchor({
-        lat: suggestion.lat,
-        lng: suggestion.lng,
-        label: suggestion.title,
-      });
+    setDrawerSlug(null);
+    if (!selectedPlaceId && !selectedUserPlaceId) {
+      if (suggestionAnchor) {
+        setSuggestionHostAnchor({
+          lat: suggestionAnchor.lat,
+          lng: suggestionAnchor.lng,
+          label: suggestionAnchor.label,
+        });
+      } else {
+        setSuggestionHostAnchor({
+          lat: suggestion.lat,
+          lng: suggestion.lng,
+          label: suggestion.title,
+        });
+      }
     }
-    setSelectedPlaceId(null);
-    setSelectedUserPlaceId(null);
     setSelectedSuggestionId(suggestion.id);
     setSelectedSuggestionPlace(suggestion);
     mapRef.current?.flyToUser(suggestion.lat, suggestion.lng, 16);
@@ -1367,8 +1368,11 @@ export function NocapApp() {
     if (!pinMode) {
       if (drawerSlug) {
         setDrawerSlug(null);
-        setSelectedPlaceId(null);
-        setSelectedUserPlaceId(null);
+        if (typeof window !== "undefined" && window.location.search.includes("place=")) {
+          const url = new URL(window.location.href);
+          url.searchParams.delete("place");
+          window.history.replaceState({}, "", url.pathname + (url.search ? url.search : ""));
+        }
       }
       return;
     }
@@ -1455,8 +1459,11 @@ export function NocapApp() {
       slug={drawerSlug}
       onClose={() => {
         setDrawerSlug(null);
-        setSelectedPlaceId(null);
-        setSelectedUserPlaceId(null);
+        if (typeof window !== "undefined" && window.location.search.includes("place=")) {
+          const url = new URL(window.location.href);
+          url.searchParams.delete("place");
+          window.history.replaceState({}, "", url.pathname + (url.search ? url.search : ""));
+        }
       }}
     />
 
@@ -1557,6 +1564,8 @@ export function NocapApp() {
                   setSelectedPlaceId(place.id);
                   setSelectedUserPlaceId(null);
                   setSelectedSuggestionId(null);
+                  setSelectedSuggestionPlace(null);
+                  setSuggestionHostAnchor(null);
                   setSearchAnchor({ lat: place.latitude, lng: place.longitude, label: place.name });
                   setDrawerSlug(place.id);
                   mapRef.current?.flyToUser(place.latitude, place.longitude, 16);
@@ -1586,6 +1595,8 @@ export function NocapApp() {
                         setSelectedPlaceId(null);
                         setSelectedUserPlaceId(up.id);
                         setSelectedSuggestionId(null);
+                        setSelectedSuggestionPlace(null);
+                        setSuggestionHostAnchor(null);
                         setSearchAnchor({ lat: up.latitude, lng: up.longitude, label: up.name });
                         setDrawerSlug(slug);
                         mapRef.current?.flyToUser(up.latitude, up.longitude, 16);
@@ -1655,7 +1666,7 @@ export function NocapApp() {
           reviews={reviews}
           userPlaces={userPlaces}
           suggestedPlaces={visibleSuggestedDots}
-          selectedPlaceId={selectedPlaceId ?? selectedUserPlaceId ?? selectedSuggestionId}
+          selectedPlaceId={selectedSuggestionId ?? selectedPlaceId ?? selectedUserPlaceId}
           onSelectPlace={(id) => {
             userCameraMovedRef.current = true;
             setEntryBannerVisible(false);
@@ -1663,6 +1674,8 @@ export function NocapApp() {
             setSelectedPlaceId(id);
             setSelectedUserPlaceId(null);
             setSelectedSuggestionId(null);
+            setSelectedSuggestionPlace(null);
+            setSuggestionHostAnchor(null);
             setDrawerSlug(id);
             if (p) {
               setSearchAnchor({ lat: p.latitude, lng: p.longitude, label: p.name });
@@ -1677,6 +1690,8 @@ export function NocapApp() {
             setSelectedPlaceId(null);
             setSelectedUserPlaceId(id);
             setSelectedSuggestionId(null);
+            setSelectedSuggestionPlace(null);
+            setSuggestionHostAnchor(null);
             setDrawerSlug(slug);
             if (up) {
               setSearchAnchor({ lat: up.latitude, lng: up.longitude, label: up.name });
@@ -1987,48 +2002,31 @@ export function NocapApp() {
           </div>
         )}
 
-        {/* ── MOBILE BOTTOM SHEET (slides up when place is selected) ── */}
-        {hasSelection && (
+        {/* ── MOBILE BOTTOM SHEET (slides up when suggestion is selected) ── */}
+        {!drawerSlug && selectedSuggestion && (
           <div className="lg:hidden">
-            <div onClick={() => { setSelectedPlaceId(null); setSelectedUserPlaceId(null); setSelectedSuggestionId(null); setSelectedSuggestionPlace(null); setSuggestionHostAnchor(null); }} className="absolute inset-0 z-30 bg-black/20" />
+            <div onClick={() => { setSelectedSuggestionId(null); setSelectedSuggestionPlace(null); }} className="absolute inset-0 z-30 bg-black/20" />
             <div className="absolute bottom-0 left-0 right-0 z-40 max-h-[70dvh] overflow-y-auto rounded-t-2xl bg-white shadow-2xl nocap-sheet">
               <div className="sticky top-0 z-10 flex justify-center bg-white pt-3 pb-2 rounded-t-2xl">
                 <div className="h-1 w-10 rounded-full bg-zinc-300" />
               </div>
-              <button type="button" onClick={() => { setSelectedPlaceId(null); setSelectedUserPlaceId(null); setSelectedSuggestionId(null); setSelectedSuggestionPlace(null); setSuggestionHostAnchor(null); }} className="absolute top-3 right-3 z-10 grid h-8 w-8 place-items-center rounded-full bg-zinc-100 text-zinc-500 hover:bg-zinc-200">
+              <button type="button" onClick={() => { setSelectedSuggestionId(null); setSelectedSuggestionPlace(null); }} className="absolute top-3 right-3 z-10 grid h-8 w-8 place-items-center rounded-full bg-zinc-100 text-zinc-500 hover:bg-zinc-200">
                 <X className="h-4 w-4" />
               </button>
-              {selectedPlace && (
-                <PlacePanel
-                  place={selectedPlace}
-                  detail={detail?.place.id === selectedPlace.id ? detail : null}
-                  {...commonPanelProps}
-                />
-              )}
-              {selectedUserPlace && (
-                <UserPlacePanel
-                  place={selectedUserPlace}
-                  detail={userPlaceDetail?.place.id === selectedUserPlace.id ? userPlaceDetail : null}
-                  {...commonPanelProps}
-                />
-              )}
-              {selectedSuggestion && (
-                <SuggestedPlacePanel
-                  suggestion={selectedSuggestion}
-                  userLocation={userLocation}
-                  configured={supabaseConfigured}
-                  signedIn={Boolean(accessToken)}
-                  onSignIn={signIn}
-                  onPublishReview={(input) => publishSuggestionReview(selectedSuggestion, input)}
-                  onPinAndReview={() => handleSelectMapSuggestion(selectedSuggestion)}
-                  onViewBengaluru={() => {
-                    setSelectedSuggestionId(null);
-                    setSelectedSuggestionPlace(null);
-                    setSuggestionHostAnchor(null);
-                    mapRef.current?.flyToBengaluru();
-                  }}
-                />
-              )}
+              <SuggestedPlacePanel
+                suggestion={selectedSuggestion}
+                userLocation={userLocation}
+                configured={supabaseConfigured}
+                signedIn={Boolean(accessToken)}
+                onSignIn={signIn}
+                onPublishReview={(input) => publishSuggestionReview(selectedSuggestion, input)}
+                onPinAndReview={() => handleSelectMapSuggestion(selectedSuggestion)}
+                onViewBengaluru={() => {
+                  setSelectedSuggestionId(null);
+                  setSelectedSuggestionPlace(null);
+                  mapRef.current?.flyToBengaluru();
+                }}
+              />
             </div>
           </div>
         )}
@@ -2043,13 +2041,7 @@ export function NocapApp() {
 
       {/* ── Right: Detail panel (Desktop only) ── */}
       <aside className="hidden lg:block relative z-20 min-h-0 border-t border-zinc-200 bg-white lg:border-l lg:border-t-0">
-        {selectedPlace && (
-          <PlacePanel place={selectedPlace} detail={detail?.place.id === selectedPlace.id ? detail : null} {...commonPanelProps} />
-        )}
-        {selectedUserPlace && (
-          <UserPlacePanel place={selectedUserPlace} detail={userPlaceDetail?.place.id === selectedUserPlace.id ? userPlaceDetail : null} {...commonPanelProps} />
-        )}
-        {selectedSuggestion && (
+        {selectedSuggestion ? (
           <SuggestedPlacePanel
             suggestion={selectedSuggestion}
             userLocation={userLocation}
@@ -2061,12 +2053,14 @@ export function NocapApp() {
             onViewBengaluru={() => {
               setSelectedSuggestionId(null);
               setSelectedSuggestionPlace(null);
-              setSuggestionHostAnchor(null);
               mapRef.current?.flyToBengaluru();
             }}
           />
-        )}
-        {!selectedPlace && !selectedUserPlace && !selectedSuggestion && (
+        ) : selectedPlace ? (
+          <PlacePanel place={selectedPlace} detail={detail?.place.id === selectedPlace.id ? detail : null} {...commonPanelProps} />
+        ) : selectedUserPlace ? (
+          <UserPlacePanel place={selectedUserPlace} detail={userPlaceDetail?.place.id === selectedUserPlace.id ? userPlaceDetail : null} {...commonPanelProps} />
+        ) : (
           <div className="flex h-full flex-col items-center justify-center p-6 text-center">
             <MapPin className="h-8 w-8 text-zinc-300" />
             <p className="mt-3 text-sm font-bold text-zinc-700">Select a place</p>
