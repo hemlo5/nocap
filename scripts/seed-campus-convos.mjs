@@ -257,7 +257,7 @@ async function seedCampus(placeId, lat, lng, threads, campusName) {
         latitude: lat,
         longitude: lng,
         accuracy_meters: 20,
-        is_legit: true,
+        is_legit: false,
         created_at: reviewDate,
         updated_at: reviewDate,
       }),
