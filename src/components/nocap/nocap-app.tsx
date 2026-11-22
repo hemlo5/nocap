@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import { Camera, ChevronDown, CircleUserRound, HelpCircle, Loader2, LocateFixed, LogIn, LogOut, MapPin, Navigation, Pencil, Pin, Search, Send, Star, X, Sparkles, ZoomIn } from "lucide-react";
-import type { NocapPlace, NocapPlaceCategory } from "@/lib/nocap/places";
+import { useRouter } from "next/navigation";
+import { Camera, ChevronDown, CircleUserRound, ExternalLink, HelpCircle, Loader2, LocateFixed, LogIn, LogOut, MapPin, Navigation, Pencil, Pin, Search, Send, Star, X, Sparkles, ZoomIn } from "lucide-react";
+import { slugifyPlaceName, type NocapPlace, type NocapPlaceCategory } from "@/lib/nocap/places";
 import type { NocapPersonNote, NocapProfile, NocapReview, NocapUserPlace } from "@/lib/nocap/community";
 import { uploadImageFile } from "@/lib/nocap/image-helper";
 import { createSupabaseBrowserClient, hasSupabaseBrowserConfig } from "@/lib/supabase/client";
@@ -139,6 +140,7 @@ async function getGeolocationPermissionState(): Promise<"granted" | "prompt" | "
 }
 
 export function NocapApp() {
+  const router = useRouter();
   const mapRef = useRef<NocapMapHandle>(null);
   const [places, setPlaces] = useState<NocapPlace[]>([]);
   const [userPlaces, setUserPlaces] = useState<NocapUserPlace[]>([]);
@@ -884,6 +886,7 @@ export function NocapApp() {
       );
       setSelectedUserPlaceId(null);
       setSelectedPlaceId(existingCurated.id);
+      router.push(`/places/${existingCurated.id}`);
       return;
     }
 
@@ -970,7 +973,8 @@ export function NocapApp() {
     );
     setSelectedPlaceId(null);
     setSelectedUserPlaceId(targetUserPlace.id);
-    mapRef.current?.flyToUser(targetUserPlace.latitude, targetUserPlace.longitude, 16);
+    const slug = slugifyPlaceName(targetUserPlace.name) || targetUserPlace.id;
+    router.push(`/places/${slug}`);
   }
 
   async function publishPersonNote(input: { personName: string; description: string; photoUrl?: string | null; placeId?: string; userPlaceId?: string }) {
@@ -1161,13 +1165,10 @@ export function NocapApp() {
     setSelectedSuggestionPlace(null);
     setSuggestionHostAnchor(null);
     if (item.type === "place") {
-      setSelectedPlaceId(item.place.id);
-      setSelectedUserPlaceId(null);
-      mapRef.current?.flyToUser(item.place.latitude, item.place.longitude, 15);
+      router.push(`/places/${item.place.id}`);
     } else {
-      setSelectedUserPlaceId(item.place.id);
-      setSelectedPlaceId(null);
-      mapRef.current?.flyToUser(item.place.latitude, item.place.longitude, 15);
+      const slug = slugifyPlaceName(item.place.name) || item.place.id;
+      router.push(`/places/${slug}`);
     }
   }
 
@@ -1219,9 +1220,7 @@ export function NocapApp() {
       setSelectedSuggestionId(null);
       setSelectedSuggestionPlace(null);
       setSuggestionHostAnchor(null);
-      setSelectedUserPlaceId(null);
-      setSelectedPlaceId(nearbyExistingPlace.id);
-      mapRef.current?.flyToUser(nearbyExistingPlace.latitude, nearbyExistingPlace.longitude, 14);
+      router.push(`/places/${nearbyExistingPlace.id}`);
       return;
     }
 
@@ -1233,9 +1232,8 @@ export function NocapApp() {
       setSelectedSuggestionId(null);
       setSelectedSuggestionPlace(null);
       setSuggestionHostAnchor(null);
-      setSelectedPlaceId(null);
-      setSelectedUserPlaceId(nearbyExistingUserPlace.id);
-      mapRef.current?.flyToUser(nearbyExistingUserPlace.latitude, nearbyExistingUserPlace.longitude, 14);
+      const slug = slugifyPlaceName(nearbyExistingUserPlace.name) || nearbyExistingUserPlace.id;
+      router.push(`/places/${slug}`);
       return;
     }
 
@@ -1379,6 +1377,8 @@ export function NocapApp() {
     setSelectedSuggestionId(null);
     setSelectedSuggestionPlace(null);
     setSuggestionHostAnchor(null);
+    const slug = slugifyPlaceName(newPlace.name) || newPlace.id;
+    router.push(`/places/${slug}`);
   }
 
   const commonPanelProps = {
@@ -1496,7 +1496,7 @@ export function NocapApp() {
                 const distLabel = activeAreaCenter
                   ? formatDistance(haversineM(activeAreaCenter.lat, activeAreaCenter.lng, place.latitude, place.longitude))
                   : null;
-                return <button key={place.id} type="button" onClick={() => { userCameraMovedRef.current = true; setEntryBannerVisible(false); setSelectedPlaceId(place.id); setSelectedUserPlaceId(null); setSelectedSuggestionId(null); setSelectedSuggestionPlace(null); setSuggestionHostAnchor(null); dismissLocate(); exitPinMode(); mapRef.current?.flyToUser(place.latitude, place.longitude, 14); }} className={cn("mb-1 flex w-full items-start gap-3 rounded-md px-3 py-3 text-left transition-colors", place.id === selectedPlaceId ? "bg-zinc-950 text-white" : "hover:bg-zinc-100")}>
+                return <button key={place.id} type="button" onClick={() => router.push(`/places/${place.id}`)} className={cn("mb-1 flex w-full items-start gap-3 rounded-md px-3 py-3 text-left transition-colors", place.id === selectedPlaceId ? "bg-zinc-950 text-white" : "hover:bg-zinc-100")}>
                   <span className={cn("mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full text-[10px] font-black", place.id === selectedPlaceId ? "bg-white text-zinc-950" : "bg-zinc-100 text-zinc-600")}>{place.category[0].toUpperCase()}</span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-bold">{place.name}</span>
@@ -1516,7 +1516,7 @@ export function NocapApp() {
                       ? formatDistance(haversineM(activeAreaCenter.lat, activeAreaCenter.lng, up.latitude, up.longitude))
                       : null;
                     return (
-                      <button key={up.id} type="button" onClick={() => { userCameraMovedRef.current = true; setEntryBannerVisible(false); setSelectedUserPlaceId(up.id); setSelectedPlaceId(null); setSelectedSuggestionId(null); setSelectedSuggestionPlace(null); setSuggestionHostAnchor(null); dismissLocate(); exitPinMode(); mapRef.current?.flyToUser(up.latitude, up.longitude, 14); }} className={cn("mb-1 flex w-full items-start gap-3 rounded-md px-3 py-3 text-left transition-colors", up.id === selectedUserPlaceId ? "bg-zinc-950 text-white" : "hover:bg-zinc-100")}>
+                      <button key={up.id} type="button" onClick={() => { const slug = slugifyPlaceName(up.name) || up.id; router.push(`/places/${slug}`); }} className={cn("mb-1 flex w-full items-start gap-3 rounded-md px-3 py-3 text-left transition-colors", up.id === selectedUserPlaceId ? "bg-zinc-950 text-white" : "hover:bg-zinc-100")}>
                         <span className={cn("mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full text-[10px] font-black", up.id === selectedUserPlaceId ? "bg-white text-zinc-950" : "bg-zinc-950 text-white")}>U</span>
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-sm font-bold">{up.name}</span>
@@ -1583,8 +1583,18 @@ export function NocapApp() {
           userPlaces={userPlaces}
           suggestedPlaces={visibleSuggestedDots}
           selectedPlaceId={selectedPlaceId ?? selectedUserPlaceId ?? selectedSuggestionId}
-          onSelectPlace={(id) => { userCameraMovedRef.current = true; setEntryBannerVisible(false); setSelectedPlaceId(id); setSelectedUserPlaceId(null); setSelectedSuggestionId(null); setSelectedSuggestionPlace(null); setSuggestionHostAnchor(null); dismissLocate(); exitPinMode(); }}
-          onSelectUserPlace={(id) => { userCameraMovedRef.current = true; setEntryBannerVisible(false); setSelectedUserPlaceId(id); setSelectedPlaceId(null); setSelectedSuggestionId(null); setSelectedSuggestionPlace(null); setSuggestionHostAnchor(null); dismissLocate(); exitPinMode(); }}
+          onSelectPlace={(id) => {
+            userCameraMovedRef.current = true;
+            setEntryBannerVisible(false);
+            router.push(`/places/${id}`);
+          }}
+          onSelectUserPlace={(id) => {
+            userCameraMovedRef.current = true;
+            setEntryBannerVisible(false);
+            const up = userPlaces.find((p) => p.id === id);
+            const slug = up ? (slugifyPlaceName(up.name) || up.id) : id;
+            router.push(`/places/${slug}`);
+          }}
           onSelectSuggestion={handleSelectSuggestionDot}
           userLocation={userLocation}
           pendingPin={pendingPin}
@@ -1861,7 +1871,7 @@ export function NocapApp() {
               <div className="max-h-40 lg:max-h-48 space-y-1 overflow-y-auto mb-2">
                 {nearbyPlaces.map((p) => {
                   const dist = userLocation ? Math.round(haversineM(userLocation.lat, userLocation.lng, p.latitude, p.longitude)) : 0;
-                  return <button key={p.id} type="button" onClick={() => { setSelectedPlaceId(p.id); setSelectedUserPlaceId(null); dismissLocate(); }} className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-xs hover:bg-zinc-100">
+                  return <button key={p.id} type="button" onClick={() => { dismissLocate(); router.push(`/places/${p.id}`); }} className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-xs hover:bg-zinc-100">
                     <span className={cn("grid h-6 w-6 shrink-0 place-items-center rounded-full text-[9px] font-black text-white", p.category === "eat" ? "bg-red-500" : p.category === "street" ? "bg-blue-500" : p.category === "park" ? "bg-green-600" : "bg-purple-600")}>{p.category[0].toUpperCase()}</span>
                     <span className="min-w-0 flex-1 truncate font-semibold">{p.name}</span>
                     <span className="shrink-0 text-zinc-400">{dist}m</span>
@@ -2042,6 +2052,15 @@ function PlacePanel({ place, detail, signedIn, configured, onSignIn, onPublish, 
           </div>
         </div>
         <p className="mt-2 flex items-center gap-1.5 text-xs text-zinc-500"><MapPin className="h-3.5 w-3.5" />{place.address}</p>
+        <div className="mt-3">
+          <Link
+            href={`/places/${place.id}`}
+            className="flex items-center justify-center gap-1.5 rounded-xl bg-zinc-950 px-3.5 py-2 text-xs font-black text-white hover:bg-zinc-800 transition-colors shadow-2xs"
+          >
+            <span>Open Dedicated Place Page</span>
+            <ExternalLink className="h-3.5 w-3.5" />
+          </Link>
+        </div>
         <p className="mt-3 text-xs font-medium text-zinc-600">
           {totalCount
             ? `${reviews.length} ${reviews.length === 1 ? "review/note" : "reviews/notes"}${personNotes.length ? ` · ${personNotes.length} ${personNotes.length === 1 ? "person noted" : "people noted"}` : ""}`
@@ -2228,6 +2247,15 @@ function UserPlacePanel({ place, detail, signedIn, configured, onSignIn, onPubli
         </div>
         {place.address && <p className="mt-2 flex items-center gap-1.5 text-xs text-zinc-500"><MapPin className="h-3.5 w-3.5" />{place.address}</p>}
         <p className="mt-1 text-[11px] text-zinc-400">Pinned by {place.profile.displayName}</p>
+        <div className="mt-3">
+          <Link
+            href={`/places/${slugifyPlaceName(place.name) || place.id}`}
+            className="flex items-center justify-center gap-1.5 rounded-xl bg-zinc-950 px-3.5 py-2 text-xs font-black text-white hover:bg-zinc-800 transition-colors shadow-2xs"
+          >
+            <span>Open Dedicated Place Page</span>
+            <ExternalLink className="h-3.5 w-3.5" />
+          </Link>
+        </div>
         <p className="mt-3 text-xs font-medium text-zinc-600">
           {totalCount
             ? `${reviews.length} ${reviews.length === 1 ? "review/note" : "reviews/notes"}${personNotes.length ? ` · ${personNotes.length} ${personNotes.length === 1 ? "person noted" : "people noted"}` : ""}`

@@ -129,6 +129,21 @@ export function slugifyArea(area: string): string {
     .replace(/(^-|-$)/g, "");
 }
 
+export function slugifyPlaceName(name: string): string {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/['’]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
+export function getPlaceSlug(place: { id: string; name: string; isCommunity?: boolean }): string {
+  const curated = nocapPlaces.find((p) => p.id === place.id);
+  if (curated) return curated.id;
+  return slugifyPlaceName(place.name) || place.id;
+}
+
 export function getAllAreas(): Array<{ slug: string; name: string; count: number }> {
   const map = new Map<string, { slug: string; name: string; count: number }>();
   for (const place of nocapPlaces) {

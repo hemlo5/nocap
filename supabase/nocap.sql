@@ -19,6 +19,8 @@ create table if not exists public.nocap_reviews (
   longitude double precision not null check (longitude between -180 and 180),
   accuracy_meters double precision not null check (accuracy_meters > 0 and accuracy_meters <= 500),
   image_url text,
+  is_legit boolean not null default false,
+  payment_id text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique(profile_id, place_id)
@@ -35,12 +37,23 @@ create table if not exists public.nocap_person_notes (
   updated_at timestamptz not null default now()
 );
 
+-- ── Review Replies (Reddit-style comment threads) ──────────────────────────
+create table if not exists public.nocap_review_replies (
+  id uuid primary key default gen_random_uuid(),
+  review_id uuid not null references public.nocap_reviews(id) on delete cascade,
+  profile_id uuid not null references public.nocap_profiles(id) on delete cascade,
+  body text not null check (char_length(trim(body)) between 1 and 500),
+  created_at timestamptz not null default now()
+);
+
 create index if not exists nocap_reviews_place_created_idx on public.nocap_reviews (place_id, created_at desc);
 create index if not exists nocap_person_notes_place_created_idx on public.nocap_person_notes (place_id, created_at desc);
+create index if not exists nocap_review_replies_review_idx on public.nocap_review_replies (review_id, created_at asc);
 
 alter table public.nocap_profiles enable row level security;
 alter table public.nocap_reviews enable row level security;
 alter table public.nocap_person_notes enable row level security;
+alter table public.nocap_review_replies enable row level security;
 
 drop policy if exists "Public NoCap profiles are readable" on public.nocap_profiles;
 create policy "Public NoCap profiles are readable" on public.nocap_profiles for select using (true);
@@ -48,6 +61,8 @@ drop policy if exists "Public NoCap reviews are readable" on public.nocap_review
 create policy "Public NoCap reviews are readable" on public.nocap_reviews for select using (true);
 drop policy if exists "Public NoCap person notes are readable" on public.nocap_person_notes;
 create policy "Public NoCap person notes are readable" on public.nocap_person_notes for select using (true);
+drop policy if exists "Public NoCap review replies are readable" on public.nocap_review_replies;
+create policy "Public NoCap review replies are readable" on public.nocap_review_replies for select using (true);
 
 -- Browser clients may authenticate with Google, but writes only happen through
 -- the server endpoint after it validates a fresh device position against the place.
@@ -57,3 +72,5 @@ drop policy if exists "No direct NoCap review writes" on public.nocap_reviews;
 create policy "No direct NoCap review writes" on public.nocap_reviews for all using (false) with check (false);
 drop policy if exists "No direct NoCap person note writes" on public.nocap_person_notes;
 create policy "No direct NoCap person note writes" on public.nocap_person_notes for all using (false) with check (false);
+drop policy if exists "No direct NoCap reply writes" on public.nocap_review_replies;
+create policy "No direct NoCap reply writes" on public.nocap_review_replies for all using (false) with check (false);
